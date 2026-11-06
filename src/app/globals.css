@@ -1,0 +1,275 @@
+@import url("https://hangeul.pstatic.net/hangeul_static/css/maru-buri.css");
+@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans-std/fonts/webfonts/variable/split/WantedSansVariable.min.css");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Warm Sunlit Studio Palette — Room Rubato */
+  --cream-bg: #FEF1D0;
+  --cream-paper: #FFF9EB;
+  --cream-warm: #F6E2B3;
+  --cream-shadow: #E8CFA0;
+  --terracotta: #D4653B;
+  --amber-gold: #E5A93B;
+
+  /* Sub Color: Royal Cobalt & Fountain Pen Navy */
+  --cobalt: #0042AF;
+  --cobalt-mid: #1F57C3;
+  --cobalt-soft: #4A80E8;
+  --navy-ink: #010D6E;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--cream-bg);
+  color: var(--navy-ink);
+  font-family: "Wanted Sans Variable", "Wanted Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  letter-spacing: -0.02em;
+  line-height: 1.65;
+}
+
+h1, h2, h3, h4, p, span, div, button, a, li {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* Korean Literary Serif */
+.font-editorial {
+  font-family: "MaruBuriSemiBold", "MaruBuri", Georgia, serif;
+  letter-spacing: -0.035em;
+}
+
+/* Classical Display & Musical Tempo Serif (Room Rubato) */
+.font-display {
+  font-family: "Cormorant Garamond", "MaruBuri", Georgia, serif;
+}
+
+.font-num {
+  font-family: "Cormorant Garamond", "MaruBuri", Georgia, serif;
+  font-weight: 600;
+}
+
+/* Tactile Paper Postcard & Journal Surfaces */
+.paper-sheet {
+  background-color: #FFF9EB;
+  border: 1.5px solid rgba(0, 66, 175, 0.28);
+  box-shadow:
+    0 14px 34px -10px rgba(1, 13, 110, 0.12),
+    0 3px 0 rgba(0, 66, 175, 0.16);
+}
+
+.paper-postcard {
+  background-color: #FFFDF7;
+  border: 1.5px solid #0042AF;
+  box-shadow:
+    0 10px 24px -8px rgba(1, 13, 110, 0.14),
+    4px 5px 0 rgba(0, 66, 175, 0.14);
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.3s ease;
+}
+
+.paper-postcard:hover {
+  transform: translateY(-7px) rotate(0deg) !important;
+  box-shadow:
+    0 20px 36px -12px rgba(1, 13, 110, 0.2),
+    6px 8px 0 #0042AF;
+}
+
+/* Ambient Idle & Interactive Keyframes for Room Rubato */
+@keyframes sketchBreathe {
+  0%, 100% {
+    stroke-dashoffset: 0;
+    opacity: 0.72;
+  }
+  50% {
+    stroke-dashoffset: 18;
+    opacity: 0.96;
+  }
+}
+
+.animate-sketch-breathe {
+  animation: sketchBreathe 5.5s ease-in-out infinite;
+}
+
+@keyframes vinylSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-vinyl-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vinylSpin 14s linear infinite;
+}
+
+@keyframes pendulumSwing {
+  0%, 100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+.animate-pendulum {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: pendulumSwing 3.8s ease-in-out infinite;
+}
+
+@keyframes steamRise {
+  0% {
+    transform: translateY(4px) translateX(0px);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translateY(-16px) translateX(3px);
+    opacity: 0;
+  }
+}
+
+.animate-steam-1 {
+  animation: steamRise 4.2s ease-in-out infinite;
+}
+
+.animate-steam-2 {
+  animation: steamRise 4.2s ease-in-out 1.8s infinite;
+}
+
+@keyframes sunlightSway {
+  0%, 100% {
+    transform: skewX(-1deg) scaleY(1);
+    opacity: 0.42;
+  }
+  50% {
+    transform: skewX(1.2deg) scaleY(1.02);
+    opacity: 0.58;
+  }
+}
+
+.animate-sunlight {
+  transform-origin: top center;
+  animation: sunlightSway 10s ease-in-out infinite;
+}
+
+@keyframes dustFloat {
+  0%, 100% {
+    transform: translate(0px, 0px);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate(8px, -12px);
+    opacity: 0.85;
+  }
+}
+
+.animate-dust {
+  animation: dustFloat 7s ease-in-out infinite;
+}
+
+@keyframes threadFlow {
+  from {
+    stroke-dashoffset: 36;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-thread-flow {
+  animation: threadFlow 1.8s linear infinite;
+}
+
+@keyframes inkBloomExpand {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.95;
+  }
+  70% {
+    transform: scale(1.25);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+.animate-ink-bloom {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: inkBloomExpand 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Bespoke Buttons when needed inside overlays */
+.btn-cobalt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #0042AF;
+  color: #FEF1D0;
+  border: 1.5px solid #010D6E;
+  box-shadow: 0 3px 0 #010D6E;
+  border-radius: 9999px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.btn-cobalt:hover {
+  background-color: #010D6E;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 #002970;
+}
+
+.btn-cream {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #FFF9EB;
+  color: #0042AF;
+  border: 1.5px solid #0042AF;
+  box-shadow: 0 3px 0 #0042AF;
+  border-radius: 9999px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.btn-cream:hover {
+  background-color: #FEF1D0;
+  color: #010D6E;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 #010D6E;
+}
+
+::selection {
+  background: #0042AF;
+  color: #FEF1D0;
+}
