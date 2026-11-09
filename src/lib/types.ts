@@ -121,6 +121,27 @@ export interface CurationFeedbackEntry {
   reaction: 'resonant' | 'not_me';
 }
 
+export interface DemographicProfile {
+  gender?: 'female' | 'male' | 'other' | 'unspecified';
+  ageGroup?:
+    | '10s'
+    | '20s_early'
+    | '20s_late'
+    | '30s_early'
+    | '30s_late'
+    | '40s'
+    | '50s_plus'
+    | 'unspecified';
+  occupation?:
+    | 'tech_product'
+    | 'design_art'
+    | 'business_office'
+    | 'research_edu'
+    | 'freelance_creator'
+    | 'other'
+    | 'unspecified';
+}
+
 export interface DailyPulseQuestion {
   id: string;
   dayLabel: string;

@@ -14,6 +14,7 @@ import {
   CompletedDomainResult,
   CurationFeedbackEntry,
   DailyShiftEntry,
+  DemographicProfile,
   Layer1CoreVector,
   Layer2BehavioralVector,
   Layer3AestheticVector,
@@ -21,6 +22,7 @@ import {
 } from './types';
 
 export interface PersonaState {
+  demographics?: DemographicProfile;
   layer1Vector: Layer1CoreVector;
   layer2Vector: Layer2BehavioralVector;
   layer3Vector: Layer3AestheticVector;
@@ -30,18 +32,16 @@ export interface PersonaState {
   curationFeedbackLog: CurationFeedbackEntry[];
 }
 
-export interface SavedUserSummary {
-  userId: string;
-  updatedAt: string;
-  completedCount: number;
-}
-
 interface PersonaContextValue {
   state: PersonaState;
   isHydrated: boolean;
   currentUserId: string;
-  savedUsers: SavedUserSummary[];
-  switchUser: (userId: string) => Promise<void>;
+  switchUser: (
+    userId: string,
+    pin?: string
+  ) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
+  logoutToGuest: () => void;
+  updateDemographics: (patch: Partial<DemographicProfile>) => void;
   recordQuestionChoice: (payload: {
     domain: MasterDomain;
     answers: {
@@ -66,8 +66,9 @@ interface PersonaContextValue {
   resetAllData: () => void;
 }
 
-const STORAGE_KEY = 'room_rubato_persona_state_v1';
-const CURRENT_USER_KEY = 'room_rubato_current_user_v1';
+const STORAGE_KEY = 'room_rubato_persona_state_v2';
+const CURRENT_USER_KEY = 'room_rubato_current_user_v2';
+const CURRENT_PIN_KEY = 'room_rubato_current_pin_v2';
 
 const INITIAL_DEMO_TIMESTAMP = '2026-11-06T09:00:00.000Z';
 
@@ -174,6 +175,11 @@ const ANCHOR_PRESET_STATE: PersonaState = {
 };
 
 const BLANK_ROOM_STATE: PersonaState = {
+  demographics: {
+    gender: 'unspecified',
+    ageGroup: 'unspecified',
+    occupation: 'unspecified',
+  },
   layer1Vector: INITIAL_LAYER1_VECTOR,
   layer2Vector: INITIAL_LAYER2_VECTOR,
   layer3Vector: INITIAL_LAYER3_VECTOR,
@@ -185,25 +191,46 @@ const BLANK_ROOM_STATE: PersonaState = {
 
 const DEFAULT_STATE: PersonaState = BLANK_ROOM_STATE;
 
-function stripFakeDemoCompletions(input: PersonaState): PersonaState {
-  if (!input?.completedDomains) return input;
+function sanitizePersonaState(input: Partial<PersonaState> | null | undefined): PersonaState {
+  if (!input || typeof input !== 'object') return DEFAULT_STATE;
   const cleanedCompleted: Record<number, CompletedDomainResult> = {};
-  let removedAny = false;
-  for (const [k, val] of Object.entries(input.completedDomains)) {
-    if (val && val.completedAt === INITIAL_DEMO_TIMESTAMP) {
-      removedAny = true;
-    } else if (val) {
-      cleanedCompleted[Number(k)] = val;
+  if (input.completedDomains && typeof input.completedDomains === 'object') {
+    for (const [k, val] of Object.entries(input.completedDomains)) {
+      if (
+        val &&
+        val.completedAt !== INITIAL_DEMO_TIMESTAMP &&
+        val.axisScores &&
+        typeof val.axisScores === 'object'
+      ) {
+        cleanedCompleted[Number(k)] = val;
+      }
     }
   }
-  if (!removedAny) return input;
-  const cleanedLog = (input.choiceTelemetryLog ?? []).filter(
-    (entry) => entry.timestamp !== INITIAL_DEMO_TIMESTAMP
-  );
+  const cleanedLog = Array.isArray(input.choiceTelemetryLog)
+    ? input.choiceTelemetryLog.filter(
+        (entry) => entry && entry.timestamp !== INITIAL_DEMO_TIMESTAMP
+      )
+    : [];
+
   return {
-    ...input,
+    demographics: {
+      gender: input.demographics?.gender ?? 'unspecified',
+      ageGroup: input.demographics?.ageGroup ?? 'unspecified',
+      occupation: input.demographics?.occupation ?? 'unspecified',
+    },
+    layer1Vector: { ...INITIAL_LAYER1_VECTOR, ...(input.layer1Vector || {}) },
+    layer2Vector: {
+      ...INITIAL_LAYER2_VECTOR,
+      ...(input.layer2Vector || {}),
+      domainConviction: { ...(input.layer2Vector?.domainConviction || {}) },
+    },
+    layer3Vector: { ...INITIAL_LAYER3_VECTOR, ...(input.layer3Vector || {}) },
     completedDomains: cleanedCompleted,
     choiceTelemetryLog: cleanedLog,
+    dailyShiftLog: Array.isArray(input.dailyShiftLog) ? input.dailyShiftLog : [],
+    curationFeedbackLog: Array.isArray(input.curationFeedbackLog)
+      ? input.curationFeedbackLog
+      : [],
   };
 }
 
@@ -212,39 +239,45 @@ const PersonaContext = createContext<PersonaContextValue | null>(null);
 export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PersonaState>(DEFAULT_STATE);
   const [currentUserId, setCurrentUserId] = useState<string>('게스트');
-  const [savedUsers, setSavedUsers] = useState<SavedUserSummary[]>([]);
+  const [currentPin, setCurrentPin] = useState<string>('');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     let activeUser = '게스트';
+    let savedPin = '';
     try {
       const savedUser = localStorage.getItem(CURRENT_USER_KEY)?.trim();
+      savedPin = localStorage.getItem(CURRENT_PIN_KEY)?.trim() || '';
       if (savedUser) {
         activeUser = savedUser;
         setCurrentUserId(savedUser);
+        setCurrentPin(savedPin);
       }
       const userStorageKey = `${STORAGE_KEY}_${activeUser}`;
       const raw =
         localStorage.getItem(userStorageKey) ??
-        localStorage.getItem(STORAGE_KEY);
+        localStorage.getItem(STORAGE_KEY) ??
+        localStorage.getItem('room_rubato_persona_state_v1');
       if (raw) {
         const parsed = JSON.parse(raw);
-        setState(stripFakeDemoCompletions({ ...DEFAULT_STATE, ...parsed }));
+        setState(sanitizePersonaState(parsed));
       }
     } catch (e) {
       console.error('Failed to load persona state:', e);
     }
 
-    fetch(`/api/users?userId=${encodeURIComponent(activeUser)}`)
-      .then((r) => r.json())
+    if (activeUser === '게스트') {
+      setIsHydrated(true);
+      return;
+    }
+
+    fetch(
+      `/api/users?userId=${encodeURIComponent(activeUser)}&pin=${encodeURIComponent(savedPin)}`
+    )
+      .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (Array.isArray(data?.usersList)) {
-          setSavedUsers(data.usersList);
-        }
         if (data?.user?.state) {
-          setState(
-            stripFakeDemoCompletions({ ...DEFAULT_STATE, ...data.user.state })
-          );
+          setState(sanitizePersonaState(data.user.state));
         }
       })
       .catch(() => {})
@@ -260,54 +293,98 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(userStorageKey, JSON.stringify(state));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       localStorage.setItem(CURRENT_USER_KEY, currentUserId);
+      if (currentPin) {
+        localStorage.setItem(CURRENT_PIN_KEY, currentPin);
+      }
     } catch (e) {
       console.error('Failed to save persona state:', e);
     }
+
+    // 게스트 모드는 브라우저 로컬에만 저장하여 타 방문자와 섞이지 않도록 보호
+    if (currentUserId === '게스트') return;
 
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: currentUserId,
+        pin: currentPin,
         state,
       }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data?.usersList)) {
-          setSavedUsers(data.usersList);
-        }
-      })
-      .catch(() => {});
-  }, [state, currentUserId, isHydrated]);
+    }).catch(() => {});
+  }, [state, currentUserId, currentPin, isHydrated]);
 
-  const switchUser = async (nextUserId: string) => {
+  const switchUser: PersonaContextValue['switchUser'] = async (
+    nextUserId,
+    pin = ''
+  ) => {
     const cleanId = nextUserId.trim();
-    if (!cleanId) return;
-    setCurrentUserId(cleanId);
+    const cleanPin = pin.trim();
+    if (!cleanId) {
+      return { ok: false, error: '별칭을 입력해 주세요.' };
+    }
+    if (cleanPin && !/^\d{4}$/.test(cleanPin)) {
+      return { ok: false, error: 'PIN 번호는 숫자 4자리로 입력해 주세요.' };
+    }
+
     try {
-      localStorage.setItem(CURRENT_USER_KEY, cleanId);
       const res = await fetch(
-        `/api/users?userId=${encodeURIComponent(cleanId)}`
+        `/api/users?userId=${encodeURIComponent(cleanId)}&pin=${encodeURIComponent(cleanPin)}`
       );
       const data = await res.json();
-      if (Array.isArray(data?.usersList)) {
-        setSavedUsers(data.usersList);
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          error:
+            data?.error ||
+            '별칭을 불러오지 못했습니다. PIN 번호를 확인해 주세요.',
+        };
       }
+
+      setCurrentUserId(cleanId);
+      setCurrentPin(cleanPin);
+      localStorage.setItem(CURRENT_USER_KEY, cleanId);
+      if (cleanPin) {
+        localStorage.setItem(CURRENT_PIN_KEY, cleanPin);
+      }
+
       if (data?.user?.state) {
-        setState({ ...DEFAULT_STATE, ...data.user.state });
-        return;
+        setState(sanitizePersonaState(data.user.state));
+        return { ok: true, isNewUser: false };
       }
-      const localRaw = localStorage.getItem(`${STORAGE_KEY}_${cleanId}`);
-      if (localRaw) {
-        setState({ ...DEFAULT_STATE, ...JSON.parse(localRaw) });
-        return;
-      }
-      // 새로운 유저 이름이면 기본 3개 예시 상태로 시작
-      setState(DEFAULT_STATE);
+
+      // 신규 별칭인 경우: 현재 게스트 상태에서 진행하던 데이터가 있으면 그대로 이어받아 저장
+      return { ok: true, isNewUser: true };
     } catch {
-      setState(DEFAULT_STATE);
+      return {
+        ok: false,
+        error: '서버 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+      };
     }
+  };
+
+  const logoutToGuest = () => {
+    setCurrentUserId('게스트');
+    setCurrentPin('');
+    try {
+      localStorage.setItem(CURRENT_USER_KEY, '게스트');
+      localStorage.removeItem(CURRENT_PIN_KEY);
+    } catch {}
+  };
+
+  const updateDemographics = (patch: Partial<DemographicProfile>) => {
+    setState((prev) => ({
+      ...prev,
+      demographics: {
+        ...(prev.demographics || {
+          gender: 'unspecified',
+          ageGroup: 'unspecified',
+          occupation: 'unspecified',
+        }),
+        ...patch,
+      },
+    }));
   };
 
   const recordQuestionChoice: PersonaContextValue['recordQuestionChoice'] = ({
@@ -486,99 +563,30 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const applyAnchorPresetDemo = () => {
     const now = new Date().toISOString();
     const demoState: PersonaState = {
-      layer1Vector: {
-        openness: 0.78,
-        conscientiousness: 0.56,
-        extraversion: -0.32,
-        agreeableness: 0.24,
-        neuroticism: -0.35,
-        selfTranscendenceVsEnhancement: 0.3,
-        opennessVsConservation: 0.72,
-      },
-      layer2Vector: {
-        socialConformity: -0.68,
-        authoritySensitivity: -0.42,
-        riskAversion: -0.45,
-        timeDiscounting: -0.6,
-        domainConviction: {
-          5: 0.92,
-          9: 0.95,
-          10: 0.89,
-        },
-      },
-      layer3Vector: {
-        complexity: -0.48,
-        novelty: 0.64,
-        intensity: -0.35,
-        conceptualism: 0.82,
-        warmth: -0.38,
+      ...ANCHOR_PRESET_STATE,
+      demographics: state.demographics || {
+        gender: 'unspecified',
+        ageGroup: 'unspecified',
+        occupation: 'unspecified',
       },
       completedDomains: {
         5: {
-          domainId: 5,
-          matchedPhenotypeId: 'mus-sound-texture',
-          axisScores: {
-            acoustic_electronic: 0.85,
-            lyric_texture: 0.85,
-            harmony_experiment: 0.75,
-          },
-          avgResponseTimeMs: 1180,
-          convictionScore: 0.92,
+          ...ANCHOR_PRESET_STATE.completedDomains[5],
           completedAt: now,
         },
         9: {
-          domainId: 9,
-          matchedPhenotypeId: 'tec-system-explorer',
-          axisScores: {
-            cosmic_practical: 0.9,
-            cautious_pioneer: 0.85,
-            human_system: 0.85,
-          },
-          avgResponseTimeMs: 1040,
-          convictionScore: 0.95,
+          ...ANCHOR_PRESET_STATE.completedDomains[9],
           completedAt: now,
         },
         10: {
-          domainId: 10,
-          matchedPhenotypeId: 'eco-independent-allocator',
-          axisScores: {
-            safety_asymmetric: 0.75,
-            possession_experience: 0.4,
-            brand_intrinsic: 0.9,
-          },
-          avgResponseTimeMs: 1320,
-          convictionScore: 0.89,
+          ...ANCHOR_PRESET_STATE.completedDomains[10],
           completedAt: now,
         },
       },
-      choiceTelemetryLog: [
-        {
-          timestamp: now,
-          domainId: 5,
-          questionId: 'mus-q2',
-          chosenOption: 'B',
-          responseTimeMs: 1120,
-          convictionScore: 0.93,
-        },
-        {
-          timestamp: now,
-          domainId: 9,
-          questionId: 'tec-q1',
-          chosenOption: 'B',
-          responseTimeMs: 980,
-          convictionScore: 0.95,
-        },
-        {
-          timestamp: now,
-          domainId: 10,
-          questionId: 'eco-q3',
-          chosenOption: 'B',
-          responseTimeMs: 1290,
-          convictionScore: 0.9,
-        },
-      ],
-      dailyShiftLog: [],
-      curationFeedbackLog: [],
+      choiceTelemetryLog: ANCHOR_PRESET_STATE.choiceTelemetryLog.map((item) => ({
+        ...item,
+        timestamp: now,
+      })),
     };
     setState(demoState);
   };
@@ -593,8 +601,9 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         state,
         isHydrated,
         currentUserId,
-        savedUsers,
         switchUser,
+        logoutToGuest,
+        updateDemographics,
         recordQuestionChoice,
         recordDailyPulseShift,
         recordCurationFeedback,

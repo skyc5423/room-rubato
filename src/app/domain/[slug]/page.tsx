@@ -75,9 +75,10 @@ export default function DomainDetailPage() {
 
   const existingCompletion = state.completedDomains[domain.id];
   const showResultView = viewMode === 'result';
-  const currentQuestion = domain.questions[currentIdx];
+  const currentQuestion = domain.questions[currentIdx] ?? domain.questions[0];
 
   const handleSelectOption = (choice: 'A' | 'B') => {
+    if (!currentQuestion || answers.length >= domain.questions.length) return;
     const elapsed = Math.max(250, Date.now() - questionStartRef.current);
     const updated = [
       ...answers,

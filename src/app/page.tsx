@@ -226,7 +226,7 @@ export default function HomePage() {
   ]);
 
   const describeResponseTempo = (avgMs?: number) => {
-    if (!avgMs) return '3개의 질문을 바탕으로 분석한 결과입니다.';
+    if (!avgMs) return '10~12개의 구체적인 장면 선택을 바탕으로 분석한 결과입니다.';
     const sec = (avgMs / 1000).toFixed(1);
     if (avgMs <= 1600) {
       return `문항당 평균 ${sec}초 만에 고민 없이 고르셨어요. 평소에도 이쪽 취향이 뚜렷한 편입니다.`;
@@ -338,7 +338,7 @@ export default function HomePage() {
                     >
                       {hoveredContext.isCompleted
                         ? '취향 찾기 완료'
-                        : '클릭해서 시작 (3문항)'}
+                        : `클릭해서 시작 (${hoveredContext.domain.questions.length}문항)`}
                     </span>
                   </div>
 
@@ -353,7 +353,7 @@ export default function HomePage() {
             ) : (
               <div className="pointer-events-auto bg-[#FFF9EB]/95 backdrop-blur-md border border-[#0042AF]/30 rounded-full px-4 sm:px-5 py-2.5 shadow-[0_8px_24px_-8px_rgba(1,13,110,0.14)] flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
                 <span className="font-medium text-[#010D6E]">
-                  <strong>컬러 물건({completedDomainIds.length}개)</strong>은 이미 내 취향을 아는 분야이고, <strong>흑백 스케치 물건({12 - completedDomainIds.length}개)</strong>은 아직 안 해본 분야입니다. 물건을 눌러 사진 3장만 골라보세요.
+                  <strong>컬러 물건({completedDomainIds.length}개)</strong>은 이미 내 취향을 아는 분야이고, <strong>흑백 스케치 물건({12 - completedDomainIds.length}개)</strong>은 아직 안 해본 분야입니다. 방 안의 물건을 눌러 구체적인 실제 장면을 골라보세요.
                 </span>
                 <span className="opacity-30 hidden sm:inline">|</span>
                 {completedDomainIds.length > 0 ? (
@@ -974,7 +974,7 @@ export default function HomePage() {
                 왼쪽 취향을 바탕으로 예상해 본 내 스타일
               </h3>
               <p className="text-[13.5px] text-[#010D6E]/75 mb-6">
-                예상이 맞는지 버튼을 눌러 사진 3장으로 직접 확인해 보세요.
+                예상이 맞는지 버튼을 눌러 10~12개의 구체적인 장면 선택으로 직접 확인해 보세요.
               </p>
 
               <div className="space-y-4">
@@ -1023,7 +1023,7 @@ export default function HomePage() {
                         }}
                         className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#0042AF] hover:text-[#010D6E]"
                       >
-                        <span>사진 3장으로 직접 해보기</span>
+                        <span>{item.domain.questions.length}문항으로 직접 해보기</span>
                         <span>→</span>
                       </button>
                     </div>

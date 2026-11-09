@@ -82,6 +82,13 @@ export function SpecimenPlate({
         <img
           src={imageUrl}
           alt={`선택지 ${variant} 예시 이미지`}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.dataset.fallbackApplied) {
+              target.dataset.fallbackApplied = '1';
+              target.src = roomObj?.artworkUrl ?? '/artwork/room-colored.jpg';
+            }
+          }}
           className="w-full h-full object-contain rounded-lg transition-transform duration-500 group-hover:scale-[1.03]"
         />
 
