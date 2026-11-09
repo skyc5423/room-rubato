@@ -20,6 +20,7 @@ import {
   Layer3AestheticVector,
   MasterDomain,
 } from './types';
+import { isSupabaseConfigured, supabase } from './supabase';
 
 export interface PersonaState {
   demographics?: DemographicProfile;
@@ -32,15 +33,30 @@ export interface PersonaState {
   curationFeedbackLog: CurationFeedbackEntry[];
 }
 
+export interface AuthSessionUser {
+  userUuid: string;
+  maskedEmail: string;
+  provider: 'google' | 'email';
+}
+
 interface PersonaContextValue {
   state: PersonaState;
   isHydrated: boolean;
   currentUserId: string;
-  switchUser: (
-    userId: string,
-    pin?: string
-  ) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
-  logoutToGuest: () => void;
+  authUser: AuthSessionUser | null;
+  loginWithEmail: (payload: {
+    email: string;
+    password: string;
+    consentAgreed: boolean;
+    demographics?: DemographicProfile;
+  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
+  loginWithGoogle: (payload: {
+    googleEmail?: string;
+    consentAgreed: boolean;
+    demographics?: DemographicProfile;
+  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
+  logoutToGuest: () => Promise<void>;
+  deleteAccountAndData: () => Promise<{ ok: boolean; error?: string }>;
   updateDemographics: (patch: Partial<DemographicProfile>) => void;
   recordQuestionChoice: (payload: {
     domain: MasterDomain;
@@ -67,8 +83,7 @@ interface PersonaContextValue {
 }
 
 const STORAGE_KEY = 'room_rubato_persona_state_v2';
-const CURRENT_USER_KEY = 'room_rubato_current_user_v2';
-const CURRENT_PIN_KEY = 'room_rubato_current_pin_v2';
+const AUTH_SESSION_KEY = 'room_rubato_auth_session_v3';
 
 const INITIAL_DEMO_TIMESTAMP = '2026-11-06T09:00:00.000Z';
 
@@ -238,41 +253,92 @@ const PersonaContext = createContext<PersonaContextValue | null>(null);
 
 export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PersonaState>(DEFAULT_STATE);
-  const [currentUserId, setCurrentUserId] = useState<string>('게스트');
-  const [currentPin, setCurrentPin] = useState<string>('');
+  const [authUser, setAuthUser] = useState<AuthSessionUser | null>(null);
+  const [sessionToken, setSessionToken] = useState<string>('');
   const [isHydrated, setIsHydrated] = useState(false);
 
+  const currentUserId = authUser ? authUser.maskedEmail : '게스트';
+
   useEffect(() => {
-    let activeUser = '게스트';
-    let savedPin = '';
+    let savedSession: {
+      userUuid: string;
+      maskedEmail: string;
+      provider: 'google' | 'email';
+      sessionToken: string;
+    } | null = null;
+
     try {
-      const savedUser = localStorage.getItem(CURRENT_USER_KEY)?.trim();
-      savedPin = localStorage.getItem(CURRENT_PIN_KEY)?.trim() || '';
-      if (savedUser) {
-        activeUser = savedUser;
-        setCurrentUserId(savedUser);
-        setCurrentPin(savedPin);
+      const rawSession = localStorage.getItem(AUTH_SESSION_KEY);
+      if (rawSession) {
+        savedSession = JSON.parse(rawSession);
+        if (savedSession?.userUuid && savedSession?.sessionToken) {
+          setAuthUser({
+            userUuid: savedSession.userUuid,
+            maskedEmail: savedSession.maskedEmail,
+            provider: savedSession.provider,
+          });
+          setSessionToken(savedSession.sessionToken);
+        }
       }
-      const userStorageKey = `${STORAGE_KEY}_${activeUser}`;
-      const raw =
-        localStorage.getItem(userStorageKey) ??
+
+      const storageKey = savedSession?.userUuid
+        ? `${STORAGE_KEY}_${savedSession.userUuid}`
+        : STORAGE_KEY;
+      const rawState =
+        localStorage.getItem(storageKey) ??
         localStorage.getItem(STORAGE_KEY) ??
         localStorage.getItem('room_rubato_persona_state_v1');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setState(sanitizePersonaState(parsed));
+      if (rawState) {
+        setState(sanitizePersonaState(JSON.parse(rawState)));
       }
     } catch (e) {
       console.error('Failed to load persona state:', e);
     }
 
-    if (activeUser === '게스트') {
+    // Supabase Auth 세션 확인 (설정된 경우)
+    const sb = supabase;
+    if (isSupabaseConfigured && sb) {
+      sb.auth
+        .getSession()
+        .then(async ({ data: { session } }) => {
+          if (session?.user) {
+            const uid = session.user.id;
+            const email = session.user.email || 'user@google.com';
+            const [local, domain] = email.split('@');
+            const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
+            const prov =
+              session.user.app_metadata?.provider === 'google'
+                ? 'google'
+                : 'email';
+            setAuthUser({ userUuid: uid, maskedEmail: masked, provider: prov });
+
+            const { data: row } = await sb
+              .from('persona_profiles')
+              .select('state')
+              .eq('user_id', uid)
+              .single();
+            if (row?.state) {
+              setState(sanitizePersonaState(row.state as Partial<PersonaState>));
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsHydrated(true));
+      return;
+    }
+
+    if (!savedSession?.userUuid || !savedSession?.sessionToken) {
       setIsHydrated(true);
       return;
     }
 
     fetch(
-      `/api/users?userId=${encodeURIComponent(activeUser)}&pin=${encodeURIComponent(savedPin)}`
+      `/api/users?userUuid=${encodeURIComponent(savedSession.userUuid)}`,
+      {
+        headers: {
+          'x-session-token': savedSession.sessionToken,
+        },
+      }
     )
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -289,89 +355,292 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     try {
-      const userStorageKey = `${STORAGE_KEY}_${currentUserId}`;
-      localStorage.setItem(userStorageKey, JSON.stringify(state));
+      const storageKey = authUser?.userUuid
+        ? `${STORAGE_KEY}_${authUser.userUuid}`
+        : STORAGE_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(state));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      localStorage.setItem(CURRENT_USER_KEY, currentUserId);
-      if (currentPin) {
-        localStorage.setItem(CURRENT_PIN_KEY, currentPin);
-      }
     } catch (e) {
       console.error('Failed to save persona state:', e);
     }
 
-    // 게스트 모드는 브라우저 로컬에만 저장하여 타 방문자와 섞이지 않도록 보호
-    if (currentUserId === '게스트') return;
+    // 비로그인 게스트 모드는 브라우저 로컬에만 저장
+    if (!authUser?.userUuid) return;
 
+    // 1) Supabase 연동 시 public.persona_profiles 테이블에 익명 UUID로만 저장
+    if (isSupabaseConfigured && supabase) {
+      const completedCount = Object.keys(state.completedDomains).length;
+      supabase
+        .from('persona_profiles')
+        .upsert({
+          user_id: authUser.userUuid,
+          gender: state.demographics?.gender || 'unspecified',
+          age_group: state.demographics?.ageGroup || 'unspecified',
+          occupation: state.demographics?.occupation || 'unspecified',
+          completed_count: completedCount,
+          state,
+          updated_at: new Date().toISOString(),
+        })
+        .then(() => {});
+      return;
+    }
+
+    // 2) 기본 서버 Vault 모드: 이메일 없이 오직 userUuid + sessionToken으로만 취향 프로필 동기화
+    if (!sessionToken) return;
     fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId: currentUserId,
-        pin: currentPin,
+        action: 'sync',
+        userUuid: authUser.userUuid,
+        sessionToken,
         state,
       }),
     }).catch(() => {});
-  }, [state, currentUserId, currentPin, isHydrated]);
+  }, [state, authUser, sessionToken, isHydrated]);
 
-  const switchUser: PersonaContextValue['switchUser'] = async (
-    nextUserId,
-    pin = ''
-  ) => {
-    const cleanId = nextUserId.trim();
-    const cleanPin = pin.trim();
-    if (!cleanId) {
-      return { ok: false, error: '별칭을 입력해 주세요.' };
-    }
-    if (cleanPin && !/^\d{4}$/.test(cleanPin)) {
-      return { ok: false, error: 'PIN 번호는 숫자 4자리로 입력해 주세요.' };
+  const loginWithEmail: PersonaContextValue['loginWithEmail'] = async ({
+    email,
+    password,
+    consentAgreed,
+    demographics,
+  }) => {
+    const nextState: PersonaState = demographics
+      ? {
+          ...state,
+          demographics: {
+            ...(state.demographics || {}),
+            ...demographics,
+          },
+        }
+      : state;
+
+    if (isSupabaseConfigured && supabase) {
+      // 먼저 로그인 시도 후 계정이 없으면 회원가입 진행
+      const signInRes = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInRes.error) {
+        if (!consentAgreed) {
+          return {
+            ok: false,
+            error:
+              '신규 가입 시 [필수] 개인정보 및 비식별 취향 데이터 수집·이용에 동의해 주세요.',
+          };
+        }
+        const signUpRes = await supabase.auth.signUp({ email, password });
+        if (signUpRes.error || !signUpRes.data.user) {
+          return {
+            ok: false,
+            error: signUpRes.error?.message || '회원가입에 실패했습니다.',
+          };
+        }
+        const uid = signUpRes.data.user.id;
+        const [local, domain] = email.split('@');
+        const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
+        setAuthUser({ userUuid: uid, maskedEmail: masked, provider: 'email' });
+        setState(nextState);
+        return { ok: true, isNewUser: true };
+      }
+
+      const uid = signInRes.data.user.id;
+      const [local, domain] = email.split('@');
+      const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
+      setAuthUser({ userUuid: uid, maskedEmail: masked, provider: 'email' });
+      const { data: row } = await supabase
+        .from('persona_profiles')
+        .select('state')
+        .eq('user_id', uid)
+        .single();
+      if (row?.state) {
+        setState(sanitizePersonaState(row.state as Partial<PersonaState>));
+      } else {
+        setState(nextState);
+      }
+      return { ok: true, isNewUser: false };
     }
 
     try {
-      const res = await fetch(
-        `/api/users?userId=${encodeURIComponent(cleanId)}&pin=${encodeURIComponent(cleanPin)}`
-      );
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'auth',
+          provider: 'email',
+          email,
+          password,
+          consentAgreed,
+          state: nextState,
+        }),
+      });
       const data = await res.json();
-
       if (!res.ok) {
         return {
           ok: false,
-          error:
-            data?.error ||
-            '별칭을 불러오지 못했습니다. PIN 번호를 확인해 주세요.',
+          error: data?.error || '로그인에 실패했습니다.',
         };
       }
 
-      setCurrentUserId(cleanId);
-      setCurrentPin(cleanPin);
-      localStorage.setItem(CURRENT_USER_KEY, cleanId);
-      if (cleanPin) {
-        localStorage.setItem(CURRENT_PIN_KEY, cleanPin);
-      }
-
-      if (data?.user?.state) {
-        setState(sanitizePersonaState(data.user.state));
-        return { ok: true, isNewUser: false };
-      }
-
-      // 신규 별칭인 경우: 현재 게스트 상태에서 진행하던 데이터가 있으면 그대로 이어받아 저장
-      return { ok: true, isNewUser: true };
-    } catch {
-      return {
-        ok: false,
-        error: '서버 연결 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+      const sessionObj = {
+        userUuid: data.userUuid,
+        maskedEmail: data.maskedEmail,
+        provider: 'email' as const,
+        sessionToken: data.sessionToken,
       };
+      setAuthUser({
+        userUuid: sessionObj.userUuid,
+        maskedEmail: sessionObj.maskedEmail,
+        provider: 'email',
+      });
+      setSessionToken(sessionObj.sessionToken);
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionObj));
+
+      if (data?.state) {
+        setState(sanitizePersonaState(data.state));
+      } else {
+        setState(nextState);
+      }
+
+      return { ok: true, isNewUser: Boolean(data.isNewUser) };
+    } catch {
+      return { ok: false, error: '서버 연결 중 오류가 발생했습니다.' };
     }
   };
 
-  const logoutToGuest = () => {
-    setCurrentUserId('게스트');
-    setCurrentPin('');
+  const loginWithGoogle: PersonaContextValue['loginWithGoogle'] = async ({
+    googleEmail,
+    consentAgreed,
+    demographics,
+  }) => {
+    const nextState: PersonaState = demographics
+      ? {
+          ...state,
+          demographics: {
+            ...(state.demographics || {}),
+            ...demographics,
+          },
+        }
+      : state;
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo:
+            typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) {
+        return { ok: false, error: error.message };
+      }
+      return { ok: true };
+    }
+
+    const emailToUse = (googleEmail || '').trim().toLowerCase();
+    if (!emailToUse || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToUse)) {
+      return {
+        ok: false,
+        error: '연결할 Google 계정 이메일 주소를 입력해 주세요.',
+      };
+    }
+
     try {
-      localStorage.setItem(CURRENT_USER_KEY, '게스트');
-      localStorage.removeItem(CURRENT_PIN_KEY);
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'auth',
+          provider: 'google',
+          email: emailToUse,
+          consentAgreed,
+          state: nextState,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: data?.error || 'Google 로그인 처리에 실패했습니다.',
+        };
+      }
+
+      const sessionObj = {
+        userUuid: data.userUuid,
+        maskedEmail: data.maskedEmail,
+        provider: 'google' as const,
+        sessionToken: data.sessionToken,
+      };
+      setAuthUser({
+        userUuid: sessionObj.userUuid,
+        maskedEmail: sessionObj.maskedEmail,
+        provider: 'google',
+      });
+      setSessionToken(sessionObj.sessionToken);
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionObj));
+
+      if (data?.state) {
+        setState(sanitizePersonaState(data.state));
+      } else {
+        setState(nextState);
+      }
+
+      return { ok: true, isNewUser: Boolean(data.isNewUser) };
+    } catch {
+      return { ok: false, error: '서버 연결 중 오류가 발생했습니다.' };
+    }
+  };
+
+  const logoutToGuest = async () => {
+    if (isSupabaseConfigured && supabase) {
+      await supabase.auth.signOut().catch(() => {});
+    }
+    setAuthUser(null);
+    setSessionToken('');
+    try {
+      localStorage.removeItem(AUTH_SESSION_KEY);
     } catch {}
   };
+
+  const deleteAccountAndData: PersonaContextValue['deleteAccountAndData'] =
+    async () => {
+      if (!authUser) {
+        setState(BLANK_ROOM_STATE);
+        return { ok: true };
+      }
+
+      try {
+        if (isSupabaseConfigured && supabase) {
+          await supabase
+            .from('persona_profiles')
+            .delete()
+            .eq('user_id', authUser.userUuid);
+          await supabase.auth.signOut();
+        } else if (sessionToken) {
+          const res = await fetch('/api/users', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userUuid: authUser.userUuid,
+              sessionToken,
+            }),
+          });
+          if (!res.ok) {
+            return { ok: false, error: '데이터 파기 요청에 실패했습니다.' };
+          }
+        }
+
+        localStorage.removeItem(`${STORAGE_KEY}_${authUser.userUuid}`);
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(AUTH_SESSION_KEY);
+        setAuthUser(null);
+        setSessionToken('');
+        setState(BLANK_ROOM_STATE);
+        return { ok: true };
+      } catch {
+        return { ok: false, error: '삭제 중 오류가 발생했습니다.' };
+      }
+    };
 
   const updateDemographics = (patch: Partial<DemographicProfile>) => {
     setState((prev) => ({
@@ -601,8 +870,11 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         state,
         isHydrated,
         currentUserId,
-        switchUser,
+        authUser,
+        loginWithEmail,
+        loginWithGoogle,
         logoutToGuest,
+        deleteAccountAndData,
         updateDemographics,
         recordQuestionChoice,
         recordDailyPulseShift,

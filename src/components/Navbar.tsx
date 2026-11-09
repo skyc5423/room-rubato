@@ -5,33 +5,43 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePersonaStore } from '@/lib/persona-store';
 import { DemographicProfile } from '@/lib/types';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
-const GENDER_OPTIONS: { value: NonNullable<DemographicProfile['gender']>; label: string }[] = [
+const GENDER_OPTIONS: {
+  value: NonNullable<DemographicProfile['gender']>;
+  label: string;
+}[] = [
+  { value: 'unspecified', label: '선택 안함' },
   { value: 'female', label: '여성' },
   { value: 'male', label: '남성' },
   { value: 'other', label: '기타' },
-  { value: 'unspecified', label: '선택 안함' },
 ];
 
-const AGE_OPTIONS: { value: NonNullable<DemographicProfile['ageGroup']>; label: string }[] = [
+const AGE_OPTIONS: {
+  value: NonNullable<DemographicProfile['ageGroup']>;
+  label: string;
+}[] = [
+  { value: 'unspecified', label: '선택 안함' },
   { value: '10s', label: '10대' },
-  { value: '20s_early', label: '20대 초반' },
-  { value: '20s_late', label: '20대 후반' },
-  { value: '30s_early', label: '30대 초반' },
-  { value: '30s_late', label: '30대 후반' },
+  { value: '20s_early', label: '20대 초반 (20~24)' },
+  { value: '20s_late', label: '20대 후반 (25~29)' },
+  { value: '30s_early', label: '30대 초반 (30~34)' },
+  { value: '30s_late', label: '30대 후반 (35~39)' },
   { value: '40s', label: '40대' },
   { value: '50s_plus', label: '50대 이상' },
-  { value: 'unspecified', label: '선택 안함' },
 ];
 
-const OCCUPATION_OPTIONS: { value: NonNullable<DemographicProfile['occupation']>; label: string }[] = [
+const OCCUPATION_OPTIONS: {
+  value: NonNullable<DemographicProfile['occupation']>;
+  label: string;
+}[] = [
+  { value: 'unspecified', label: '선택 안함' },
   { value: 'tech_product', label: 'IT · 기획 · 개발' },
   { value: 'design_art', label: '디자인 · 예술 · 창작' },
   { value: 'business_office', label: '경영 · 사무 · 전문직' },
   { value: 'research_edu', label: '학생 · 연구 · 교육' },
   { value: 'freelance_creator', label: '자영업 · 프리랜서' },
   { value: 'other', label: '기타' },
-  { value: 'unspecified', label: '선택 안함' },
 ];
 
 export function Navbar() {
@@ -39,15 +49,22 @@ export function Navbar() {
   const {
     state,
     isHydrated,
-    currentUserId,
-    switchUser,
+    authUser,
+    loginWithEmail,
+    loginWithGoogle,
     logoutToGuest,
+    deleteAccountAndData,
     updateDemographics,
   } = usePersonaStore();
 
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [inputUserId, setInputUserId] = useState('');
-  const [inputPin, setInputPin] = useState('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<'google' | 'email'>('google');
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [consentAgreed, setConsentAgreed] = useState(false);
+  const [showPrivacyDetail, setShowPrivacyDetail] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const [feedbackMsg, setFeedbackMsg] = useState<{
     type: 'error' | 'success';
     text: string;
@@ -64,43 +81,96 @@ export function Navbar() {
     occupation: 'unspecified',
   };
 
-  const handleSaveOrSwitchUser = async (e: React.FormEvent) => {
+  const handleGoogleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedbackMsg(null);
-    const trimmedId = inputUserId.trim();
-    const trimmedPin = inputPin.trim();
-    if (!trimmedId) {
-      setFeedbackMsg({ type: 'error', text: '별칭(닉네임)을 입력해 주세요.' });
-      return;
-    }
-    if (!/^\d{4}$/.test(trimmedPin)) {
+    if (!consentAgreed) {
       setFeedbackMsg({
         type: 'error',
-        text: '내 방 보호를 위해 숫자 4자리 PIN을 입력해 주세요.',
+        text: '[필수] 개인정보 및 비식별 취향 데이터 수집·이용에 동의해 주세요.',
       });
       return;
     }
 
     setIsLoading(true);
-    const res = await switchUser(trimmedId, trimmedPin);
+    const res = await loginWithGoogle({
+      googleEmail: emailInput,
+      consentAgreed,
+      demographics,
+    });
     setIsLoading(false);
 
     if (!res.ok) {
       setFeedbackMsg({
         type: 'error',
-        text: res.error || '불러오기에 실패했습니다.',
+        text: res.error || 'Google 로그인에 실패했습니다.',
       });
       return;
     }
 
-    setInputUserId('');
-    setInputPin('');
+    setEmailInput('');
     setFeedbackMsg({
       type: 'success',
       text: res.isNewUser
-        ? `'${trimmedId}' 별칭으로 새 방이 안전하게 생성·연결되었습니다.`
-        : `'${trimmedId}'의 방 데이터를 불러왔습니다.`,
+        ? 'Google 계정 연결 및 비식별 취향 프로필 생성이 완료되었습니다.'
+        : 'Google 계정으로 저장된 내 방을 불러왔습니다.',
     });
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFeedbackMsg(null);
+    if (!consentAgreed) {
+      setFeedbackMsg({
+        type: 'error',
+        text: '[필수] 개인정보 및 비식별 취향 데이터 수집·이용에 동의해 주세요.',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    const res = await loginWithEmail({
+      email: emailInput,
+      password: passwordInput,
+      consentAgreed,
+      demographics,
+    });
+    setIsLoading(false);
+
+    if (!res.ok) {
+      setFeedbackMsg({
+        type: 'error',
+        text: res.error || '이메일 로그인에 실패했습니다.',
+      });
+      return;
+    }
+
+    setEmailInput('');
+    setPasswordInput('');
+    setFeedbackMsg({
+      type: 'success',
+      text: res.isNewUser
+        ? '이메일 회원가입 및 비식별 취향 프로필 생성이 완료되었습니다.'
+        : '이메일 계정으로 저장된 내 방을 불러왔습니다.',
+    });
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsLoading(true);
+    const res = await deleteAccountAndData();
+    setIsLoading(false);
+    setConfirmDelete(false);
+    if (res.ok) {
+      setFeedbackMsg({
+        type: 'success',
+        text: '계정과 모든 취향 데이터가 서버 및 브라우저에서 영구 파기되었습니다.',
+      });
+    } else {
+      setFeedbackMsg({
+        type: 'error',
+        text: res.error || '데이터 삭제 중 오류가 발생했습니다.',
+      });
+    }
   };
 
   return (
@@ -126,7 +196,7 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Top-Right Clear Navigation + Privacy-Safe User Profile */}
+        {/* Top-Right Clear Navigation + Auth Button */}
         <div className="pointer-events-auto relative flex items-center gap-2">
           <nav className="flex items-center gap-1.5 sm:gap-2 bg-[#FFF9EB]/95 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-[#0042AF]/30 shadow-[0_6px_20px_-6px_rgba(1,13,110,0.12)]">
             <Link
@@ -181,41 +251,55 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => {
-                setIsUserMenuOpen((prev) => !prev);
+                setIsAuthModalOpen((prev) => !prev);
                 setFeedbackMsg(null);
+                setConfirmDelete(false);
               }}
-              className="px-3 py-1 rounded-full bg-[#010D6E] text-[#FEF1D0] text-[12px] font-semibold hover:bg-[#0042AF] transition-colors flex items-center gap-1.5"
-              title="가명 별칭·PIN 저장 및 기본 프로필 설정"
+              className="px-3.5 py-1 rounded-full bg-[#010D6E] text-[#FEF1D0] text-[12px] font-semibold hover:bg-[#0042AF] transition-colors flex items-center gap-1.5"
             >
-              <span>{currentUserId}의 방</span>
+              {authUser ? (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#34A853]" />
+                  <span>{authUser.maskedEmail}</span>
+                </>
+              ) : (
+                <span>로그인 · 내 방 저장</span>
+              )}
               <span className="text-[10px] opacity-80">▾</span>
             </button>
           </nav>
 
-          {/* Privacy-Safe Pseudonym + PIN + Non-PII Demographic Profile Popover */}
-          {isUserMenuOpen && (
-            <div className="absolute right-0 top-14 w-[350px] sm:w-[375px] rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/35 shadow-[0_18px_40px_-10px_rgba(1,13,110,0.25)] p-5 z-50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13.5px] font-bold text-[#010D6E]">
-                  내 방 암호 저장 · 페르소나 기본 정보
-                </span>
+          {/* Auth & Privacy-Separated Persona Profile Popover */}
+          {isAuthModalOpen && (
+            <div className="absolute right-0 top-14 w-[360px] sm:w-[400px] rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/35 shadow-[0_20px_48px_-12px_rgba(1,13,110,0.28)] p-5 z-50">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="block text-[14px] font-bold text-[#010D6E]">
+                    {authUser
+                      ? '내 계정 & 비식별 페르소나 프로필'
+                      : 'Google · 이메일 로그인 및 내 방 연동'}
+                  </span>
+                  <span className="text-[11px] text-[#0042AF]/75">
+                    계정 인증 정보와 취향 DB(UUID)는 암호화 분리 보관됩니다
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setIsUserMenuOpen(false)}
+                  onClick={() => setIsAuthModalOpen(false)}
                   className="text-[12px] text-[#0042AF]/70 hover:text-[#010D6E]"
                 >
                   닫기 ✕
                 </button>
               </div>
 
-              {/* Section 1: Non-PII Demographic Attributes for Persona Analysis */}
-              <div className="mb-4 pb-4 border-b border-[#0042AF]/15 space-y-2.5">
+              {/* Section 1: Non-PII Demographic Attributes (Always Editable) */}
+              <div className="mb-4 p-3.5 rounded-xl bg-[#FEF1D0]/45 border border-[#0042AF]/20 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-[#0042AF]">
-                    1. 비식별 페르소나 통계 정보 (선택)
+                  <span className="text-[12px] font-bold text-[#010D6E]">
+                    페르소나 기본 통계 정보 (성별 · 연령대 · 직군)
                   </span>
-                  <span className="text-[11px] text-[#010D6E]/60">
-                    익명 연령·성별 분석용
+                  <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-[#0042AF]/10 text-[#0042AF] font-semibold">
+                    비식별 통계용
                   </span>
                 </div>
 
@@ -228,10 +312,11 @@ export function Navbar() {
                       value={demographics.gender || 'unspecified'}
                       onChange={(e) =>
                         updateDemographics({
-                          gender: e.target.value as DemographicProfile['gender'],
+                          gender: e.target
+                            .value as DemographicProfile['gender'],
                         })
                       }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FEF1D0]/65 border border-[#0042AF]/25 text-[12px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
+                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
                     >
                       {GENDER_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -253,7 +338,7 @@ export function Navbar() {
                             .value as DemographicProfile['ageGroup'],
                         })
                       }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FEF1D0]/65 border border-[#0042AF]/25 text-[12px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
+                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
                     >
                       {AGE_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -275,7 +360,7 @@ export function Navbar() {
                             .value as DemographicProfile['occupation'],
                         })
                       }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FEF1D0]/65 border border-[#0042AF]/25 text-[12px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
+                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
                     >
                       {OCCUPATION_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -287,79 +372,210 @@ export function Navbar() {
                 </div>
               </div>
 
-              {/* Section 2: Pseudonym + 4-digit PIN Sync */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[12px] font-semibold text-[#0042AF]">
-                    2. 가명 별칭 + 4자리 PIN으로 기기 간 동기화
-                  </span>
-                  {currentUserId !== '게스트' && (
+              {/* Section 2: Logged-In View OR Login/Signup Form */}
+              {authUser ? (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-[#FFF9EB] border border-[#0042AF]/20 space-y-1.5 text-[12px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#010D6E]/70">인증 계정</span>
+                      <span className="font-semibold text-[#010D6E]">
+                        {authUser.maskedEmail} ({authUser.provider.toUpperCase()})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#010D6E]/70">
+                        취향 DB 익명 ID (UUID)
+                      </span>
+                      <span className="font-mono text-[11.5px] text-[#0042AF] font-semibold">
+                        {authUser.userUuid}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#010D6E]/65 pt-1 border-t border-[#0042AF]/10">
+                      ✓ 취향 분석 테이블에는 이메일 없이 위 익명 UUID와 성별·연령대만 분리 저장됩니다.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => {
                         logoutToGuest();
                         setFeedbackMsg({
                           type: 'success',
-                          text: '브라우저 전용 게스트 모드로 전환되었습니다.',
+                          text: '로그아웃되어 게스트 모드로 전환되었습니다.',
                         });
                       }}
-                      className="text-[11px] text-[#D4653B] underline"
+                      className="flex-1 py-2 rounded-xl border border-[#0042AF]/30 text-[12px] font-semibold text-[#010D6E] hover:bg-[#FEF1D0]"
                     >
-                      게스트 전환
+                      로그아웃
                     </button>
-                  )}
-                </div>
-                <p className="text-[11.5px] text-[#010D6E]/75 leading-[1.45] mb-2.5">
-                  다른 사람이 내 방을 열람할 수 없도록 <strong>가명 별칭</strong>과 <strong>숫자 4자리 PIN</strong>으로만 암호화해 불러옵니다.
-                </p>
 
-                <form onSubmit={handleSaveOrSwitchUser} className="space-y-2">
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      value={inputUserId}
-                      onChange={(e) => setInputUserId(e.target.value)}
-                      placeholder="가명 별칭 (예: 루바토7, bluefox)"
-                      maxLength={20}
-                      className="flex-1 px-3 py-1.5 rounded-xl bg-[#FEF1D0]/60 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
-                    />
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      value={inputPin}
-                      onChange={(e) =>
-                        setInputPin(e.target.value.replace(/\D/g, '').slice(0, 4))
-                      }
-                      placeholder="PIN 4자리"
-                      maxLength={4}
-                      className="w-[88px] px-2.5 py-1.5 rounded-xl bg-[#FEF1D0]/60 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF] text-center tracking-widest"
-                    />
+                    {!confirmDelete ? (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(true)}
+                        className="px-3 py-2 rounded-xl border border-[#D4653B]/40 text-[11.5px] text-[#D4653B] hover:bg-[#D4653B]/10"
+                      >
+                        계정·데이터 영구 파기
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={handleDeleteAccount}
+                        className="px-3 py-2 rounded-xl bg-[#D4653B] text-[#FFFDF7] text-[11.5px] font-semibold"
+                      >
+                        정말 삭제할까요? (즉시 파기)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Consent Checkbox */}
+                  <div className="p-3 rounded-xl bg-[#FFF9EB] border border-[#0042AF]/25">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={consentAgreed}
+                        onChange={(e) => setConsentAgreed(e.target.checked)}
+                        className="mt-0.5 rounded border-[#0042AF]"
+                      />
+                      <span className="text-[11.5px] text-[#010D6E] leading-[1.45]">
+                        <strong>[필수]</strong> 개인정보(이메일 해시) 분리 보관 및 비식별 취향·통계 데이터 수집·이용에 동의합니다.
+                      </span>
+                    </label>
                     <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="px-3 py-1.5 rounded-xl bg-[#0042AF] text-[#FEF1D0] text-[12px] font-semibold hover:bg-[#010D6E] shrink-0 disabled:opacity-50"
+                      type="button"
+                      onClick={() => setShowPrivacyDetail((p) => !p)}
+                      className="mt-1.5 ml-5 text-[11px] text-[#0042AF] underline underline-offset-2"
                     >
-                      {isLoading ? '...' : '저장/입장'}
+                      {showPrivacyDetail ? '고지사항 접기 ▲' : '수집 항목 및 분리 보관 원칙 보기 ▼'}
+                    </button>
+
+                    {showPrivacyDetail && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/15 text-[11px] text-[#010D6E]/75 space-y-1 leading-[1.45]">
+                        <p>
+                          <strong>1. 수집 항목:</strong> 이메일(단방향 SHA-256 해시로만 인증 금고에 보관), 성별·연령대 구간·직군, 12개 분야 취향 응답
+                        </p>
+                        <p>
+                          <strong>2. 비식별 분리 원칙:</strong> 취향 DB 테이블에는 이메일·이름을 저장하지 않고 무작위 익명 번호(UUID)로만 분리 저장합니다.
+                        </p>
+                        <p>
+                          <strong>3. 파기 권리:</strong> 프로필 메뉴의 [계정·데이터 영구 파기] 클릭 시 서버와 브라우저에서 즉시 삭제됩니다.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Login Method Tabs */}
+                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#FEF1D0]/60 border border-[#0042AF]/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthTab('google');
+                        setFeedbackMsg(null);
+                      }}
+                      className={`py-1.5 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                        authTab === 'google'
+                          ? 'bg-[#010D6E] text-[#FEF1D0]'
+                          : 'text-[#010D6E]/75 hover:text-[#010D6E]'
+                      }`}
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
+                        <path
+                          fill="currentColor"
+                          d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 15.65 5 12c0-3.65 3.36-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
+                        />
+                      </svg>
+                      <span>Google 로그인</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthTab('email');
+                        setFeedbackMsg(null);
+                      }}
+                      className={`py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${
+                        authTab === 'email'
+                          ? 'bg-[#010D6E] text-[#FEF1D0]'
+                          : 'text-[#010D6E]/75 hover:text-[#010D6E]'
+                      }`}
+                    >
+                      이메일 로그인/가입
                     </button>
                   </div>
-                </form>
 
-                {feedbackMsg && (
-                  <p
-                    className={`mt-2 text-[11.5px] font-medium ${
-                      feedbackMsg.type === 'error'
-                        ? 'text-[#D4653B]'
-                        : 'text-[#0042AF]'
-                    }`}
-                  >
-                    · {feedbackMsg.text}
-                  </p>
-                )}
+                  {authTab === 'google' ? (
+                    <form onSubmit={handleGoogleSubmit} className="space-y-2">
+                      {!isSupabaseConfigured && (
+                        <input
+                          type="email"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          placeholder="연결할 Google 이메일 (예: myname@gmail.com)"
+                          className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
+                        />
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-2.5 rounded-xl bg-[#0042AF] text-[#FEF1D0] text-[12.5px] font-semibold hover:bg-[#010D6E] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path
+                            fill="currentColor"
+                            d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 15.65 5 12c0-3.65 3.36-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
+                          />
+                        </svg>
+                        <span>
+                          {isLoading
+                            ? '인증 처리 중...'
+                            : 'Google 계정으로 1초 만에 시작하기'}
+                        </span>
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleEmailSubmit} className="space-y-2">
+                      <input
+                        type="email"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        placeholder="이메일 주소 입력"
+                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
+                      />
+                      <input
+                        type="password"
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        placeholder="비밀번호 (6자 이상)"
+                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-2.5 rounded-xl bg-[#0042AF] text-[#FEF1D0] text-[12.5px] font-semibold hover:bg-[#010D6E] transition-colors disabled:opacity-50"
+                      >
+                        {isLoading
+                          ? '인증 처리 중...'
+                          : '이메일로 로그인 / 신규 시작하기'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
 
-                <p className="mt-3 pt-2.5 border-t border-[#0042AF]/10 text-[11px] text-[#010D6E]/60 leading-[1.45]">
-                  🔒 실명·이메일·전화번호는 입력이 자동 차단되며 수집하지 않습니다. 연령대·성별은 비식별 통계 분석에만 활용됩니다.
+              {feedbackMsg && (
+                <p
+                  className={`mt-2.5 text-[11.5px] font-medium ${
+                    feedbackMsg.type === 'error'
+                      ? 'text-[#D4653B]'
+                      : 'text-[#0042AF]'
+                  }`}
+                >
+                  · {feedbackMsg.text}
                 </p>
-              </div>
+              )}
             </div>
           )}
         </div>

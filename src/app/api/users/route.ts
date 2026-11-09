@@ -6,113 +6,102 @@ import crypto from 'crypto';
 const DATA_DIR = process.env.VERCEL
   ? '/tmp/room-rubato-data'
   : path.join(process.cwd(), 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-interface StoredUserRecord {
-  userId: string;
-  pinHash?: string;
-  updatedAt: string;
+// 1. 인증 금고 테이블 (해시된 이메일·비밀번호·세션 토큰만 격리 보관)
+const AUTH_VAULT_FILE = path.join(DATA_DIR, 'auth_vault.json');
+// 2. 비식별 취향 프로필 테이블 (이메일·이름 없이 오직 익명 UUID + 성별·연령대·직군 + 취향 응답만 보관)
+const PERSONA_PROFILES_FILE = path.join(DATA_DIR, 'persona_profiles.json');
+
+interface AuthVaultRecord {
+  emailHash: string;
+  maskedEmail: string;
+  provider: 'google' | 'email';
+  passwordHash?: string;
+  sessionTokenHash: string;
+  userUuid: string;
+  consentAgreedAt: string;
+  createdAt: string;
+}
+
+interface PersonaProfileRecord {
+  userUuid: string;
+  demographics?: {
+    gender?: string;
+    ageGroup?: string;
+    occupation?: string;
+  };
   completedCount: number;
+  updatedAt: string;
   state: unknown;
 }
 
-function hashPin(pin: string): string {
+function sha256(input: string): string {
   return crypto
     .createHash('sha256')
-    .update(`${pin.trim()}:room-rubato-v2-salt`)
+    .update(`${input}:room-rubato-v3-pepper`)
     .digest('hex');
 }
 
-/**
- * 개인정보(이메일, 전화번호, 주민번호 등) 입력 자동 감지 및 차단
- */
-function validateSafePseudonym(userId: string): string | null {
-  if (!userId || userId.length < 2 || userId.length > 20) {
-    return '별칭은 2~20자 이내로 입력해 주세요.';
-  }
-  if (userId === '게스트') {
-    return '기본 게스트 모드는 브라우저에만 저장됩니다. 나만의 별칭을 입력해 주세요.';
-  }
-  // 이메일 패턴 차단
-  if (/@|\.(com|net|kr|org|io|co)\b/i.test(userId)) {
-    return '개인정보 보호를 위해 이메일 주소는 별칭으로 사용할 수 없습니다.';
-  }
-  // 전화번호 / 생년월일 / 연속 숫자 6자리 이상 차단
-  const digitsOnly = userId.replace(/\D/g, '');
-  if (
-    digitsOnly.length >= 6 ||
-    /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/.test(userId)
-  ) {
-    return '개인정보 보호를 위해 전화번호나 생년월일이 포함된 별칭은 사용할 수 없습니다.';
-  }
-  return null;
+function maskEmailAddress(email: string): string {
+  const [local, domain] = email.trim().toLowerCase().split('@');
+  if (!local || !domain) return 'user***';
+  const head = local.slice(0, Math.min(2, local.length));
+  return `${head}***@${domain}`;
 }
 
-function readUsersDb(): Record<string, StoredUserRecord> {
+function readJsonFile<T>(filePath: string): Record<string, T> {
   try {
-    if (!fs.existsSync(USERS_FILE)) {
-      return {};
-    }
-    const raw = fs.readFileSync(USERS_FILE, 'utf-8');
-    return JSON.parse(raw) as Record<string, StoredUserRecord>;
+    if (!fs.existsSync(filePath)) return {};
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Record<string, T>;
   } catch {
     return {};
   }
 }
 
-function writeUsersDb(db: Record<string, StoredUserRecord>) {
+function writeJsonFile<T>(filePath: string, data: Record<string, T>) {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(USERS_FILE, JSON.stringify(db, null, 2), 'utf-8');
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Failed to write users.json:', err);
+    console.error('Failed to write JSON file:', err);
   }
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId')?.trim();
-  const pin = searchParams.get('pin')?.trim() || '';
+  const userUuid = searchParams.get('userUuid')?.trim() || '';
+  const sessionToken = req.headers.get('x-session-token')?.trim() || '';
 
-  if (!userId || userId === '게스트') {
+  if (!userUuid || !sessionToken) {
     return NextResponse.json({ user: null });
   }
 
-  const piiError = validateSafePseudonym(userId);
-  if (piiError) {
-    return NextResponse.json({ error: piiError }, { status: 400 });
+  const vault = readJsonFile<AuthVaultRecord>(AUTH_VAULT_FILE);
+  const authEntry = Object.values(vault).find((v) => v.userUuid === userUuid);
+
+  if (!authEntry || authEntry.sessionTokenHash !== sha256(sessionToken)) {
+    return NextResponse.json(
+      { error: '세션이 만료되었거나 유효하지 않습니다.' },
+      { status: 401 }
+    );
   }
 
-  const db = readUsersDb();
-  const record = db[userId] ?? null;
-
-  if (!record) {
-    return NextResponse.json({ user: null, isNewUser: true });
-  }
-
-  // 기존 저장된 방에 PIN 해시가 설정되어 있는 경우 PIN 일치 여부 검증
-  if (record.pinHash) {
-    if (!pin || hashPin(pin) !== record.pinHash) {
-      return NextResponse.json(
-        {
-          error:
-            '이미 사용 중인 별칭이거나 PIN 번호(4자리)가 일치하지 않습니다.',
-          requiresPin: true,
-        },
-        { status: 403 }
-      );
-    }
-  }
+  const profiles = readJsonFile<PersonaProfileRecord>(PERSONA_PROFILES_FILE);
+  const profile = profiles[userUuid] ?? null;
 
   return NextResponse.json({
-    user: {
-      userId: record.userId,
-      updatedAt: record.updatedAt,
-      completedCount: record.completedCount,
-      state: record.state,
-    },
+    user: profile
+      ? {
+          userUuid: profile.userUuid,
+          maskedEmail: authEntry.maskedEmail,
+          provider: authEntry.provider,
+          updatedAt: profile.updatedAt,
+          completedCount: profile.completedCount,
+          state: profile.state,
+        }
+      : null,
   });
 }
 
@@ -127,41 +116,152 @@ export async function POST(req: NextRequest) {
     }
 
     const body = JSON.parse(rawText);
-    const userId = String(body.userId || '').trim();
-    const pin = String(body.pin || '').trim();
-    const state = body.state;
+    const action = body.action || 'sync';
 
-    if (!userId || userId === '게스트' || !state) {
-      return NextResponse.json({ ok: true, localOnly: true });
-    }
+    // ACTION 1: 로그인 / 회원가입 (Google OAuth 시뮬레이션 또는 이메일+비밀번호 인증)
+    if (action === 'auth') {
+      const provider: 'google' | 'email' =
+        body.provider === 'google' ? 'google' : 'email';
+      const email = String(body.email || '')
+        .trim()
+        .toLowerCase();
+      const password = String(body.password || '');
+      const consentAgreed = Boolean(body.consentAgreed);
+      const initialState = body.state;
 
-    const piiError = validateSafePseudonym(userId);
-    if (piiError) {
-      return NextResponse.json({ error: piiError }, { status: 400 });
-    }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json(
+          { error: '올바른 이메일 주소를 입력해 주세요.' },
+          { status: 400 }
+        );
+      }
 
-    if (pin && !/^\d{4}$/.test(pin)) {
-      return NextResponse.json(
-        { error: 'PIN 번호는 숫자 4자리로 입력해 주세요.' },
-        { status: 400 }
-      );
-    }
+      if (provider === 'email' && password.length < 6) {
+        return NextResponse.json(
+          { error: '비밀번호는 6자 이상으로 입력해 주세요.' },
+          { status: 400 }
+        );
+      }
 
-    const db = readUsersDb();
-    const existing = db[userId];
+      const emailHash = sha256(email);
+      const vault = readJsonFile<AuthVaultRecord>(AUTH_VAULT_FILE);
+      const profiles = readJsonFile<PersonaProfileRecord>(PERSONA_PROFILES_FILE);
+      const existingAuth = vault[emailHash];
 
-    if (existing?.pinHash) {
-      if (!pin || hashPin(pin) !== existing.pinHash) {
+      // 이미 가입된 계정인 경우 -> 로그인 처리
+      if (existingAuth) {
+        if (
+          provider === 'email' &&
+          existingAuth.passwordHash &&
+          existingAuth.passwordHash !== sha256(`pw:${emailHash}:${password}`)
+        ) {
+          return NextResponse.json(
+            { error: '이메일 또는 비밀번호가 일치하지 않습니다.' },
+            { status: 403 }
+          );
+        }
+
+        const newSessionToken = crypto.randomBytes(24).toString('hex');
+        existingAuth.sessionTokenHash = sha256(newSessionToken);
+        vault[emailHash] = existingAuth;
+        writeJsonFile(AUTH_VAULT_FILE, vault);
+
+        const existingProfile = profiles[existingAuth.userUuid] ?? null;
+
+        return NextResponse.json({
+          ok: true,
+          isNewUser: false,
+          userUuid: existingAuth.userUuid,
+          maskedEmail: existingAuth.maskedEmail,
+          provider: existingAuth.provider,
+          sessionToken: newSessionToken,
+          state: existingProfile?.state ?? null,
+        });
+      }
+
+      // 신규 가입인 경우 -> 필수 동의 확인
+      if (!consentAgreed) {
         return NextResponse.json(
           {
             error:
-              '이미 사용 중인 별칭이거나 PIN 번호(4자리)가 일치하지 않습니다.',
+              '최초 가입 시 [개인정보 및 비식별 취향 데이터 수집·이용 동의]에 체크해 주세요.',
+            requiresConsent: true,
           },
-          { status: 403 }
+          { status: 400 }
         );
       }
+
+      const now = new Date().toISOString();
+      const userUuid = `usr_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      const sessionToken = crypto.randomBytes(24).toString('hex');
+
+      vault[emailHash] = {
+        emailHash,
+        maskedEmail: maskEmailAddress(email),
+        provider,
+        passwordHash:
+          provider === 'email'
+            ? sha256(`pw:${emailHash}:${password}`)
+            : undefined,
+        sessionTokenHash: sha256(sessionToken),
+        userUuid,
+        consentAgreedAt: now,
+        createdAt: now,
+      };
+      writeJsonFile(AUTH_VAULT_FILE, vault);
+
+      if (initialState && typeof initialState === 'object') {
+        const completedCount =
+          'completedDomains' in initialState
+            ? Object.keys(
+                (initialState as { completedDomains: Record<string, unknown> })
+                  .completedDomains || {}
+              ).length
+            : 0;
+
+        profiles[userUuid] = {
+          userUuid,
+          demographics: (
+            initialState as { demographics?: PersonaProfileRecord['demographics'] }
+          ).demographics,
+          completedCount,
+          updatedAt: now,
+          state: initialState,
+        };
+        writeJsonFile(PERSONA_PROFILES_FILE, profiles);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        isNewUser: true,
+        userUuid,
+        maskedEmail: maskEmailAddress(email),
+        provider,
+        sessionToken,
+        state: initialState ?? null,
+      });
     }
 
+    // ACTION 2: 로그인된 사용자의 비식별 취향 프로필(UUID 기반) 동기화
+    const userUuid = String(body.userUuid || '').trim();
+    const sessionToken = String(body.sessionToken || '').trim();
+    const state = body.state;
+
+    if (!userUuid || !sessionToken || !state) {
+      return NextResponse.json({ ok: true, localOnly: true });
+    }
+
+    const vault = readJsonFile<AuthVaultRecord>(AUTH_VAULT_FILE);
+    const authEntry = Object.values(vault).find((v) => v.userUuid === userUuid);
+
+    if (!authEntry || authEntry.sessionTokenHash !== sha256(sessionToken)) {
+      return NextResponse.json(
+        { error: '인증 세션이 유효하지 않습니다.' },
+        { status: 401 }
+      );
+    }
+
+    const profiles = readJsonFile<PersonaProfileRecord>(PERSONA_PROFILES_FILE);
     const completedCount =
       state && typeof state === 'object' && 'completedDomains' in state
         ? Object.keys(
@@ -170,22 +270,60 @@ export async function POST(req: NextRequest) {
           ).length
         : 0;
 
-    db[userId] = {
-      userId,
-      pinHash: pin ? hashPin(pin) : existing?.pinHash,
-      updatedAt: new Date().toISOString(),
+    profiles[userUuid] = {
+      userUuid,
+      demographics: (
+        state as { demographics?: PersonaProfileRecord['demographics'] }
+      ).demographics,
       completedCount,
+      updatedAt: new Date().toISOString(),
       state,
     };
 
-    writeUsersDb(db);
+    writeJsonFile(PERSONA_PROFILES_FILE, profiles);
 
     return NextResponse.json({
       ok: true,
-      userId,
+      userUuid,
       completedCount,
     });
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+}
+
+// ACTION 3: 회원 탈퇴 및 내 데이터 즉시 영구 파기 (개인정보보호법 파기 요구권 보장)
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const userUuid = String(body.userUuid || '').trim();
+    const sessionToken = String(body.sessionToken || '').trim();
+
+    if (!userUuid || !sessionToken) {
+      return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
+    }
+
+    const vault = readJsonFile<AuthVaultRecord>(AUTH_VAULT_FILE);
+    const entryPair = Object.entries(vault).find(
+      ([, v]) => v.userUuid === userUuid
+    );
+
+    if (!entryPair || entryPair[1].sessionTokenHash !== sha256(sessionToken)) {
+      return NextResponse.json(
+        { error: '인증 정보가 일치하지 않습니다.' },
+        { status: 403 }
+      );
+    }
+
+    delete vault[entryPair[0]];
+    writeJsonFile(AUTH_VAULT_FILE, vault);
+
+    const profiles = readJsonFile<PersonaProfileRecord>(PERSONA_PROFILES_FILE);
+    delete profiles[userUuid];
+    writeJsonFile(PERSONA_PROFILES_FILE, profiles);
+
+    return NextResponse.json({ ok: true, deletedUuid: userUuid });
+  } catch {
+    return NextResponse.json({ error: '삭제 중 오류가 발생했습니다.' }, { status: 400 });
   }
 }
