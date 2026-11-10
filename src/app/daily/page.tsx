@@ -1,21 +1,50 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { koreanDay } from '@/lib/daily-date';
 import { DAILY_PULSE_QUESTIONS } from '@/lib/domains-index';
 import { usePersonaStore } from '@/lib/persona-store';
 import { SpecimenPlate } from '@/components/SpecimenPlate';
 
 export default function DailyPulsePage() {
-  const { recordDailyPulseShift } = usePersonaStore();
+  const { state, isHydrated, currentUserId, recordDailyPulseShift } = usePersonaStore();
   const [questionIdx, setQuestionIdx] = useState(0);
-  const [phase, setPhase] = useState<'phase1' | 'phase2' | 'done'>('phase1');
-  const [phase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
-  const [phase1TimeMs, setPhase1TimeMs] = useState<number>(1500);
-  const [phase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
+  const [draftPhase, setPhase] = useState<'phase1' | 'phase2' | 'done'>('phase1');
+  const [draftPhase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
+  const [draftPhase1TimeMs, setPhase1TimeMs] = useState<number>(1500);
+  const [draftPhase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
 
   const startRef = useRef<number>(Date.now());
   const pulse = DAILY_PULSE_QUESTIONS[questionIdx];
+  const [today, setToday] = useState(() => koreanDay(Date.now()));
+  useEffect(() => {
+    const refreshDay = () => setToday(koreanDay(Date.now()));
+    const timer = setInterval(refreshDay, 1000);
+    window.addEventListener('focus', refreshDay);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', refreshDay);
+    };
+  }, []);
+  // A completed pulse is persisted in the account/guest store, not component state.
+  const saved = state.dailyShiftLog.filter((entry) => entry.pulseId === pulse.id && koreanDay(entry.timestamp) === today).at(-1);
+  const phase = saved ? 'done' : draftPhase;
+  const phase1Choice = saved?.phase1Choice ?? draftPhase1Choice;
+  const phase2Choice = saved?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
+  const phase1TimeMs = saved?.phase1ResponseTimeMs ?? draftPhase1TimeMs;
+
+  useEffect(() => {
+    setPhase('phase1');
+    setPhase1Choice(null);
+    setPhase2Choice(null);
+    startRef.current = Date.now();
+  }, [currentUserId, today]);
+
+  if (!isHydrated) {
+    return <div className="px-6 pt-28" role="status">저장된 응답을 불러오는 중입니다.</div>;
+  }
+
 
   const handlePhase1Select = (choice: 'A' | 'B') => {
     const elapsed = Math.max(250, Date.now() - startRef.current);
@@ -25,7 +54,7 @@ export default function DailyPulsePage() {
   };
 
   const handlePhase2Select = (finalChoice: 'A' | 'B') => {
-    if (!phase1Choice) return;
+    if (!phase1Choice || saved) return;
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: pulse.id,
