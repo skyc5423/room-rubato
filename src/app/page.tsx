@@ -312,6 +312,12 @@ export default function HomePage() {
 
   return (
     <div className="w-full">
+      <section aria-labelledby="observation-entry" className="border-b border-[#0042AF]/20 bg-[#F6F3E9] px-5 pb-8 pt-32 sm:px-8">
+        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[1.5fr_1fr] md:items-center">
+          <div><p className="text-xs tracking-widest text-[#0042AF]">NEW · 직접 보고 듣는 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">취향을 묻기 전에,<br className="sm:hidden"/> 감상할 거리를 먼저.</h1><p className="mt-3 max-w-xl text-sm leading-7 text-[#010D6E]/80">빛을 움직이고, 간격을 바꾸고, 리듬을 들어보세요. 처음의 선택과 설명을 읽은 뒤의 선택을 나란히 남길 수 있어요.</p></div>
+          <div className="rounded-2xl border border-[#0042AF]/20 bg-white/70 p-5"><p className="text-sm font-semibold">8개의 감상 활동 · 한 편에 3–4분</p><p className="mt-2 text-xs leading-6 text-[#010D6E]/70">설문 완료나 로그인 없이 시작할 수 있어요. 감상 기록은 이 브라우저에만 저장돼요.</p><a href="/notes" className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">관찰실에서 직접 살펴보기 →</a><a href="#room-stage" className="mt-3 inline-flex min-h-11 items-center text-sm text-[#0042AF] underline underline-offset-4">아래 방에서 분야별 취향 고르기 ↓</a></div>
+        </div>
+      </section>
       {/* =====================================================================
           SCENE 1: INTERACTIVE ILLUSTRATED ROOM (100SVH)
          ===================================================================== */}

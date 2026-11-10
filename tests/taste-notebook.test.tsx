@@ -1,28 +1,70 @@
 import React from 'react';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
-import { describe, it, expect } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { TasteNotebook } from '../src/components/TasteNotebook';
+import { journalKey, parseJournal } from '../src/lib/taste-journal';
+let owner: string|null = null;
+vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:owner?{userUuid:owner}:null,isHydrated:true})}));
+let storage: Map<string,string>;
+const button=(view:ReactTestRenderer,label:string)=>view.root.findAllByType('button').find(b=>JSON.stringify(b.children).includes(label))!;
+beforeEach(()=>{owner=null;storage=new Map();vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:(k:string,v:string)=>storage.set(k,v)});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});});
+afterEach(()=>vi.unstubAllGlobals());
+describe('taste notebook',()=>{
+  it('offers eight independent experiences and honest browser storage scope',()=>{
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    expect(view!.root.findAllByType('article')).toHaveLength(8);
+    expect(JSON.stringify(view!.toJSON())).toContain('이 브라우저에만');
+    act(()=>view!.unmount());
+  });
+  it('supports choice, explanation, reconsideration and persistent journal',()=>{
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'첫 탐색 시작').props.onClick());
+    expect(view!.root.findByType('svg').props['aria-label']).toContain('균일한 면');
+    expect(button(view!,'선택했어요').props.disabled).toBe(true);
+    act(()=>button(view!,'아직 모르겠어요').props.onClick());
+    act(()=>button(view!,'선택했어요').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('키아로스쿠로');
+    act(()=>button(view!,'이제 다시 보고').props.onClick());
+    act(()=>button(view!,'B 쪽').props.onClick());
+    act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'빛이 더 입체적으로 보였다.'}}));
+    act(()=>button(view!,'이번 탐색 마치기').props.onClick());
+    const entry=parseJournal(storage.get(journalKey('guest'))!).entries.light;
+    expect(entry.before).toBe('unsure');expect(entry.after).toBe('b');expect(entry.memo).toContain('입체적');expect(entry.completedAt).toBeTruthy();
+    act(()=>view!.unmount());
+    act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('빛이 더 입체적으로 보였다.');
+    act(()=>view!.unmount());
+  });
+  it('does not show guest notes after an account switch',()=>{
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'첫 탐색 시작').props.onClick());
+    act(()=>button(view!,'A 쪽').props.onClick());
+    expect(storage.has(journalKey('guest'))).toBe(true);
+    owner='different-user';act(()=>view!.update(<TasteNotebook/>));
+    expect(view!.root.findAllByType('article')).toHaveLength(8);
+    expect(storage.has(journalKey('different-user'))).toBe(false);
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('아직 기록이 없어요');
+    act(()=>view!.unmount());
+  });
+  it('resumes saved settings and deletes only this observation after confirmation',()=>{
+    const confirm=vi.fn(()=>false);(window as unknown as {confirm:typeof confirm}).confirm=confirm;
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'첫 탐색 시작').props.onClick());
+    act(()=>view!.root.findByType('input').props.onChange({target:{value:'27'}}));
+    act(()=>button(view!,'A 쪽').props.onClick());
+    act(()=>button(view!,'목록으로').props.onClick());
+    act(()=>button(view!,'이어서 살펴보기').props.onClick());
+    expect(view!.root.findByType('input').props.value).toBe(27);
+    expect(JSON.stringify(view!.toJSON())).toContain('이제 다시 보고');
+    act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+    expect(parseJournal(storage.get(journalKey('guest'))!).entries.light).toBeTruthy();
+    confirm.mockReturnValue(true);
+    act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+    expect(parseJournal(storage.get(journalKey('guest'))!).entries.light).toBeUndefined();
+    expect(button(view!,'선택했어요').props.disabled).toBe(true);
+    act(()=>view!.unmount());
+  });
 
-describe('taste notebook', () => {
-  it('shows an original accessible illustration and a direct source', () => {
-    let view: ReactTestRenderer;
-    act(() => { view = create(<TasteNotebook />); });
-    expect(view!.root.findByType('svg').props['aria-label']).toContain('같은 크기');
-    expect(view!.root.findByType('a').props.href).toContain('nationalgallery.org.uk');
-    expect(JSON.stringify(view!.toJSON())).toContain('점수에 반영하지 않습니다');
-    act(() => view!.unmount());
-  });
-  it('switches among three notes without collecting answers', () => {
-    let view: ReactTestRenderer;
-    act(() => { view = create(<TasteNotebook />); });
-    const buttons = view!.root.findAllByType('button');
-    act(() => buttons[1].props.onClick());
-    expect(view!.root.findByType('h2').children.join('')).toContain('미니멀리즘');
-    expect(view!.root.findAllByType('svg')).toHaveLength(0);
-    expect(buttons[1].props['aria-pressed']).toBe(true);
-    act(() => buttons[2].props.onClick());
-    expect(view!.root.findByType('h2').children.join('')).toBe('열려 있지만 구분된 공간');
-    expect(view!.root.findAllByType('input')).toHaveLength(0);
-    act(() => view!.unmount());
-  });
 });
