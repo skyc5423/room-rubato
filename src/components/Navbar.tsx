@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePersonaStore } from '@/lib/persona-store';
 import { DemographicProfile } from '@/lib/types';
-import { isSupabaseConfigured } from '@/lib/supabase';
 
 const GENDER_OPTIONS: {
   value: NonNullable<DemographicProfile['gender']>;
@@ -49,16 +48,19 @@ export function Navbar() {
   const {
     state,
     isHydrated,
+    syncError,
+    retrySync,
     authUser,
     loginWithEmail,
     loginWithGoogle,
     logoutToGuest,
-    deleteAccountAndData,
+    deletePersonaData,
     updateDemographics,
   } = usePersonaStore();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState<'google' | 'email'>('google');
+  const [emailMode, setEmailMode] = useState<'signin' | 'signup'>('signin');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [consentAgreed, setConsentAgreed] = useState(false);
@@ -113,7 +115,7 @@ export function Navbar() {
       type: 'success',
       text: res.isNewUser
         ? 'Google 계정 연결 및 비식별 취향 프로필 생성이 완료되었습니다.'
-        : 'Google 계정으로 저장된 내 방을 불러왔습니다.',
+        : 'Google 인증 페이지로 이동합니다.',
     });
   };
 
@@ -132,6 +134,7 @@ export function Navbar() {
     const res = await loginWithEmail({
       email: emailInput,
       password: passwordInput,
+      mode: emailMode,
       consentAgreed,
       demographics,
     });
@@ -149,21 +152,23 @@ export function Navbar() {
     setPasswordInput('');
     setFeedbackMsg({
       type: 'success',
-      text: res.isNewUser
+      text: res.needsEmailConfirmation
+        ? '확인 메일을 보냈습니다. 이메일의 링크를 연 뒤 로그인해 주세요.'
+        : res.isNewUser
         ? '이메일 회원가입 및 비식별 취향 프로필 생성이 완료되었습니다.'
-        : '이메일 계정으로 저장된 내 방을 불러왔습니다.',
+        : '인증되었습니다. 프로필을 불러옵니다.',
     });
   };
 
   const handleDeleteAccount = async () => {
     setIsLoading(true);
-    const res = await deleteAccountAndData();
+    const res = await deletePersonaData();
     setIsLoading(false);
     setConfirmDelete(false);
     if (res.ok) {
       setFeedbackMsg({
         type: 'success',
-        text: '계정과 모든 취향 데이터가 서버 및 브라우저에서 영구 파기되었습니다.',
+        text: '취향 프로필을 삭제했습니다. 로그인 계정은 유지되며, 새 응답은 다시 저장됩니다.',
       });
     } else {
       setFeedbackMsg({
@@ -384,26 +389,23 @@ export function Navbar() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[#010D6E]/70">
-                        취향 DB 익명 ID (UUID)
+                        취향 DB 가명 ID (UUID)
                       </span>
                       <span className="font-mono text-[11.5px] text-[#0042AF] font-semibold">
                         {authUser.userUuid}
                       </span>
                     </div>
                     <p className="text-[11px] text-[#010D6E]/65 pt-1 border-t border-[#0042AF]/10">
-                      ✓ 취향 분석 테이블에는 이메일 없이 위 익명 UUID와 성별·연령대만 분리 저장됩니다.
+                      ✓ 취향 분석 테이블에는 이메일 없이 위 가명 UUID와 성별·연령대만 분리 저장됩니다.
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        logoutToGuest();
-                        setFeedbackMsg({
-                          type: 'success',
-                          text: '로그아웃되어 게스트 모드로 전환되었습니다.',
-                        });
+                      onClick={async () => {
+                        const result = await logoutToGuest();
+                        setFeedbackMsg({ type: result.ok ? 'success' : 'error', text: result.ok ? '로그아웃되어 게스트 모드로 전환되었습니다.' : result.error || '로그아웃 실패' });
                       }}
                       className="flex-1 py-2 rounded-xl border border-[#0042AF]/30 text-[12px] font-semibold text-[#010D6E] hover:bg-[#FEF1D0]"
                     >
@@ -416,7 +418,7 @@ export function Navbar() {
                         onClick={() => setConfirmDelete(true)}
                         className="px-3 py-2 rounded-xl border border-[#D4653B]/40 text-[11.5px] text-[#D4653B] hover:bg-[#D4653B]/10"
                       >
-                        계정·데이터 영구 파기
+                        취향 프로필 삭제
                       </button>
                     ) : (
                       <button
@@ -425,7 +427,7 @@ export function Navbar() {
                         onClick={handleDeleteAccount}
                         className="px-3 py-2 rounded-xl bg-[#D4653B] text-[#FFFDF7] text-[11.5px] font-semibold"
                       >
-                        정말 삭제할까요? (즉시 파기)
+                        취향 데이터만 삭제할까요?
                       </button>
                     )}
                   </div>
@@ -442,7 +444,7 @@ export function Navbar() {
                         className="mt-0.5 rounded border-[#0042AF]"
                       />
                       <span className="text-[11.5px] text-[#010D6E] leading-[1.45]">
-                        <strong>[필수]</strong> 개인정보(이메일 해시) 분리 보관 및 비식별 취향·통계 데이터 수집·이용에 동의합니다.
+                        <strong>[필수]</strong> 개인정보(이메일) 분리 보관 및 비식별 취향·통계 데이터 수집·이용에 동의합니다.
                       </span>
                     </label>
                     <button
@@ -456,13 +458,13 @@ export function Navbar() {
                     {showPrivacyDetail && (
                       <div className="mt-2 p-2.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/15 text-[11px] text-[#010D6E]/75 space-y-1 leading-[1.45]">
                         <p>
-                          <strong>1. 수집 항목:</strong> 이메일(단방향 SHA-256 해시로만 인증 금고에 보관), 성별·연령대 구간·직군, 12개 분야 취향 응답
+                          <strong>1. 수집 항목:</strong> 이메일(Supabase Auth에서 계정 인증을 위해 보관), 성별·연령대 구간·직군, 12개 분야 취향 응답
                         </p>
                         <p>
-                          <strong>2. 비식별 분리 원칙:</strong> 취향 DB 테이블에는 이메일·이름을 저장하지 않고 무작위 익명 번호(UUID)로만 분리 저장합니다.
+                          <strong>2. 비식별 분리 원칙:</strong> 취향 DB 테이블에는 이메일·이름을 저장하지 않고 무작위 가명 번호(UUID)로만 분리 저장합니다.
                         </p>
                         <p>
-                          <strong>3. 파기 권리:</strong> 프로필 메뉴의 [계정·데이터 영구 파기] 클릭 시 서버와 브라우저에서 즉시 삭제됩니다.
+                          <strong>3. 파기 권리:</strong> 프로필 메뉴의 [취향 프로필 삭제] 클릭 시 현재 취향 프로필이 삭제됩니다. 로그인 계정은 유지됩니다.
                         </p>
                       </div>
                     )}
@@ -508,15 +510,6 @@ export function Navbar() {
 
                   {authTab === 'google' ? (
                     <form onSubmit={handleGoogleSubmit} className="space-y-2">
-                      {!isSupabaseConfigured && (
-                        <input
-                          type="email"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          placeholder="연결할 Google 이메일 (예: myname@gmail.com)"
-                          className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
-                        />
-                      )}
                       <button
                         type="submit"
                         disabled={isLoading}
@@ -537,6 +530,12 @@ export function Navbar() {
                     </form>
                   ) : (
                     <form onSubmit={handleEmailSubmit} className="space-y-2">
+                      <label className="text-xs">이메일 인증 방식
+                        <select value={emailMode} onChange={(e) => setEmailMode(e.target.value as 'signin' | 'signup')} className="ml-2 p-1 rounded">
+                          <option value="signin">기존 계정 로그인</option>
+                          <option value="signup">새 계정 가입</option>
+                        </select>
+                      </label>
                       <input
                         type="email"
                         value={emailInput}
@@ -558,13 +557,14 @@ export function Navbar() {
                       >
                         {isLoading
                           ? '인증 처리 중...'
-                          : '이메일로 로그인 / 신규 시작하기'}
+                          : (emailMode === 'signup' ? '새 계정 가입' : '이메일 로그인')}
                       </button>
                     </form>
                   )}
                 </div>
               )}
 
+              {syncError && <div role="alert" className="text-xs text-red-700">{syncError}{authUser && <button type="button" onClick={retrySync} className="ml-2 underline">저장 재시도</button>}</div>}
               {feedbackMsg && (
                 <p
                   className={`mt-2.5 text-[11.5px] font-medium ${

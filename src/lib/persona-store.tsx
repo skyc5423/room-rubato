@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import {
   clampUnit,
   computeResponseConviction,
@@ -20,7 +20,8 @@ import {
   Layer3AestheticVector,
   MasterDomain,
 } from './types';
-import { isSupabaseConfigured, supabase } from './supabase';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
 export interface PersonaState {
   demographics?: DemographicProfile;
@@ -43,20 +44,23 @@ interface PersonaContextValue {
   state: PersonaState;
   isHydrated: boolean;
   currentUserId: string;
+  syncError: string | null;
+  retrySync: () => void;
   authUser: AuthSessionUser | null;
   loginWithEmail: (payload: {
     email: string;
     password: string;
+    mode?: 'signin' | 'signup';
     consentAgreed: boolean;
     demographics?: DemographicProfile;
-  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
+  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean; needsEmailConfirmation?: boolean }>;
   loginWithGoogle: (payload: {
     googleEmail?: string;
     consentAgreed: boolean;
     demographics?: DemographicProfile;
-  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean }>;
-  logoutToGuest: () => Promise<void>;
-  deleteAccountAndData: () => Promise<{ ok: boolean; error?: string }>;
+  }) => Promise<{ ok: boolean; error?: string; isNewUser?: boolean; needsEmailConfirmation?: boolean }>;
+  logoutToGuest: () => Promise<{ ok: boolean; error?: string }>;
+  deletePersonaData: () => Promise<{ ok: boolean; error?: string }>;
   updateDemographics: (patch: Partial<DemographicProfile>) => void;
   recordQuestionChoice: (payload: {
     domain: MasterDomain;
@@ -82,7 +86,10 @@ interface PersonaContextValue {
   resetAllData: () => void;
 }
 
-const STORAGE_KEY = 'room_rubato_persona_state_v2';
+// Never reuse the legacy shared key: it may contain another account's data.
+const STORAGE_KEY = 'room_rubato_guest_state_v4';
+const CONSENT_KEY = 'room_rubato_pending_consent_v1';
+const CONSENT_VERSION = '2026-11-10';
 const AUTH_SESSION_KEY = 'room_rubato_auth_session_v3';
 
 const INITIAL_DEMO_TIMESTAMP = '2026-11-06T09:00:00.000Z';
@@ -254,393 +261,197 @@ const PersonaContext = createContext<PersonaContextValue | null>(null);
 export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PersonaState>(DEFAULT_STATE);
   const [authUser, setAuthUser] = useState<AuthSessionUser | null>(null);
-  const [sessionToken, setSessionToken] = useState<string>('');
   const [isHydrated, setIsHydrated] = useState(false);
-
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const owner = useRef<string | null>(null);
+  const generation = useRef(0);
+  const lastSaved = useRef('');
+  const writes = useRef<Promise<void>>(Promise.resolve());
+  const paused = useRef(false);
+  const consent = useRef<string | null>(null);
   const currentUserId = authUser ? authUser.maskedEmail : '게스트';
 
-  useEffect(() => {
-    let savedSession: {
-      userUuid: string;
-      maskedEmail: string;
-      provider: 'google' | 'email';
-      sessionToken: string;
-    } | null = null;
-
+  const loadGuest = () => {
     try {
-      const rawSession = localStorage.getItem(AUTH_SESSION_KEY);
-      if (rawSession) {
-        savedSession = JSON.parse(rawSession);
-        if (savedSession?.userUuid && savedSession?.sessionToken) {
-          setAuthUser({
-            userUuid: savedSession.userUuid,
-            maskedEmail: savedSession.maskedEmail,
-            provider: savedSession.provider,
-          });
-          setSessionToken(savedSession.sessionToken);
-        }
-      }
+      return sanitizePersonaState(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
+    } catch { return DEFAULT_STATE; }
+  };
 
-      const storageKey = savedSession?.userUuid
-        ? `${STORAGE_KEY}_${savedSession.userUuid}`
-        : STORAGE_KEY;
-      const rawState =
-        localStorage.getItem(storageKey) ??
-        localStorage.getItem(STORAGE_KEY) ??
-        localStorage.getItem('room_rubato_persona_state_v1');
-      if (rawState) {
-        setState(sanitizePersonaState(JSON.parse(rawState)));
-      }
-    } catch (e) {
-      console.error('Failed to load persona state:', e);
-    }
-
-    // Supabase Auth 세션 확인 (설정된 경우)
+  useEffect(() => {
+    let alive = true;
     const sb = supabase;
-    if (isSupabaseConfigured && sb) {
-      sb.auth
-        .getSession()
-        .then(async ({ data: { session } }) => {
-          if (session?.user) {
-            const uid = session.user.id;
-            const email = session.user.email || 'user@google.com';
-            const [local, domain] = email.split('@');
-            const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
-            const prov =
-              session.user.app_metadata?.provider === 'google'
-                ? 'google'
-                : 'email';
-            setAuthUser({ userUuid: uid, maskedEmail: masked, provider: prov });
-
-            const { data: row } = await sb
-              .from('persona_profiles')
-              .select('state')
-              .eq('user_id', uid)
-              .single();
-            if (row?.state) {
-              setState(sanitizePersonaState(row.state as Partial<PersonaState>));
-            }
-          }
-        })
-        .catch(() => {})
-        .finally(() => setIsHydrated(true));
-      return;
-    }
-
-    if (!savedSession?.userUuid || !savedSession?.sessionToken) {
-      setIsHydrated(true);
-      return;
-    }
-
-    fetch(
-      `/api/users?userUuid=${encodeURIComponent(savedSession.userUuid)}`,
-      {
-        headers: {
-          'x-session-token': savedSession.sessionToken,
-        },
-      }
-    )
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.user?.state) {
-          setState(sanitizePersonaState(data.user.state));
+    // Old demo sessions are not proof of authentication.
+    try { localStorage.removeItem(AUTH_SESSION_KEY); } catch { /* Storage may be unavailable. */ }
+    const hydrate = async (session: Session | null) => {
+      const id = ++generation.current;
+      owner.current = null;
+      consent.current = null;
+      setIsHydrated(false);
+      setAuthUser(null);
+      setState(DEFAULT_STATE);
+      setSyncError(null);
+      if (!session?.user || !sb) {
+        if (alive) {
+          const guest = loadGuest();
+          lastSaved.current = JSON.stringify(guest);
+          setState(guest);
+          setIsHydrated(true);
         }
-      })
-      .catch(() => {})
-      .finally(() => {
+        return;
+      }
+      const user = session.user;
+      try {
+        const { data: row, error } = await sb.from('persona_profiles')
+          .select('state, consent_agreed_at').eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
+        if (!alive || id !== generation.current) return;
+        let agreedAt = row?.consent_agreed_at || user.user_metadata?.consent_agreed_at;
+        if (!agreedAt) {
+          try {
+            const pending = JSON.parse(sessionStorage.getItem(CONSENT_KEY) || 'null');
+            if (pending?.version === CONSENT_VERSION && Date.now() - Date.parse(pending.at) < 15 * 60 * 1000) agreedAt = pending.at;
+          } catch { /* No valid pending consent. */ }
+        }
+        if (!agreedAt) throw new Error('동의 기록을 확인할 수 없습니다. 로그아웃 후 동의하고 다시 로그인해 주세요.');
+        // OAuth accounts need a durable consent record even before their first
+        // response and after profile reset. This metadata is NOT authorization.
+        if (!user.user_metadata?.consent_agreed_at) {
+          const { error: consentError } = await sb.auth.updateUser({ data: {
+            consent_agreed_at: agreedAt, consent_version: CONSENT_VERSION,
+          } });
+          if (consentError) throw consentError;
+          if (!alive || id !== generation.current) return;
+        }
+        try { sessionStorage.removeItem(CONSENT_KEY); } catch { /* Optional storage. */ }
+        consent.current = agreedAt;
+        // Never silently migrate a shared browser's guest profile into an account.
+        const loaded = sanitizePersonaState(row?.state);
+        lastSaved.current = JSON.stringify(loaded);
+        owner.current = user.id;
+        setState(loaded);
+        const [local, domain] = (user.email || 'user@auth').split('@');
+        setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
         setIsHydrated(true);
-      });
+      } catch (error) {
+        if (!alive || id !== generation.current) return;
+        setSyncError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+        // Fail closed: no writes after failed profile loading.
+        setIsHydrated(false);
+      }
+    };
+    if (!sb) { void hydrate(null); return () => { alive = false; }; }
+    // The callback must remain synchronous: Supabase calls here can deadlock.
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && session?.user.id === owner.current)) return;
+      owner.current = null;
+      ++generation.current;
+      setIsHydrated(false);
+      setAuthUser(null);
+      setState(DEFAULT_STATE);
+      setTimeout(() => { if (alive) void hydrate(session); }, 0);
+    });
+    return () => { alive = false; ++generation.current; subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    try {
-      const storageKey = authUser?.userUuid
-        ? `${STORAGE_KEY}_${authUser.userUuid}`
-        : STORAGE_KEY;
-      localStorage.setItem(storageKey, JSON.stringify(state));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) {
-      console.error('Failed to save persona state:', e);
-    }
-
-    // 비로그인 게스트 모드는 브라우저 로컬에만 저장
-    if (!authUser?.userUuid) return;
-
-    // 1) Supabase 연동 시 public.persona_profiles 테이블에 익명 UUID로만 저장
-    if (isSupabaseConfigured && supabase) {
-      const completedCount = Object.keys(state.completedDomains).length;
-      supabase
-        .from('persona_profiles')
-        .upsert({
-          user_id: authUser.userUuid,
-          gender: state.demographics?.gender || 'unspecified',
-          age_group: state.demographics?.ageGroup || 'unspecified',
-          occupation: state.demographics?.occupation || 'unspecified',
-          completed_count: completedCount,
-          state,
-          updated_at: new Date().toISOString(),
-        })
-        .then(() => {});
+    if (!isHydrated || paused.current) return;
+    if (!authUser) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch { setSyncError('브라우저 저장 공간에 저장하지 못했습니다.'); }
       return;
     }
-
-    // 2) 기본 서버 Vault 모드: 이메일 없이 오직 userUuid + sessionToken으로만 취향 프로필 동기화
-    if (!sessionToken) return;
-    fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'sync',
-        userUuid: authUser.userUuid,
-        sessionToken,
-        state,
-      }),
-    }).catch(() => {});
-  }, [state, authUser, sessionToken, isHydrated]);
-
-  const loginWithEmail: PersonaContextValue['loginWithEmail'] = async ({
-    email,
-    password,
-    consentAgreed,
-    demographics,
-  }) => {
-    const nextState: PersonaState = demographics
-      ? {
-          ...state,
-          demographics: {
-            ...(state.demographics || {}),
-            ...demographics,
-          },
-        }
-      : state;
-
-    if (isSupabaseConfigured && supabase) {
-      // 먼저 로그인 시도 후 계정이 없으면 회원가입 진행
-      const signInRes = await supabase.auth.signInWithPassword({
-        email,
-        password,
+    const sb = supabase;
+    const uid = authUser.userUuid;
+    const serialized = JSON.stringify(state);
+    if (!sb || owner.current !== uid || serialized === lastSaved.current) return;
+    const id = generation.current;
+    const agreedAt = consent.current;
+    // Serialize writes so a slow earlier request cannot overwrite a newer state.
+    writes.current = writes.current.then(async () => {
+      if (id !== generation.current || owner.current !== uid) return;
+      const { error } = await sb.from('persona_profiles').upsert({
+        user_id: uid, state,
+        gender: state.demographics?.gender || 'unspecified',
+        age_group: state.demographics?.ageGroup || 'unspecified',
+        occupation: state.demographics?.occupation || 'unspecified',
+        completed_count: Object.keys(state.completedDomains).length,
+        consent_agreed_at: agreedAt, consent_version: CONSENT_VERSION,
+        updated_at: new Date().toISOString(),
       });
-      if (signInRes.error) {
-        if (!consentAgreed) {
-          return {
-            ok: false,
-            error:
-              '신규 가입 시 [필수] 개인정보 및 비식별 취향 데이터 수집·이용에 동의해 주세요.',
-          };
-        }
-        const signUpRes = await supabase.auth.signUp({ email, password });
-        if (signUpRes.error || !signUpRes.data.user) {
-          return {
-            ok: false,
-            error: signUpRes.error?.message || '회원가입에 실패했습니다.',
-          };
-        }
-        const uid = signUpRes.data.user.id;
-        const [local, domain] = email.split('@');
-        const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
-        setAuthUser({ userUuid: uid, maskedEmail: masked, provider: 'email' });
-        setState(nextState);
-        return { ok: true, isNewUser: true };
-      }
+      if (id !== generation.current) return;
+      if (error) setSyncError('서버 저장 실패: ' + error.message);
+      else { lastSaved.current = serialized; setSyncError(null); }
+    }).catch(() => { setSyncError('서버 연결에 실패해 변경 내용을 저장하지 못했습니다.'); });
+  }, [state, authUser, isHydrated]);
 
-      const uid = signInRes.data.user.id;
-      const [local, domain] = email.split('@');
-      const masked = `${(local || 'u').slice(0, 2)}***@${domain || 'auth'}`;
-      setAuthUser({ userUuid: uid, maskedEmail: masked, provider: 'email' });
-      const { data: row } = await supabase
-        .from('persona_profiles')
-        .select('state')
-        .eq('user_id', uid)
-        .single();
-      if (row?.state) {
-        setState(sanitizePersonaState(row.state as Partial<PersonaState>));
-      } else {
-        setState(nextState);
-      }
-      return { ok: true, isNewUser: false };
-    }
-
+  const loginWithEmail: PersonaContextValue['loginWithEmail'] = async ({ email, password, consentAgreed, mode = 'signin' }) => {
+    if (!supabase) return { ok: false, error: '로그인 서비스가 아직 설정되지 않았습니다. 게스트 모드만 이용할 수 있습니다.' };
     try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'auth',
-          provider: 'email',
-          email,
-          password,
-          consentAgreed,
-          state: nextState,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: data?.error || '로그인에 실패했습니다.',
-        };
+      if (mode === 'signup') {
+        if (!consentAgreed) return { ok: false, error: '신규 가입에는 개인정보 수집·이용 동의가 필요합니다.' };
+        const { data, error } = await supabase.auth.signUp({ email, password, options: {
+          emailRedirectTo: window.location.origin,
+          data: { consent_agreed_at: new Date().toISOString(), consent_version: CONSENT_VERSION },
+        } });
+        if (error) return { ok: false, error: error.message };
+        // A user without a session is NOT logged in (email verification enabled).
+        return { ok: true, isNewUser: true, needsEmailConfirmation: !data.session };
       }
-
-      const sessionObj = {
-        userUuid: data.userUuid,
-        maskedEmail: data.maskedEmail,
-        provider: 'email' as const,
-        sessionToken: data.sessionToken,
-      };
-      setAuthUser({
-        userUuid: sessionObj.userUuid,
-        maskedEmail: sessionObj.maskedEmail,
-        provider: 'email',
-      });
-      setSessionToken(sessionObj.sessionToken);
-      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionObj));
-
-      if (data?.state) {
-        setState(sanitizePersonaState(data.state));
-      } else {
-        setState(nextState);
-      }
-
-      return { ok: true, isNewUser: Boolean(data.isNewUser) };
-    } catch {
-      return { ok: false, error: '서버 연결 중 오류가 발생했습니다.' };
-    }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return error ? { ok: false, error: error.message } : { ok: true };
+    } catch { return { ok: false, error: '인증 서버에 연결하지 못했습니다.' }; }
   };
 
-  const loginWithGoogle: PersonaContextValue['loginWithGoogle'] = async ({
-    googleEmail,
-    consentAgreed,
-    demographics,
-  }) => {
-    const nextState: PersonaState = demographics
-      ? {
-          ...state,
-          demographics: {
-            ...(state.demographics || {}),
-            ...demographics,
-          },
-        }
-      : state;
-
-    if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo:
-            typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
-      });
-      if (error) {
-        return { ok: false, error: error.message };
-      }
+  const loginWithGoogle: PersonaContextValue['loginWithGoogle'] = async ({ consentAgreed }) => {
+    if (!supabase) return { ok: false, error: '로그인 서비스가 아직 설정되지 않았습니다.' };
+    if (!consentAgreed) return { ok: false, error: '개인정보 수집·이용에 동의해 주세요.' };
+    try {
+      sessionStorage.setItem(CONSENT_KEY, JSON.stringify({ version: CONSENT_VERSION, at: new Date().toISOString() }));
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+      if (error) { sessionStorage.removeItem(CONSENT_KEY); return { ok: false, error: error.message }; }
       return { ok: true };
-    }
-
-    const emailToUse = (googleEmail || '').trim().toLowerCase();
-    if (!emailToUse || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToUse)) {
-      return {
-        ok: false,
-        error: '연결할 Google 계정 이메일 주소를 입력해 주세요.',
-      };
-    }
-
-    try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'auth',
-          provider: 'google',
-          email: emailToUse,
-          consentAgreed,
-          state: nextState,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: data?.error || 'Google 로그인 처리에 실패했습니다.',
-        };
-      }
-
-      const sessionObj = {
-        userUuid: data.userUuid,
-        maskedEmail: data.maskedEmail,
-        provider: 'google' as const,
-        sessionToken: data.sessionToken,
-      };
-      setAuthUser({
-        userUuid: sessionObj.userUuid,
-        maskedEmail: sessionObj.maskedEmail,
-        provider: 'google',
-      });
-      setSessionToken(sessionObj.sessionToken);
-      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(sessionObj));
-
-      if (data?.state) {
-        setState(sanitizePersonaState(data.state));
-      } else {
-        setState(nextState);
-      }
-
-      return { ok: true, isNewUser: Boolean(data.isNewUser) };
-    } catch {
-      return { ok: false, error: '서버 연결 중 오류가 발생했습니다.' };
-    }
+    } catch { return { ok: false, error: 'Google 인증을 시작하지 못했습니다.' }; }
   };
 
-  const logoutToGuest = async () => {
-    if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut().catch(() => {});
-    }
-    setAuthUser(null);
-    setSessionToken('');
+  const logoutToGuest: PersonaContextValue['logoutToGuest'] = async () => {
+    const id = generation.current;
+    paused.current = true;
+    await writes.current;
     try {
-      localStorage.removeItem(AUTH_SESSION_KEY);
-    } catch {}
+      if (id !== generation.current) return { ok: false, error: '계정이 변경되어 로그아웃을 취소했습니다.' };
+      if (supabase) {
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        if (error) return { ok: false, error: error.message };
+      }
+      ++generation.current;
+      owner.current = null;
+      setAuthUser(null);
+      setState(loadGuest());
+      setIsHydrated(true);
+      return { ok: true };
+    } catch { return { ok: false, error: '로그아웃하지 못했습니다. 다시 시도해 주세요.' }; }
+    finally { paused.current = false; setState((previous) => ({ ...previous })); }
   };
 
-  const deleteAccountAndData: PersonaContextValue['deleteAccountAndData'] =
-    async () => {
-      if (!authUser) {
-        setState(BLANK_ROOM_STATE);
-        return { ok: true };
-      }
-
-      try {
-        if (isSupabaseConfigured && supabase) {
-          await supabase
-            .from('persona_profiles')
-            .delete()
-            .eq('user_id', authUser.userUuid);
-          await supabase.auth.signOut();
-        } else if (sessionToken) {
-          const res = await fetch('/api/users', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userUuid: authUser.userUuid,
-              sessionToken,
-            }),
-          });
-          if (!res.ok) {
-            return { ok: false, error: '데이터 파기 요청에 실패했습니다.' };
-          }
-        }
-
-        localStorage.removeItem(`${STORAGE_KEY}_${authUser.userUuid}`);
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(AUTH_SESSION_KEY);
-        setAuthUser(null);
-        setSessionToken('');
-        setState(BLANK_ROOM_STATE);
-        return { ok: true };
-      } catch {
-        return { ok: false, error: '삭제 중 오류가 발생했습니다.' };
-      }
-    };
+  // This resets persona data only. Supabase Auth account deletion is an admin operation.
+  const deletePersonaData: PersonaContextValue['deletePersonaData'] = async () => {
+    const id = generation.current;
+    const uid = owner.current;
+    paused.current = true;
+    await writes.current;
+    try {
+      if (id !== generation.current || uid !== owner.current) return { ok: false, error: '계정이 변경되어 삭제를 취소했습니다.' };
+      if (authUser && supabase) {
+        const { error } = await supabase.from('persona_profiles').delete().eq('user_id', authUser.userUuid);
+        if (error) return { ok: false, error: error.message };
+      } else localStorage.removeItem(STORAGE_KEY);
+      if (id !== generation.current || uid !== owner.current) return { ok: false, error: '삭제 중 계정이 변경되었습니다. 현재 계정의 데이터는 유지됩니다.' };
+      lastSaved.current = JSON.stringify(BLANK_ROOM_STATE);
+      setState(BLANK_ROOM_STATE);
+      return { ok: true };
+    } catch { return { ok: false, error: '취향 데이터 삭제에 실패했습니다.' }; }
+    finally { paused.current = false; setState((previous) => ({ ...previous })); }
+  };
 
   const updateDemographics = (patch: Partial<DemographicProfile>) => {
     setState((prev) => ({
@@ -870,11 +681,13 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         state,
         isHydrated,
         currentUserId,
+        syncError,
+        retrySync: () => setState((previous) => ({ ...previous })),
         authUser,
         loginWithEmail,
         loginWithGoogle,
         logoutToGuest,
-        deleteAccountAndData,
+        deletePersonaData,
         updateDemographics,
         recordQuestionChoice,
         recordDailyPulseShift,
