@@ -86,6 +86,7 @@ export default function DailyPulsePage() {
           <h1 className="font-editorial text-[28px] sm:text-[34px] text-[#010D6E]">
             오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
           </h1>
+          <p className="text-[13px] text-[#010D6E]/70 mt-2">현재 두 가지 질문을 제공해요. 다음 날 같은 질문에 다시 답할 수 있어요.</p>
         </div>
 
         <div className="flex gap-2">

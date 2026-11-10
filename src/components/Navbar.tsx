@@ -216,7 +216,7 @@ export function Navbar() {
         {/* Top-Left Brand Mark */}
         <Link
           href="/"
-          className="pointer-events-auto group inline-flex items-center gap-3 bg-[#FFF9EB]/95 backdrop-blur-md px-4 py-2 rounded-full border border-[#0042AF]/30 shadow-[0_6px_20px_-6px_rgba(1,13,110,0.12)] hover:border-[#0042AF] transition-all"
+          className="pointer-events-auto group shrink-0 inline-flex items-center gap-3 bg-[#FFF9EB]/95 backdrop-blur-md px-4 py-2 rounded-full border border-[#0042AF]/30 shadow-[0_6px_20px_-6px_rgba(1,13,110,0.12)] hover:border-[#0042AF] transition-all"
         >
           <span className="relative flex h-6 w-6 items-center justify-center rounded-full border border-[#0042AF] bg-[#FEF1D0] text-[#0042AF] transition-transform duration-500 group-hover:rotate-45">
             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
@@ -224,10 +224,10 @@ export function Navbar() {
             </svg>
           </span>
           <div className="flex items-baseline gap-2.5">
-            <span className="font-display italic font-semibold text-[21px] sm:text-[23px] tracking-[-0.01em] text-[#010D6E] leading-none">
+            <span className="whitespace-nowrap font-display italic font-semibold text-[21px] sm:text-[23px] tracking-[-0.01em] text-[#010D6E] leading-none">
               Room Rubato
             </span>
-            <span className="hidden md:inline-block text-[12.5px] text-[#0042AF] font-medium">
+            <span className="hidden xl:inline-block text-[12.5px] text-[#0042AF] font-medium">
               내가 아는 취향으로 아직 모르는 취향 찾기
             </span>
           </div>

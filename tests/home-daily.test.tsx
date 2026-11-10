@@ -70,3 +70,15 @@ it('cancels an in-flight question transition when the room dialog closes', () =>
     expect(store.recordQuestionChoice).not.toHaveBeenCalled();
   } finally {act(()=>view?.unmount());vi.useRealTimers();}
 });
+
+it('does not claim personal traits or peer results before any questionnaire is complete', () => {
+  let view: any;
+  act(() => { view = create(<Page />); });
+  const text = JSON.stringify(view.toJSON());
+  expect(text).toContain('아직 완료한 분야가 없어요');
+  expect(text).toContain('아직 응답이 없어 개인화하지 않았습니다');
+  expect(text).not.toContain('공통점 3가지');
+  expect(text).not.toContain('나와 비슷한 사람들의 선택');
+  expect(text).not.toContain('클래식한 기본템을 선호함');
+  act(() => view.unmount());
+});

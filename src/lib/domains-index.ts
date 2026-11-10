@@ -159,7 +159,7 @@ export function predictUnplayedDomainPhenotype(
       ? `이미 취향을 찾은 [${sourceDomainNames.slice(0, 3).join(' · ')}]에서`
       : '지금까지 고르신 항목에서';
 
-  const bridgeExplanation = `${sourceLabel} ‘${traitText}’을 선호하셨어요. 이 특징과 연결해 [${targetDomain.shortTitle}]의 「${bestPheno.name}」를 먼저 살펴보는 건 어떨까요? 실제로 좋아할지는 직접 골라 확인해 보세요.`;
+  const bridgeExplanation = completedIds.length === 0 ? `아직 응답이 없어 개인화하지 않았습니다. [${targetDomain.shortTitle}] 질문부터 시작해 보세요.` : `${sourceLabel} ‘${traitText}’을 선호하셨어요. 이 특징과 연결해 [${targetDomain.shortTitle}]의 「${bestPheno.name}」를 먼저 살펴보는 건 어떨까요? 실제로 좋아할지는 직접 골라 확인해 보세요.`;
 
   return {
     predictedPhenotype: bestPheno,

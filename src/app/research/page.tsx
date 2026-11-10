@@ -20,7 +20,7 @@ export default function ResearchPage() {
               My Taste Summary
             </p>
             <h1 className="font-editorial text-[26px] md:text-[34px] text-[#010D6E] leading-[1.35] mb-3">
-              내 취향 요약 — 내가 고른 취향과 성향 데이터
+              내가 고른 취향
             </h1>
             <p className="text-[14.5px] text-[#0042AF]/85 leading-[1.7] max-w-[680px]">
               완료한 분야의 선택과 응답 시간을 모았습니다. 아래 점수는 운영자가 정한 문항 가중치의 요약이며, 검증된 성격 검사·진단이나 다른 사람과 비교한 백분위가 아닙니다.
@@ -97,10 +97,10 @@ export default function ResearchPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <section className="paper-sheet rounded-3xl p-6">
             <div className="font-display italic text-[15px] text-[#0042AF] mb-1">
-              Layer 01 · Temperament
+              Layer 01 · Experimental Scores
             </div>
             <h2 className="font-editorial text-[18px] text-[#010D6E] mb-4">
-              기질과 태도
+              문항 가중치 요약 · 실험 중
             </h2>
             <div className="space-y-2 text-[13.5px]">
               {[
@@ -119,7 +119,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -158,7 +158,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -186,7 +186,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
                   </span>
                 </div>
               ))}

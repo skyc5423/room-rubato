@@ -128,7 +128,7 @@ export default function HomePage() {
         isCompleted: false,
         domain,
         roomObj,
-        headline: `예상 스타일: ${pred.predictedPhenotype.name}`,
+        headline: completedDomainIds.length > 0 ? `살펴볼 스타일: ${pred.predictedPhenotype.name}` : `${domain.shortTitle} 살펴보기`,
         body:
           completedDomainIds.length > 0
             ? pred.bridgeExplanation
@@ -254,30 +254,17 @@ export default function HomePage() {
   };
 
   const roomCommonTraits = useMemo(() => {
+    if (completedDomainIds.length === 0) return [];
     const l3 = state.layer3Vector;
     const lines: string[] = [];
-    if (l3.complexity <= -0.2) {
-      lines.push('장식이 많거나 복잡한 것보다 깔끔하고 단정한 스타일을 선호함');
-    } else if (l3.complexity >= 0.2) {
-      lines.push('단순한 기본형보다 질감이나 디테일이 살아있는 스타일을 선호함');
-    } else {
-      lines.push('너무 튀지도 너무 심심하지도 않은 적당한 포인트를 선호함');
-    }
-
-    if (l3.conceptualism >= 0.2) {
-      lines.push('겉모습뿐만 아니라 왜 그렇게 만들었는지 원리와 배경을 중요하게 봄');
-    } else {
-      lines.push('복잡한 설명보다 봤을 때 바로 편하고 직관적인 것을 좋아함');
-    }
-
-    if (l3.novelty >= 0.2) {
-      lines.push('남들이 다 사는 유행템보다 내 개성이 드러나는 새로운 시도를 좋아함');
-    } else {
-      lines.push('유행을 타지 않고 몇 년 동안 오래 쓸 수 있는 클래식한 기본템을 선호함');
-    }
-
+    if (l3.complexity <= -0.2) lines.push('이번 응답에서는 장식이 적고 단순한 쪽을 더 골랐어요.');
+    else if (l3.complexity >= 0.2) lines.push('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');
+    if (l3.conceptualism >= 0.2) lines.push('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');
+    else if (l3.conceptualism <= -0.2) lines.push('이번 응답에서는 설명보다 바로 느껴지는 인상을 더 골랐어요.');
+    if (l3.novelty >= 0.2) lines.push('이번 응답에서는 익숙한 것보다 새로운 시도를 더 골랐어요.');
+    else if (l3.novelty <= -0.2) lines.push('이번 응답에서는 새로운 시도보다 익숙한 스타일을 더 골랐어요.');
     return lines;
-  }, [state.layer3Vector]);
+  }, [state.layer3Vector, completedDomainIds.length]);
 
   const currentPulse =
     DAILY_PULSE_QUESTIONS[activePulseIdx] ?? DAILY_PULSE_QUESTIONS[0];
@@ -897,7 +884,7 @@ export default function HomePage() {
             </h2>
           </div>
           <p className="text-[14px] text-[#010D6E]/80 max-w-[460px]">
-            앞에서 고른 색감·질감과 연결해 다른 분야의 스타일을 골라봤어요. 분야가 달라지면 취향도 다를 수 있으니, 직접 비교해 보세요.
+            {completedDomainIds.length > 0 ? '앞에서 고른 색감·질감과 연결해 다른 분야의 스타일을 골라봤어요. 분야가 달라지면 취향도 다를 수 있으니, 직접 비교해 보세요.' : '아직 응답이 없어 취향을 요약하지 않았어요. 궁금한 분야 하나부터 골라보세요.'}
           </p>
         </div>
 
@@ -916,15 +903,18 @@ export default function HomePage() {
           <div className="lg:col-span-6 p-7 sm:p-10 border-b lg:border-b-0 border-[#0042AF]/15 flex flex-col justify-between bg-[#FFFDF7]/60">
             <div>
               <div className="flex items-center justify-between text-[12.5px] font-semibold text-[#0042AF] mb-4">
-                <span>1. 이미 취향을 확인한 분야</span>
+                <span>1. 내가 답한 분야</span>
                 <span>{completedDomainIds.length}개 완료</span>
               </div>
 
               <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-snug mb-4">
-                지금까지 고른 선택들의 공통점 3가지
+                {completedDomainIds.length > 0 ? '이번 선택에서 보이는 특징' : '아직 완료한 분야가 없어요'}
               </h3>
 
               <div className="space-y-2 mb-7 text-[14px] text-[#010D6E]/85 leading-[1.7] bg-[#FEF1D0]/55 rounded-2xl p-5 border border-[#0042AF]/20">
+                {roomCommonTraits.length === 0 && (
+                  <p>{completedDomainIds.length === 0 ? '답변을 마치면 여기에 선택 기록을 정리해 드려요.' : '현재 응답만으로는 한 방향의 특징을 요약하기 어려워요. 이것도 자연스러운 결과예요.'}</p>
+                )}
                 <ul className="space-y-2">
                   {roomCommonTraits.map((line, idx) => (
                     <li key={idx} className="flex items-start gap-2">
@@ -996,15 +986,15 @@ export default function HomePage() {
           <div className="lg:col-span-6 p-7 sm:p-10 flex flex-col justify-between bg-[#FFF9EB]">
             <div>
               <div className="flex items-center justify-between text-[12.5px] font-semibold text-[#D4653B] mb-4">
-                <span>2. 아직 안 해봤지만 잘 맞을 것 같은 분야</span>
+                <span>2. 다음에 살펴볼 분야</span>
                 <span>남은 분야 {unplayedDomains.length}개</span>
               </div>
 
               <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-snug mb-2">
-                왼쪽 취향을 바탕으로 예상해 본 내 스타일
+                {completedDomainIds.length > 0 ? '내 선택과 연결해 제안하는 스타일' : '여기서 시작해 보세요'}
               </h3>
               <p className="text-[13.5px] text-[#010D6E]/75 mb-6">
-                예상이 맞는지 버튼을 눌러 10~12개의 구체적인 장면 선택으로 직접 확인해 보세요.
+                분야별 질문에 답하며 어떤 스타일이 마음에 드는지 비교해 보세요.
               </p>
 
               <div className="space-y-4">
@@ -1033,7 +1023,7 @@ export default function HomePage() {
                       </div>
 
                       <p className="font-editorial text-[15.5px] text-[#010D6E] mb-1.5">
-                        예상 스타일: 「{item.predictedPhenotype.name}」
+                        {completedDomainIds.length > 0 ? `살펴볼 스타일: 「${item.predictedPhenotype.name}」` : `${item.domain.shortTitle}의 다양한 스타일`}
                       </p>
 
                       <p className="text-[13px] text-[#010D6E]/80 leading-[1.6] mb-3">
@@ -1104,10 +1094,10 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-7 border-b border-[#0042AF]/15">
             <div>
               <p className="text-[13px] font-bold text-[#0042AF] mb-1">
-                매일 1문항 · 생각 비교하기
+                두 가지 질문 · 같은 질문도 다른 날 다시 답할 수 있어요
               </p>
               <h2 className="font-editorial text-[24px] sm:text-[28px] text-[#010D6E]">
-                오늘의 질문 — 나와 비슷한 사람들의 선택은?
+                오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
               </h2>
             </div>
 
