@@ -15,7 +15,7 @@ export function TasteStudyDiagram({ kind, variation = 60, labels }: { kind: Less
     if (kind === 'context') return <g>{[0,1,2].map(i=><rect key={i} x={x+40+i*55} y={b?50+(i===1?35*t:0):50} width="38" height="95" fill={i===1?'#bd774b':'#416d68'} transform={b?`rotate(${i===1?15*t:0} ${x+40+i*55+19} 95)`:undefined}/>)}</g>;
     return <g>{Array.from({length:b?16:4},(_,i)=><circle key={i} cx={x+40+(i%4)*52} cy={45+Math.floor(i/4)*36} r={b?8+t*6:14} fill={i%3===0?'#b97952':'#3b7068'} opacity={0.6+(i%2)*0.4}/>)}</g>;
   };
-  return <svg viewBox="0 0 500 240" role="img" aria-label={`${labels[0]}와 ${labels[1]}를 비교하는 직접 만든 도식. ${kind === 'contrast' ? '가운데 사각형의 색 값은 같습니다.' : '실제 작품이나 검사 문항이 아닙니다.'}`} className="w-full rounded-2xl bg-[#f6f2e8]">
+  return <svg viewBox="0 0 500 240" role="img" aria-label={`비교 도식: A는 ${labels[0]}, B는 ${labels[1]}. ${kind === 'contrast' ? '가운데 사각형의 색 값은 같습니다.' : '실제 작품이나 검사 문항이 아닙니다.'}`} className="w-full rounded-2xl bg-[#f6f2e8]">
     <defs><radialGradient id={`shade-${id}`} cx="28%" cy="24%" r="80%"><stop offset="0" stopColor={`hsl(145 2% ${65+t*28}%)`}/><stop offset="1" stopColor={`hsl(145 2% ${48-t*30}%)`}/></radialGradient></defs>
     {panel(0,false)}{panel(260,true)}
     <text x="120" y="211" textAnchor="middle" fontSize="13" fill="#193a39">A · {labels[0]}</text><text x="380" y="211" textAnchor="middle" fontSize="13" fill="#193a39">B · {labels[1]}</text>

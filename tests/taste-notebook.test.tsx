@@ -67,4 +67,20 @@ describe('taste notebook',()=>{
     act(()=>view!.unmount());
   });
 
+  it('uses listening guidance without irrelevant diagram reset for music',()=>{
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    const card=view!.root.findAllByType('article').find(a=>a.findByType('h2').children.join('').includes('박자는 같은데'))!;
+    act(()=>card.findByType('button').props.onClick());
+    const rendered=JSON.stringify(view!.toJSON());
+    expect(rendered).toContain('A와 B를 차례로 들어보세요');
+    expect(rendered).toContain('먼저 듣기');
+    expect(rendered).not.toContain('먼저 도식을 움직여');
+    expect(rendered).not.toContain('도식 처음 설정으로');
+    expect(view!.root.findAllByType('input')).toHaveLength(0);
+    act(()=>button(view!,'A 쪽').props.onClick());
+    const entry=parseJournal(storage.get(journalKey('guest'))!).entries.syncopation;
+    expect(entry.beforeSetting).toBeUndefined();
+    act(()=>view!.unmount());
+  });
+
 });
