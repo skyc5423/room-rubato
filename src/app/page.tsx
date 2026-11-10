@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import { koreanDay } from '@/lib/daily-date';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_MASTER_DOMAINS,
   DAILY_PULSE_QUESTIONS,
@@ -21,6 +22,8 @@ import {
 export default function HomePage() {
   const {
     state,
+    isHydrated,
+    currentUserId,
     recordQuestionChoice,
     recordDailyPulseShift,
     recordCurationFeedback,
@@ -46,12 +49,12 @@ export default function HomePage() {
 
   // Section 3: Daily question state
   const [activePulseIdx, setActivePulseIdx] = useState(0);
-  const [pulsePhase, setPulsePhase] = useState<'initial' | 'nudge' | 'letter'>(
+  const [draftPulsePhase, setPulsePhase] = useState<'initial' | 'nudge' | 'letter'>(
     'initial'
   );
-  const [phase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
-  const [phase1Rt, setPhase1Rt] = useState<number>(1500);
-  const [phase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
+  const [draftPhase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
+  const [draftPhase1Rt, setPhase1Rt] = useState<number>(1500);
+  const [draftPhase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
   const pulseStartRef = useRef<number>(Date.now());
 
   const completedDomainIds = useMemo(
@@ -266,7 +269,29 @@ export default function HomePage() {
   const currentPulse =
     DAILY_PULSE_QUESTIONS[activePulseIdx] ?? DAILY_PULSE_QUESTIONS[0];
 
+  const [today, setToday] = useState(() => koreanDay(Date.now()));
+  useEffect(() => {
+    const refreshDay = () => setToday(koreanDay(Date.now()));
+    const timer = setInterval(refreshDay, 1000);
+    window.addEventListener('focus', refreshDay);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
+  }, []);
+  useEffect(() => {
+    setPulsePhase('initial');
+    setPhase1Choice(null);
+    setPhase2Choice(null);
+    pulseStartRef.current = Date.now();
+  }, [currentUserId, today]);
+  const savedPulse = state.dailyShiftLog.filter(
+    (entry) => entry.pulseId === currentPulse.id && koreanDay(entry.timestamp) === today
+  ).at(-1);
+  const pulsePhase = savedPulse ? 'letter' : draftPulsePhase;
+  const phase1Choice = savedPulse?.phase1Choice ?? draftPhase1Choice;
+  const phase2Choice = savedPulse?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
+  const phase1Rt = savedPulse?.phase1ResponseTimeMs ?? draftPhase1Rt;
+
   const handlePulsePhase1 = (choice: 'A' | 'B') => {
+    if (!isHydrated || savedPulse) return;
     const rt = Math.max(300, Date.now() - pulseStartRef.current);
     setPhase1Choice(choice);
     setPhase1Rt(rt);
@@ -274,7 +299,7 @@ export default function HomePage() {
   };
 
   const handlePulsePhase2 = (finalChoice: 'A' | 'B') => {
-    if (!phase1Choice) return;
+    if (!isHydrated || savedPulse || !phase1Choice) return;
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: currentPulse.id,
@@ -1112,7 +1137,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {pulsePhase === 'initial' && (
+          {!isHydrated && <p role="status">저장된 응답을 불러오는 중입니다.</p>}
+          {isHydrated && pulsePhase === 'initial' && (
             <div>
               <p className="text-[13px] text-[#D4653B] font-semibold mb-2">
                 {currentPulse.dayLabel}
@@ -1226,6 +1252,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setActivePulseIdx((idx) => (idx + 1) % DAILY_PULSE_QUESTIONS.length);
                     setPulsePhase('initial');
                     setPhase1Choice(null);
                     setPhase2Choice(null);
@@ -1233,7 +1260,7 @@ export default function HomePage() {
                   }}
                   className="text-[13px] font-semibold text-[#0042AF] underline underline-offset-4"
                 >
-                  질문 다시 해보기
+                  다른 질문 보기
                 </button>
               </div>
             </div>
