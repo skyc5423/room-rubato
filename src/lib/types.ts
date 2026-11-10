@@ -162,11 +162,6 @@ export interface DailyPulseQuestion {
     layer2Weights?: Partial<Omit<Layer2BehavioralVector, 'domainConviction'>>;
   };
   socialProofNudge: {
-    majorityOption: 'A' | 'B';
-    majorityPercent: number;
-    contrarianPhenotypeName: string;
-    contrarianOption: 'A' | 'B';
-    contrarianPercent: number;
     nudgePrompt: string;
   };
   yesterdayInsight: {

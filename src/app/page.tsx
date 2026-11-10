@@ -14,6 +14,7 @@ import {
   ROOM_OBJECTS,
 } from '@/lib/room-objects';
 import { RoomCanvas } from '@/components/RoomCanvas';
+import { RoomDialog } from '@/components/RoomDialog';
 import {
   SpecimenPlate,
   QUESTION_OPTION_IMAGES,
@@ -27,7 +28,6 @@ export default function HomePage() {
     recordQuestionChoice,
     recordDailyPulseShift,
     recordCurationFeedback,
-    applyAnchorPresetDemo,
     resetAllData,
   } = usePersonaStore();
 
@@ -46,6 +46,18 @@ export default function HomePage() {
   >([]);
   const [stampedOption, setStampedOption] = useState<'A' | 'B' | null>(null);
   const questionStartRef = useRef<number>(Date.now());
+  const choiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const choiceLockedRef = useRef(false);
+  const cancelPendingChoice = () => {
+    if (choiceTimerRef.current) clearTimeout(choiceTimerRef.current);
+    choiceTimerRef.current = null;
+    choiceLockedRef.current = false;
+  };
+  useEffect(() => {
+    setActiveDomainId(null);
+    cancelPendingChoice();
+    return cancelPendingChoice;
+  }, [currentUserId]);
 
   // Section 3: Daily question state
   const [activePulseIdx, setActivePulseIdx] = useState(0);
@@ -84,7 +96,7 @@ export default function HomePage() {
           ...pred,
         };
       })
-      .sort((a, b) => b.matchProbability - a.matchProbability);
+      .sort((a, b) => b.heuristicScore - a.heuristicScore);
   }, [unplayedDomains, state.layer3Vector, state.completedDomains]);
 
   // Info card when hovering an object in the room
@@ -131,6 +143,8 @@ export default function HomePage() {
   ]);
 
   const handleSelectRoomObject = (domainId: number) => {
+    if (!isHydrated) return;
+    cancelPendingChoice();
     setActiveDomainId(domainId);
     setHoveredDomainId(null);
     setQuestionIndex(0);
@@ -142,6 +156,7 @@ export default function HomePage() {
   };
 
   const handleOpenResultNote = (domainId: number) => {
+    cancelPendingChoice();
     setActiveDomainId(domainId);
     setHoveredDomainId(null);
     setOverlayMode('note');
@@ -156,6 +171,7 @@ export default function HomePage() {
   };
 
   const handleCloseOverlay = () => {
+    cancelPendingChoice();
     setActiveDomainId(null);
     setStampedOption(null);
   };
@@ -168,7 +184,8 @@ export default function HomePage() {
       : null;
 
   const handlePickPostcardOption = (chosen: 'A' | 'B') => {
-    if (!activeDomain || stampedOption !== null) return;
+    if (!isHydrated || !activeDomain || stampedOption !== null || choiceLockedRef.current) return;
+    choiceLockedRef.current = true;
     const currentQ = activeDomain.questions[questionIndex];
     if (!currentQ) return;
 
@@ -184,7 +201,9 @@ export default function HomePage() {
       },
     ];
 
-    setTimeout(() => {
+    choiceTimerRef.current = setTimeout(() => {
+      choiceTimerRef.current = null;
+      choiceLockedRef.current = false;
       if (questionIndex + 1 < activeDomain.questions.length) {
         setAnswers(nextAnswers);
         setQuestionIndex((prev) => prev + 1);
@@ -231,13 +250,7 @@ export default function HomePage() {
   const describeResponseTempo = (avgMs?: number) => {
     if (!avgMs) return '10~12개의 구체적인 장면 선택을 바탕으로 분석한 결과입니다.';
     const sec = (avgMs / 1000).toFixed(1);
-    if (avgMs <= 1600) {
-      return `문항당 평균 ${sec}초 만에 고민 없이 고르셨어요. 평소에도 이쪽 취향이 뚜렷한 편입니다.`;
-    }
-    if (avgMs <= 3500) {
-      return `문항당 평균 ${sec}초 동안 두 사진을 꼼꼼히 비교해보고 고르셨어요.`;
-    }
-    return `문항당 평균 ${sec}초 동안 천천히 고민하며 고르셨어요. 앞으로 선택할 때 아래 3가지 기준을 참고해 보세요.`;
+    return `문항당 평균 ${sec}초가 기록됐습니다. 읽는 속도나 중단 시간도 포함될 수 있어, 응답 시간만으로 취향의 확신을 판단하지 않습니다.`;
   };
 
   const roomCommonTraits = useMemo(() => {
@@ -384,20 +397,12 @@ export default function HomePage() {
                 {completedDomainIds.length > 0 ? (
                   <button
                     type="button"
-                    onClick={resetAllData}
+                    onClick={() => { if (window.confirm("저장된 취향 결과와 응답 기록을 모두 지울까요? 이 작업은 되돌릴 수 없습니다. 계정과 동의 기록은 유지됩니다.")) resetAllData(); }}
                     className="text-[#0042AF] hover:text-[#010D6E] underline underline-offset-4 font-semibold"
                   >
                     전체 초기화
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={applyAnchorPresetDemo}
-                    className="text-[#0042AF] hover:text-[#010D6E] underline underline-offset-4 font-semibold"
-                  >
-                    예시 3개(음악·기술·소비) 먼저 채우기
-                  </button>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -415,12 +420,12 @@ export default function HomePage() {
             IN-ROOM MODAL: 3-QUESTION VISUAL CHOICE OR RESULT VIEW
            ================================================================= */}
         {activeDomain && activeRoomObj && (
-          <div className="absolute inset-0 z-30 bg-[#FEF1D0]/85 backdrop-blur-[6px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <RoomDialog onClose={handleCloseOverlay}>
             {overlayMode === 'choose' ? (
               /* MODE A: 3-STEP VISUAL COMPARISON (WITH DEDICATED OPTION IMAGES) */
               <div className="w-full max-w-[980px] my-auto paper-sheet rounded-3xl p-5 sm:p-8">
                 {/* Top Header Strip */}
-                <div className="flex items-center justify-between gap-4 pb-4 mb-5 border-b border-[#0042AF]/15">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[#0042AF]/15">
                   <div className="flex items-center gap-2.5">
                     <span className="px-2.5 py-0.5 rounded-full bg-[#0042AF] text-[#FEF1D0] text-[12px] font-semibold">
                       {activeDomain.shortTitle} 취향 찾기
@@ -871,7 +876,7 @@ export default function HomePage() {
                 </div>
               )
             )}
-          </div>
+          </RoomDialog>
         )}
       </section>
 
@@ -888,11 +893,11 @@ export default function HomePage() {
               취향 연결 리포트
             </p>
             <h2 className="font-editorial text-[26px] sm:text-[32px] text-[#010D6E] leading-tight">
-              내가 아는 취향으로 예측해 본 다른 분야 취향
+              내 선택과 연결해 살펴볼 다른 분야
             </h2>
           </div>
           <p className="text-[14px] text-[#010D6E]/80 max-w-[460px]">
-            음악이나 기술에서 깔끔한 것을 좋아하는 사람은 옷을 입거나 방을 꾸밀 때도 비슷한 기준을 쓰는 경우가 많습니다. 이미 고른 결과를 바탕으로 아직 안 해본 분야의 취향을 예측해 봤습니다.
+            앞에서 고른 색감·질감과 연결해 다른 분야의 스타일을 골라봤어요. 분야가 달라지면 취향도 다를 수 있으니, 직접 비교해 보세요.
           </p>
         </div>
 
@@ -1069,15 +1074,8 @@ export default function HomePage() {
                     <button
                       key={robj.domainId}
                       type="button"
-                      onClick={() => {
-                        document
-                          .getElementById('room-stage')
-                          ?.scrollIntoView({ behavior: 'smooth' });
-                        setTimeout(
-                          () => handleSelectRoomObject(robj.domainId),
-                          420
-                        );
-                      }}
+                      aria-label={`${robj.domainLabel} (${robj.shortObject})`}
+                      onClick={() => handleSelectRoomObject(robj.domainId)}
                       className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors flex items-center gap-1.5 ${
                         done
                           ? 'bg-[#0042AF] text-[#FEF1D0]'
@@ -1186,7 +1184,7 @@ export default function HomePage() {
           {pulsePhase === 'nudge' && phase1Choice && (
             <div className="max-w-[760px] mx-auto py-4">
               <p className="text-[13px] font-bold text-[#D4653B] mb-2">
-                다른 사람들의 의견 참고하기
+                가상 상황에서 다시 골라보기
               </p>
               <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
                 {currentPulse.socialProofNudge.nudgePrompt}
@@ -1225,14 +1223,14 @@ export default function HomePage() {
                 </p>
                 <p className="font-editorial text-[17px] text-[#010D6E]">
                   {phase1Choice === phase2Choice
-                    ? `다수 의견(80%)과 상관없이 처음 고른 선택 ${phase2Choice}를 그대로 유지하셨습니다.`
-                    : `처음에는 선택 ${phase1Choice}를 고르셨다가, 주변 사람들의 의견을 참고해 선택 ${phase2Choice}로 바꾸셨습니다.`}
+                    ? `가상 상황을 읽은 뒤에도 처음 고른 선택 ${phase2Choice}를 그대로 유지하셨습니다.`
+                    : `처음에는 선택 ${phase1Choice}를 고르셨다가, 가상 상황을 읽고 선택 ${phase2Choice}로 바꾸셨습니다.`}
                 </p>
               </div>
 
               <div className="rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-6 sm:p-8 space-y-3.5">
                 <p className="text-[13px] font-bold text-[#0042AF]">
-                  어제 질문에 대한 다른 사람들의 답변 비교
+                  선택 뒤에 남는 질문 · 편집 노트
                 </p>
                 <h4 className="font-editorial text-[19px] sm:text-[21px] text-[#010D6E] leading-snug">
                   {currentPulse.yesterdayInsight.questionSummary}

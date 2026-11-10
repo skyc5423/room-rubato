@@ -84,7 +84,7 @@ export default function DailyPulsePage() {
             Daily Question
           </p>
           <h1 className="font-editorial text-[28px] sm:text-[34px] text-[#010D6E]">
-            오늘의 질문 — 남들의 의견과 내 생각 비교하기
+            오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
           </h1>
         </div>
 
@@ -152,7 +152,7 @@ export default function DailyPulsePage() {
         {phase === 'phase2' && (
           <div className="rounded-2xl bg-[#FEF1D0]/70 border border-[#0042AF]/25 p-6">
             <p className="font-display italic text-[16px] text-[#D4653B] mb-2">
-              잠시만요, 주변의 목소리가 들려옵니다
+              가상 상황입니다 · 실제 참여자 통계가 아닙니다
             </p>
             <p className="font-editorial text-[19px] text-[#010D6E] leading-[1.55] mb-5">
               {pulse.socialProofNudge.nudgePrompt}
@@ -184,11 +184,11 @@ export default function DailyPulsePage() {
           <div className="rounded-2xl bg-[#FEF1D0]/75 border border-[#0042AF]/25 p-6">
             <h3 className="font-editorial text-[19px] text-[#010D6E] mb-2">
               {didShift
-                ? '주변 사람들의 의견을 참고해 선택을 바꾸셨네요'
-                : '다수의 의견과 상관없이 처음 고른 내 생각을 그대로 유지하셨네요'}
+                ? '가상 상황을 읽고 선택을 바꾸셨네요'
+                : '가상 상황을 읽은 뒤에도 처음 선택을 유지하셨네요'}
             </h3>
             <p className="text-[14px] text-[#010D6E]/80">
-              처음 고르기까지 {(phase1TimeMs / 1000).toFixed(1)}초가 걸렸습니다. 아래에서 다른 사람들은 어떻게 답했는지 확인해 보세요.
+              처음 고르기까지 {(phase1TimeMs / 1000).toFixed(1)}초가 걸렸습니다. 이 시간만으로 확신이나 성격을 판단하지 않습니다.
             </p>
           </div>
         )}
@@ -196,7 +196,7 @@ export default function DailyPulsePage() {
 
       <section className="paper-sheet rounded-3xl p-7 md:p-10 space-y-5">
         <p className="font-display italic text-[16px] text-[#0042AF]">
-          Yesterday&apos;s Postscript
+          선택 뒤에 남는 질문 · 편집 노트
         </p>
         <h2 className="font-editorial text-[22px] text-[#010D6E]">
           {pulse.yesterdayInsight.questionSummary}

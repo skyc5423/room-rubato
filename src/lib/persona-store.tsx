@@ -22,6 +22,7 @@ import {
 } from './types';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { derivePersonaVectors } from './persona-scoring';
 
 export interface PersonaState {
   demographics?: DemographicProfile;
@@ -478,13 +479,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       axisWeightTotals[ax.axisKey] = 0;
     });
 
-    const nextL1 = { ...state.layer1Vector };
-    const nextL2 = {
-      ...state.layer2Vector,
-      domainConviction: { ...state.layer2Vector.domainConviction },
-    };
-    const nextL3 = { ...state.layer3Vector };
-
     const newTelemetry: ChoiceTelemetryEntry[] = [];
     let totalRt = 0;
 
@@ -508,40 +502,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       totalRt += ans.responseTimeMs;
       const qConviction = computeResponseConviction(ans.responseTimeMs);
 
-      const stepScale =
-        (0.75 / Math.max(3, domain.questions.length)) *
-        (0.5 + 0.5 * qConviction);
-
-      if (opt.layer3Weights) {
-        (Object.keys(opt.layer3Weights) as (keyof Layer3AestheticVector)[]).forEach(
-          (k) => {
-            const delta = opt.layer3Weights?.[k] ?? 0;
-            nextL3[k] = clampUnit(nextL3[k] + delta * stepScale);
-          }
-        );
-      }
-
-      if (opt.layer1Weights) {
-        (Object.keys(opt.layer1Weights) as (keyof Layer1CoreVector)[]).forEach(
-          (k) => {
-            const delta = opt.layer1Weights?.[k] ?? 0;
-            nextL1[k] = clampUnit(nextL1[k] + delta * stepScale);
-          }
-        );
-      }
-
-      if (opt.layer2Weights) {
-        (
-          Object.keys(opt.layer2Weights) as (keyof Omit<
-            Layer2BehavioralVector,
-            'domainConviction'
-          >)[]
-        ).forEach((k) => {
-          const delta = opt.layer2Weights?.[k] ?? 0;
-          nextL2[k] = clampUnit(nextL2[k] + delta * stepScale);
-        });
-      }
-
       newTelemetry.push({
         timestamp: new Date().toISOString(),
         domainId: domain.id,
@@ -561,7 +521,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     const avgRt =
       answers.length > 0 ? Math.round(totalRt / answers.length) : 2000;
     const domainConvictionScore = computeResponseConviction(avgRt);
-    nextL2.domainConviction[domain.id] = domainConvictionScore;
 
     const matched = matchDomainPhenotype(domain, axisScores);
 
@@ -574,17 +533,16 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       completedAt: new Date().toISOString(),
     };
 
-    setState((prev) => ({
-      ...prev,
-      layer1Vector: nextL1,
-      layer2Vector: nextL2,
-      layer3Vector: nextL3,
-      completedDomains: {
-        ...prev.completedDomains,
-        [domain.id]: completedResult,
-      },
-      choiceTelemetryLog: [...prev.choiceTelemetryLog, ...newTelemetry],
-    }));
+    setState((prev) => {
+      const completedDomains = { ...prev.completedDomains, [domain.id]: completedResult };
+      const choiceTelemetryLog = [...prev.choiceTelemetryLog, ...newTelemetry];
+      return {
+        ...prev,
+        ...derivePersonaVectors(choiceTelemetryLog, completedDomains, prev.dailyShiftLog),
+        completedDomains,
+        choiceTelemetryLog,
+      };
+    });
 
     return completedResult;
   };

@@ -7,7 +7,7 @@ import { ALL_MASTER_DOMAINS } from '@/lib/domains-index';
 import { getRoomObjectByDomainId } from '@/lib/room-objects';
 
 export default function ResearchPage() {
-  const { state, applyAnchorPresetDemo, resetAllData } = usePersonaStore();
+  const { state, resetAllData } = usePersonaStore();
   const completedList = Object.values(state.completedDomains);
 
   return (
@@ -23,21 +23,14 @@ export default function ResearchPage() {
               내 취향 요약 — 내가 고른 취향과 성향 데이터
             </h1>
             <p className="text-[14.5px] text-[#0042AF]/85 leading-[1.7] max-w-[680px]">
-              지금까지 완료한 12개 분야의 취향 결과와 선택에 걸린 시간, 그리고 세부 성향 지표를 한눈에 볼 수 있는 요약 페이지입니다.
+              완료한 분야의 선택과 응답 시간을 모았습니다. 아래 점수는 운영자가 정한 문항 가중치의 요약이며, 검증된 성격 검사·진단이나 다른 사람과 비교한 백분위가 아닙니다.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={applyAnchorPresetDemo}
-              className="btn-cream px-4 py-2 text-[12.5px]"
-            >
-              예시 데이터 불러오기 (3개 완료)
-            </button>
-            <button
-              type="button"
-              onClick={resetAllData}
+              onClick={() => { if (window.confirm("저장된 취향 결과와 응답 기록을 모두 지울까요? 이 작업은 되돌릴 수 없습니다. 계정과 동의 기록은 유지됩니다.")) resetAllData(); }}
               className="px-4 py-2 rounded-full border border-[#0042AF]/30 text-[12.5px] text-[#0042AF] hover:border-[#0042AF]"
             >
               초기화

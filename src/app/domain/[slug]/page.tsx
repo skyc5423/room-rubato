@@ -19,7 +19,7 @@ export default function DomainDetailPage() {
   const params = useParams<{ slug: string }>();
   const domain = getDomainBySlug(params.slug);
   const roomObj = getRoomObjectBySlug(params.slug);
-  const { state, isHydrated, recordQuestionChoice, recordCurationFeedback } =
+  const { state, isHydrated, currentUserId, recordQuestionChoice, recordCurationFeedback } =
     usePersonaStore();
 
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -33,32 +33,20 @@ export default function DomainDetailPage() {
   const [viewMode, setViewMode] = useState<'questions' | 'result'>('questions');
 
   const questionStartRef = useRef<number>(Date.now());
+  const selectingRef = useRef(false);
 
   useEffect(() => {
     questionStartRef.current = Date.now();
+    selectingRef.current = false;
   }, [currentIdx, viewMode, params.slug]);
 
   useEffect(() => {
     setCurrentIdx(0);
     setAnswers([]);
-    setViewMode('questions');
-    if (typeof window !== 'undefined' && domain) {
-      const sp = new URLSearchParams(window.location.search);
-      const qParam = Number(sp.get('q'));
-      if (qParam >= 1 && qParam <= domain.questions.length) {
-        setCurrentIdx(qParam - 1);
-      }
-      if (sp.get('previewResult') === '1') {
-        const sampleAnswers = domain.questions.map((q, i) => ({
-          questionId: q.id,
-          chosenOption: (i % 2 === 0 ? 'A' : 'B') as 'A' | 'B',
-          responseTimeMs: 1400,
-        }));
-        recordQuestionChoice({ domain, answers: sampleAnswers });
-        setViewMode('result');
-      }
-    }
-  }, [params.slug, isHydrated]);
+    // URL parameters must never create synthetic answers or skip required questions.
+    setViewMode(isHydrated && domain && state.completedDomains[domain.id] ? 'result' : 'questions');
+  }, [params.slug, currentUserId, isHydrated]);
+
 
   if (!domain) {
     return (
@@ -73,12 +61,17 @@ export default function DomainDetailPage() {
     );
   }
 
+  if (!isHydrated) {
+    return <div role="status" className="max-w-[760px] mx-auto px-6 pt-32 pb-24">저장된 응답을 불러오는 중입니다.</div>;
+  }
+
   const existingCompletion = state.completedDomains[domain.id];
   const showResultView = viewMode === 'result';
   const currentQuestion = domain.questions[currentIdx] ?? domain.questions[0];
 
   const handleSelectOption = (choice: 'A' | 'B') => {
-    if (!currentQuestion || answers.length >= domain.questions.length) return;
+    if (!isHydrated || selectingRef.current || !currentQuestion || answers.length >= domain.questions.length) return;
+    selectingRef.current = true;
     const elapsed = Math.max(250, Date.now() - questionStartRef.current);
     const updated = [
       ...answers,

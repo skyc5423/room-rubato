@@ -57,18 +57,16 @@ export function clampUnit(val: number): number {
 }
 
 /**
- * 응답 시간(ms)을 바탕으로 해당 선택의 확신도(0~1)를 계산합니다.
- * 빠르게 고를수록(<1.5초) 평소 취향이 뚜렷한 영역이고, 오래 고민할수록(>4.5초) 아직 기준이 낯선 영역임을 뜻합니다.
+ * Legacy compatibility field, not a validated confidence measurement.
+ * A fixed neutral value avoids inferring certainty from reading/device speed.
+ * Historical stored records are left unchanged.
  */
-export function computeResponseConviction(responseTimeMs: number): number {
-  if (responseTimeMs <= 1200) return 0.95;
-  if (responseTimeMs >= 6000) return 0.25;
-  const ratio = (6000 - responseTimeMs) / (6000 - 1200);
-  return Number((0.25 + ratio * 0.7).toFixed(2));
+export function computeResponseConviction(_responseTimeMs: number): number {
+  return 0.5;
 }
 
 /**
- * 도메인 내 다차원 축 점수와 가장 가까운 취향 유형(Phenotype)을 유클리드 거리 기반으로 정밀 매칭합니다.
+ * 도메인 내 다차원 축 점수와 가장 가까운 취향 유형(Phenotype)을 유클리드 거리 기반으로 연결합니다. 검증된 성격 검사나 확률 모델은 아닙니다.
  */
 export function matchDomainPhenotype(
   domain: MasterDomain,
@@ -87,7 +85,7 @@ export function matchDomainPhenotype(
       distSq += diff * diff;
       dot += userVal * sigVal;
     }
-    // 유클리드 거리 역수(-distSq)에 방향 일치도(dot)를 결합해 중간 성향과 극단 성향을 모두 정확히 분류
+    // 유클리드 거리 역수(-distSq)에 방향 일치도(dot)를 결합해 중간 성향과 극단 성향을 연결하는 수작업 휴리스틱
     const combinedScore = -distSq + dot * 0.35;
     if (combinedScore > bestScore) {
       bestScore = combinedScore;
@@ -107,7 +105,7 @@ export function predictUnplayedDomainPhenotype(
   completedResults: Record<number, CompletedDomainResult>
 ): {
   predictedPhenotype: DomainPhenotype;
-  matchProbability: number;
+  heuristicScore: number;
   bridgeExplanation: string;
   sourceDomainNames: string[];
 } {
@@ -140,11 +138,6 @@ export function predictUnplayedDomainPhenotype(
     }
   }
 
-  const normalizedProb = Math.min(
-    94,
-    Math.max(68, Math.round(74 + bestScore * 12))
-  );
-
   const traits: string[] = [];
   if (userLayer3.complexity <= -0.25) traits.push('복잡한 장식보다 깔끔하고 정돈된 것');
   else if (userLayer3.complexity >= 0.25) traits.push('디테일과 질감이 풍부한 것');
@@ -159,25 +152,25 @@ export function predictUnplayedDomainPhenotype(
   else if (userLayer3.warmth <= -0.25) traits.push('단정하고 차분한 분위기');
 
   const traitText =
-    traits.length > 0 ? traits.slice(0, 2).join(', ') : '깔끔하고 균형 잡힌 스타일';
+    traits.length > 0 ? traits.slice(0, 2).join(', ') : '아직 뚜렷하게 구분되지 않은 여러 특징';
 
   const sourceLabel =
     sourceDomainNames.length > 0
       ? `이미 취향을 찾은 [${sourceDomainNames.slice(0, 3).join(' · ')}]에서`
       : '지금까지 고르신 항목에서';
 
-  const bridgeExplanation = `${sourceLabel} ‘${traitText}’을 선호하셨어요. 이런 분들은 [${targetDomain.shortTitle}]에서도 「${bestPheno.name}」 쪽을 골랐을 때 가장 만족도가 높습니다.`;
+  const bridgeExplanation = `${sourceLabel} ‘${traitText}’을 선호하셨어요. 이 특징과 연결해 [${targetDomain.shortTitle}]의 「${bestPheno.name}」를 먼저 살펴보는 건 어떨까요? 실제로 좋아할지는 직접 골라 확인해 보세요.`;
 
   return {
     predictedPhenotype: bestPheno,
-    matchProbability: normalizedProb,
+    heuristicScore: bestScore,
     bridgeExplanation,
     sourceDomainNames,
   };
 }
 
 /**
- * 오늘의 질문 & 어제 다른 성향의 사람들은 어떻게 답했는지 보여주는 리포트 데이터
+ * 편집된 질문과 가상 상황. 실제 이용자 집계나 연구 결과가 아닙니다.
  */
 export const DAILY_PULSE_QUESTIONS: DailyPulseQuestion[] = [
   {
@@ -202,23 +195,18 @@ export const DAILY_PULSE_QUESTIONS: DailyPulseQuestion[] = [
       layer2Weights: { riskAversion: -0.4, socialConformity: -0.6 },
     },
     socialProofNudge: {
-      majorityOption: 'A',
-      majorityPercent: 76,
-      contrarianPhenotypeName: '원리와 미래 구조를 파고드는 탐구자 (AI·우주)',
-      contrarianOption: 'B',
-      contrarianPercent: 68,
       nudgePrompt:
-        '만약 주변 사람들의 78%가 "첫 만남에서는 무조건 튀지 않는 기본 정석 스타일(A)이 훨씬 호감 간다"고 말한다면, 처음 고른 선택을 그대로 유지하시겠어요?',
+        '가상의 상황입니다. 주변 사람들이 "첫 만남에서는 무조건 튀지 않는 기본 정석 스타일(A)이 훨씬 호감 간다"고 말한다면, 처음 고른 선택을 그대로 유지하시겠어요?',
     },
     yesterdayInsight: {
       questionSummary:
-        '어제의 질문: "내가 입을 옷과 볼 영화를 AI가 내 취향에 맞춰 99% 정확도로 대신 골라준다면 맡기시겠어요?"',
+        '생각해 볼 질문: "내가 입을 옷과 볼 영화를 AI가 내 취향에 맞춰 99% 정확도로 대신 골라준다면 맡기시겠어요?"',
       crowdMajorityText:
-        '전체 참여자의 67.4%는 "고민할 시간이 줄어든다며 기꺼이 AI에게 선택을 맡긴다"를 골랐습니다.',
+        '고르는 시간을 줄이고 싶을 때는 추천을 맡기는 쪽이 편할 수 있습니다.',
       personaDivergenceText:
-        '반면 AI·우주와 음악 분야에서 자기 취향이 뚜렷한 사람들과 ‘핏과 소재 중심의 미니멀형’ 그룹은 81.2%가 "조금 헤매더라도 내가 직접 고르는 과정 자체가 내 삶이다"라며 반대로 답했습니다.',
+        '반대로 고르는 과정 자체를 즐긴다면 추천을 참고하되 직접 결정하고 싶을 수 있습니다.',
       keyTakeaway:
-        '내가 좋아하는 분야가 하나라도 분명한 사람일수록, 편리함보다 ‘내가 직접 고르는 주체성’을 훨씬 더 소중하게 여깁니다.',
+        '어떤 선택은 맡기고, 어떤 선택은 직접 하고 싶나요? 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다.',
     },
   },
   {
@@ -243,23 +231,18 @@ export const DAILY_PULSE_QUESTIONS: DailyPulseQuestion[] = [
       layer2Weights: { riskAversion: 0.6, socialConformity: 0.5 },
     },
     socialProofNudge: {
-      majorityOption: 'B',
-      majorityPercent: 82,
-      contrarianPhenotypeName: '사운드의 결과 구조를 듣는 리스너 (음악)',
-      contrarianOption: 'A',
-      contrarianPercent: 74,
       nudgePrompt:
-        '만약 영화 평론가들은 A를 올해 최고의 작품으로 꼽았지만, 내 친한 친구들 85%는 "보다가 잠들었다, 무조건 B를 봐라"고 말린다면 어느 쪽을 보시겠어요?',
+        '가상의 상황입니다. 영화 평론가들은 A를 올해 최고의 작품으로 꼽았지만, 친한 친구들은 "보다가 잠들었다, 무조건 B를 봐라"고 말린다면 어느 쪽을 보시겠어요?',
     },
     yesterdayInsight: {
       questionSummary:
-        '어제의 질문: "요즘 제일 유행하는 1시간 대기 맛집 vs 손님은 없지만 조용하고 정갈한 동네 식당"',
+        '생각해 볼 질문: "요즘 제일 유행하는 1시간 대기 맛집 vs 손님은 없지만 조용하고 정갈한 동네 식당"',
       crowdMajorityText:
-        '전체 참여자의 54%는 "그래도 왜 유명한지 한 번쯤은 줄 서서 먹어보고 싶다"고 답했습니다.',
+        '유명한 메뉴를 먹어보고 싶다면 기다리는 시간도 경험의 일부일 수 있습니다.',
       personaDivergenceText:
-        '하지만 ‘자율적인 몰입을 아끼는 사람’과 ‘조용한 자연에 머무는 여행자’ 유형은 무려 89.4%가 평균 1.1초 만에 "줄을 서는 순간 그 공간의 매력은 사라진다"며 조용한 동네 식당을 택했습니다.',
+        '조용히 쉬는 것이 목적이라면 대기 없는 식당이 더 맞을 수도 있습니다.',
       keyTakeaway:
-        '공간과 시간의 밀도를 중시하는 사람들에게는 ‘남들이 줄 서는 인기’가 매력이 아니라 오히려 피하고 싶은 소음으로 작동합니다.',
+        '오늘 외식에서 가장 원하는 것은 무엇인가요? 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다.',
     },
   },
 ];
