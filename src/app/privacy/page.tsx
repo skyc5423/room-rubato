@@ -9,7 +9,15 @@ export default function PrivacyPage() {
   return <article className="mx-auto max-w-3xl px-5 pb-20 pt-8 sm:pt-32 leading-7">
     <h1 className="text-3xl font-bold">데이터 저장·삭제 안내</h1>
     <p className="mt-4">설문 응답, 관찰실 기록, 로그인 계정은 서로 다른 데이터입니다. 한 곳에서 지웠다고 모두 삭제되는 것은 아니에요.</p>
-    <p className="mt-3 rounded-xl border border-[#0042AF]/20 bg-white/60 p-4 text-sm">현재 기능을 설명하는 안내입니다. 운영자·문의처, 보유기간과 연구 이용 방침을 포함한 정식 개인정보 처리방침은 아직 확정되지 않았습니다. 공개 서비스 준비가 끝난 상태는 아니에요. 메모에 민감한 개인정보를 입력하지 마세요.</p>
+    <p className="mt-3 rounded-xl border border-[#0042AF]/20 bg-white/60 p-4 text-sm">현재 기능을 설명하는 안내입니다. 보유기간·백업 파기와 계정 탈퇴 절차를 포함한 정식 개인정보 처리방침은 아직 확정되지 않았습니다. 공개 서비스 준비가 끝난 상태는 아니에요. 메모에 민감한 개인정보를 입력하지 마세요.</p>
+
+    <section className="mt-9" aria-labelledby="data-purpose">
+      <h2 id="data-purpose" className="text-xl font-semibold">이용 목적과 문의</h2>
+      <p className="mt-3">취향 응답과 관찰실 메모는 본인의 기록 저장·복원, 취향 요약과 탐색 기능을 제공하는 데 사용합니다. 서비스 연구·개선, 모델 학습이나 다른 이용자와의 통계 비교에 사용하지 않습니다.</p>
+      <p className="mt-3">성별·연령대·직군은 새로 입력받지 않습니다. 이전에 입력한 정보가 있다면 기존 기록에 남을 수 있으며 설문 프로필 초기화 범위에 포함됩니다.</p>
+      <p className="mt-3">서비스·개인정보 문의: <a className="underline" href="mailto:sangmin5423@gmail.com">sangmin5423@gmail.com</a></p>
+      <p className="mt-3 text-sm">문의할 때 비밀번호나 인증 코드는 보내지 마세요. 연락처를 통한 문의는 즉시 자동 삭제를 의미하지 않습니다.</p>
+    </section>
 
     <section className="mt-9" aria-labelledby="survey-data">
       <h2 id="survey-data" className="text-xl font-semibold">설문과 오늘의 질문</h2>

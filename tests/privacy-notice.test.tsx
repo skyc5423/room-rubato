@@ -10,4 +10,17 @@ it('separates survey reset, journals, backups and account deletion without claim
   expect(html).toContain('정식 개인정보 처리방침은 아직 확정되지 않았습니다');
   expect(html).toContain('계정에도 저장했다면');
   expect(html).toContain('로그인만으로 업로드하지 않으며');
+  expect(html).toContain('서비스 연구·개선, 모델 학습이나 다른 이용자와의 통계 비교에 사용하지 않습니다');
+  expect(html).toContain('mailto:sangmin5423@gmail.com');
+  expect(html).toContain('성별·연령대·직군은 새로 입력받지 않습니다');
+});
+
+it('does not ask for unused demographic information or broad statistical consent', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync('src/components/Navbar.tsx', 'utf8');
+  expect(source).not.toContain('GENDER_OPTIONS');
+  expect(source).not.toContain('AGE_OPTIONS');
+  expect(source).not.toContain('OCCUPATION_OPTIONS');
+  expect(source).not.toContain('취향·통계 데이터 수집');
+  expect(source).toContain('연구·서비스 개선에는 사용하지 않습니다');
 });

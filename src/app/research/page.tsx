@@ -23,7 +23,7 @@ export default function ResearchPage() {
               내가 고른 취향
             </h1>
             <p className="text-[14.5px] text-[#0042AF]/85 leading-[1.7] max-w-[680px]">
-              완료한 분야의 선택과 응답 시간을 모았습니다. 아래 점수는 운영자가 정한 문항 가중치의 요약이며, 검증된 성격 검사·진단이나 다른 사람과 비교한 백분위가 아닙니다.
+              본인이 완료한 분야의 선택과 응답 시간을 모았습니다. 서비스 연구·개선에는 사용하지 않습니다. 아래 점수는 운영자가 정한 문항 가중치의 요약이며, 검증된 성격 검사·진단이나 다른 사람과 비교한 백분위가 아닙니다.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ export default function ResearchPage() {
           )}
         </section>
 
-        {/* 4-Layer Underlying Vector Archive (For Social Simulation Ground Truth) */}
+        {/* Personal experimental summary; not a research dataset. */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <section className="paper-sheet rounded-3xl p-6">
             <div className="font-display italic text-[15px] text-[#0042AF] mb-1">

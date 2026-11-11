@@ -4,45 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePersonaStore } from '@/lib/persona-store';
-import { DemographicProfile } from '@/lib/types';
 import { isEmailSignupEnabled, EMAIL_SIGNUP_PAUSED_MESSAGE } from '@/lib/auth-availability';
-
-const GENDER_OPTIONS: {
-  value: NonNullable<DemographicProfile['gender']>;
-  label: string;
-}[] = [
-  { value: 'unspecified', label: '선택 안함' },
-  { value: 'female', label: '여성' },
-  { value: 'male', label: '남성' },
-  { value: 'other', label: '기타' },
-];
-
-const AGE_OPTIONS: {
-  value: NonNullable<DemographicProfile['ageGroup']>;
-  label: string;
-}[] = [
-  { value: 'unspecified', label: '선택 안함' },
-  { value: '10s', label: '10대' },
-  { value: '20s_early', label: '20대 초반 (20~24)' },
-  { value: '20s_late', label: '20대 후반 (25~29)' },
-  { value: '30s_early', label: '30대 초반 (30~34)' },
-  { value: '30s_late', label: '30대 후반 (35~39)' },
-  { value: '40s', label: '40대' },
-  { value: '50s_plus', label: '50대 이상' },
-];
-
-const OCCUPATION_OPTIONS: {
-  value: NonNullable<DemographicProfile['occupation']>;
-  label: string;
-}[] = [
-  { value: 'unspecified', label: '선택 안함' },
-  { value: 'tech_product', label: 'IT · 기획 · 개발' },
-  { value: 'design_art', label: '디자인 · 예술 · 창작' },
-  { value: 'business_office', label: '경영 · 사무 · 전문직' },
-  { value: 'research_edu', label: '학생 · 연구 · 교육' },
-  { value: 'freelance_creator', label: '자영업 · 프리랜서' },
-  { value: 'other', label: '기타' },
-];
 
 export function Navbar() {
   const pathname = usePathname();
@@ -56,7 +18,6 @@ export function Navbar() {
     loginWithGoogle,
     logoutToGuest,
     deletePersonaData,
-    updateDemographics,
   } = usePersonaStore();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -347,85 +308,7 @@ export function Navbar() {
 
               <Link href="/privacy" onClick={() => setIsAuthModalOpen(false)} className="mb-3 inline-flex min-h-11 items-center text-sm underline">데이터 저장·삭제 범위 보기</Link>
 
-              {/* Section 1: Non-PII Demographic Attributes (Always Editable) */}
-              <div className="mb-4 p-3.5 rounded-xl bg-[#FEF1D0]/45 border border-[#0042AF]/20 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-bold text-[#010D6E]">
-                    페르소나 기본 통계 정보 (성별 · 연령대 · 직군)
-                  </span>
-                  <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-[#0042AF]/10 text-[#0042AF] font-semibold">
-                    선택 입력 · 프로필 정보
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[11px] text-[#010D6E]/70 mb-1">
-                      성별
-                    </label>
-                    <select
-                      value={demographics.gender || 'unspecified'}
-                      onChange={(e) =>
-                        updateDemographics({
-                          gender: e.target
-                            .value as DemographicProfile['gender'],
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
-                    >
-                      {GENDER_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] text-[#010D6E]/70 mb-1">
-                      연령대
-                    </label>
-                    <select
-                      value={demographics.ageGroup || 'unspecified'}
-                      onChange={(e) =>
-                        updateDemographics({
-                          ageGroup: e.target
-                            .value as DemographicProfile['ageGroup'],
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
-                    >
-                      {AGE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] text-[#010D6E]/70 mb-1">
-                      직군/분야
-                    </label>
-                    <select
-                      value={demographics.occupation || 'unspecified'}
-                      onChange={(e) =>
-                        updateDemographics({
-                          occupation: e.target
-                            .value as DemographicProfile['occupation'],
-                        })
-                      }
-                      className="w-full px-2 py-1.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/25 text-[11.5px] text-[#010D6E] focus:outline-none focus:border-[#0042AF]"
-                    >
-                      {OCCUPATION_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
+              <p className="mb-4 text-xs leading-5 text-[#0042AF]/80">성별·연령대·직군은 새로 입력받지 않습니다. 응답과 메모는 본인의 서비스 이용에만 사용하며 연구·서비스 개선에는 사용하지 않습니다.</p>
 
               {/* Section 2: Logged-In View OR Login/Signup Form */}
               {authUser ? (
@@ -495,7 +378,7 @@ export function Navbar() {
                         className="mt-0.5 rounded border-[#0042AF]"
                       />
                       <span className="text-[11.5px] text-[#010D6E] leading-[1.45]">
-                        <strong>[필수]</strong> 계정 정보와 취향·통계 데이터 수집·이용에 동의합니다. 취향 기록은 계정과 연결됩니다.
+                        <strong>[필수]</strong> 본인의 기록 저장·복원과 취향 요약을 위한 계정 정보·취향 응답 수집·이용에 동의합니다. 연구·서비스 개선에는 사용하지 않습니다.
                       </span>
                     </label>
                     <button
@@ -509,10 +392,10 @@ export function Navbar() {
                     {showPrivacyDetail && (
                       <div className="mt-2 p-2.5 rounded-lg bg-[#FFFDF7] border border-[#0042AF]/15 text-[11px] text-[#010D6E]/75 space-y-1 leading-[1.45]">
                         <p>
-                          <strong>1. 수집 항목:</strong> 이메일(계정 인증), 취향 응답과 선택에 걸린 시간. 성별·연령대·직군은 선택 입력입니다.
+                          <strong>1. 수집 항목:</strong> 이메일(계정 인증), 취향 응답과 선택에 걸린 시간, 동의 기록. 관찰실 선택·메모는 계정 저장 버튼을 누를 때 전송됩니다. 성별·연령대·직군은 새로 수집하지 않습니다.
                         </p>
                         <p>
-                          <strong>2. 저장 방식:</strong> 취향 프로필은 이메일 대신 계정 ID(UUID)로 연결합니다. 계정과 연결할 수 있는 가명 정보이며 완전히 익명인 데이터가 아닙니다.
+                          <strong>2. 이용 목적과 저장 방식:</strong> 본인의 서비스 이용을 위한 저장·복원·요약에만 사용하며 연구·서비스 개선에 사용하지 않습니다. 취향 프로필은 이메일 대신 계정 ID(UUID)로 연결합니다. 계정과 연결할 수 있는 가명 정보이며 완전히 익명인 데이터가 아닙니다.
                         </p>
                         <p>
                           <strong>3. 초기화 범위:</strong> [설문 프로필 초기화]는 설문 응답과 요약을 비웁니다. 로그인 계정·동의·관찰실 기록은 유지됩니다. 전체 삭제 범위는 데이터 저장·삭제 안내를 확인해 주세요.
