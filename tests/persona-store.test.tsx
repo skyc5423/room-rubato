@@ -3,7 +3,7 @@ import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { PersonaProvider, usePersonaStore } from '../src/lib/persona-store';
 
-const mock = vi.hoisted(() => ({ callback: null as any, read: vi.fn(), save: vi.fn(), remove: vi.fn(), signin: vi.fn(), signup: vi.fn(), signout: vi.fn(), updateUser: vi.fn() }));
+const mock = vi.hoisted(() => { process.env.NEXT_PUBLIC_PERSONA_CAS_ENABLED = 'false'; return ({ callback: null as any, read: vi.fn(), save: vi.fn(), remove: vi.fn(), signin: vi.fn(), signup: vi.fn(), signout: vi.fn(), updateUser: vi.fn() }); });
 vi.mock('../src/lib/supabase', () => ({
   supabase: {
     auth: {

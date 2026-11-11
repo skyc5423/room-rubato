@@ -99,7 +99,7 @@ export function RoomCanvas({
     >
       {/* Main Zoomable Illustrated Room Stage */}
       <div
-        className="w-full h-full transition-transform duration-[850ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+        className="room-camera w-full h-full transition-transform duration-[850ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
         style={{
           transform: cameraTransform,
           transformOrigin: 'center center',
@@ -109,7 +109,7 @@ export function RoomCanvas({
           viewBox="0 0 1376 768"
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-full block bg-[#FEF1D0]"
-          role="img"
+          role="group"
           aria-label="Room Rubato — 열두 개의 사물이 놓인 나의 방 일러스트레이션"
         >
           <defs>
@@ -333,6 +333,8 @@ export function RoomCanvas({
                 transform={`translate(${obj.x}, ${obj.y})`}
                 onMouseEnter={() => onHoverObject(obj.domainId)}
                 onMouseLeave={() => onHoverObject(null)}
+                onFocus={() => onHoverObject(obj.domainId)}
+                onBlur={() => onHoverObject(null)}
                 onClick={() => onSelectObject(obj.domainId)}
                 className="cursor-pointer group"
                 role="button"

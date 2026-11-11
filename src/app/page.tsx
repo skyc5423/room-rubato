@@ -15,6 +15,7 @@ import {
 } from '@/lib/room-objects';
 import { RoomCanvas } from '@/components/RoomCanvas';
 import { RoomDialog } from '@/components/RoomDialog';
+import { DomainExplorer } from '@/components/DomainExplorer';
 import {
   SpecimenPlate,
   QUESTION_OPTION_IMAGES,
@@ -318,6 +319,7 @@ export default function HomePage() {
           <div className="rounded-2xl border border-[#0042AF]/20 bg-white/70 p-5"><p className="text-sm font-semibold">8개의 감상 활동 · 한 편에 3–4분</p><p className="mt-2 text-xs leading-6 text-[#010D6E]/70">설문 완료나 로그인 없이 시작할 수 있어요. 감상 기록은 이 브라우저에만 저장돼요.</p><a href="/notes" className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">관찰실에서 직접 살펴보기 →</a><a href="#room-stage" className="mt-3 inline-flex min-h-11 items-center text-sm text-[#0042AF] underline underline-offset-4">아래 방에서 분야별 취향 고르기 ↓</a></div>
         </div>
       </section>
+      <DomainExplorer completedIds={completedDomainIds} ready={isHydrated} onSelect={handleSelectRoomObject} />
       {/* =====================================================================
           SCENE 1: INTERACTIVE ILLUSTRATED ROOM (100SVH)
          ===================================================================== */}
@@ -384,7 +386,7 @@ export default function HomePage() {
             ) : (
               <div className="pointer-events-auto bg-[#FFF9EB]/95 backdrop-blur-md border border-[#0042AF]/30 rounded-full px-4 sm:px-5 py-2.5 shadow-[0_8px_24px_-8px_rgba(1,13,110,0.14)] flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
                 <span className="font-medium text-[#010D6E]">
-                  <strong>컬러 물건({completedDomainIds.length}개)</strong>은 이미 내 취향을 아는 분야이고, <strong>흑백 스케치 물건({12 - completedDomainIds.length}개)</strong>은 아직 안 해본 분야입니다. 방 안의 물건을 눌러 구체적인 실제 장면을 골라보세요.
+                  <strong>색이 채워진 물건 {completedDomainIds.length}개</strong>는 답한 분야예요. 아직 안 본 분야는 물건이나 위의 목록에서 골라보세요.
                 </span>
                 <span className="opacity-30 hidden sm:inline">|</span>
                 {completedDomainIds.length > 0 ? (

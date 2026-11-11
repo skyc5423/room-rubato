@@ -273,3 +273,13 @@ h1, h2, h3, h4, p, span, div, button, a, li {
   background: #0042AF;
   color: #FEF1D0;
 }
+
+/* Keyboard access must not require traversing every navigation link. */
+.skip-link { position: fixed; top: .75rem; left: .75rem; z-index: 100; padding: .75rem 1rem; background: #0042AF; color: white; border-radius: .5rem; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); outline: 3px solid #D4653B; outline-offset: 3px; }
+[id] { scroll-margin-top: 8rem; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .room-camera { transform: none !important; }
+}

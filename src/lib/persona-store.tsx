@@ -23,6 +23,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { derivePersonaVectors } from './persona-scoring';
+import { saveProfileCAS, type ProfileWrite } from './profile-cas';
 
 export interface PersonaState {
   demographics?: DemographicProfile;
@@ -47,6 +48,10 @@ interface PersonaContextValue {
   currentUserId: string;
   syncError: string | null;
   retrySync: () => void;
+  reloadServerProfile: () => Promise<void>;
+  syncConflict: boolean;
+  recoveryDraft: PersonaState | null;
+  clearRecoveryDraft: () => void;
   authUser: AuthSessionUser | null;
   loginWithEmail: (payload: {
     email: string;
@@ -92,6 +97,9 @@ const STORAGE_KEY = 'room_rubato_guest_state_v4';
 const CONSENT_KEY = 'room_rubato_pending_consent_v1';
 const CONSENT_VERSION = '2026-11-10';
 const AUTH_SESSION_KEY = 'room_rubato_auth_session_v3';
+// Enable only after CAS schema + permission cutover have been verified.
+const CAS_ENABLED = process.env.NEXT_PUBLIC_PERSONA_CAS_ENABLED === 'true';
+const draftKey = (uid: string) => `room_rubato_unsaved_profile_v1:${uid}`;
 
 const INITIAL_DEMO_TIMESTAMP = '2026-11-06T09:00:00.000Z';
 
@@ -264,6 +272,12 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [authUser, setAuthUser] = useState<AuthSessionUser | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncConflict, setSyncConflict] = useState(false);
+  const [recoveryDraft, setRecoveryDraft] = useState<PersonaState | null>(null);
+  const revision = useRef<string | null>(null);
+  const pendingWrite = useRef<{ write: ProfileWrite; serialized: string; reset?: boolean } | null>(null);
+  const blocked = useRef(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const owner = useRef<string | null>(null);
   const generation = useRef(0);
   const lastSaved = useRef('');
@@ -287,6 +301,8 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       const id = ++generation.current;
       owner.current = null;
       consent.current = null;
+      revision.current = null; pendingWrite.current = null; blocked.current = false;
+      setSyncConflict(false); setRecoveryDraft(null);
       setIsHydrated(false);
       setAuthUser(null);
       setState(DEFAULT_STATE);
@@ -303,7 +319,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       const user = session.user;
       try {
         const { data: row, error } = await sb.from('persona_profiles')
-          .select('state, consent_agreed_at').eq('user_id', user.id).maybeSingle();
+          .select('*').eq('user_id', user.id).maybeSingle();
         if (error) throw error;
         if (!alive || id !== generation.current) return;
         let agreedAt = row?.consent_agreed_at || user.user_metadata?.consent_agreed_at;
@@ -329,12 +345,23 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         const loaded = sanitizePersonaState(row?.state);
         lastSaved.current = JSON.stringify(loaded);
         owner.current = user.id;
+        revision.current = row?.revision || null;
+        if (CAS_ENABLED) {
+          try {
+            const draft = localStorage.getItem(draftKey(user.id));
+            if (draft && draft !== lastSaved.current) setRecoveryDraft(sanitizePersonaState(JSON.parse(draft)));
+            else if (draft) localStorage.removeItem(draftKey(user.id));
+          } catch { /* Recovery is best effort, never replaces the server profile. */ }
+        }
         setState(loaded);
         const [local, domain] = (user.email || 'user@auth').split('@');
         setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
         setIsHydrated(true);
       } catch (error) {
         if (!alive || id !== generation.current) return;
+        // Keep verified session identity visible so logout remains available.
+        const [local, domain] = (user.email || 'user@auth').split('@');
+        setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
         setSyncError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
         // Fail closed: no writes after failed profile loading.
         setIsHydrated(false);
@@ -346,13 +373,14 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && session?.user.id === owner.current)) return;
       owner.current = null;
       ++generation.current;
+      setRecoveryDraft(null); setSyncConflict(false); setSyncError(null);
       setIsHydrated(false);
       setAuthUser(null);
       setState(DEFAULT_STATE);
       setTimeout(() => { if (alive) void hydrate(session); }, 0);
     });
     return () => { alive = false; ++generation.current; subscription.unsubscribe(); };
-  }, []);
+  }, [reloadToken]);
 
   useEffect(() => {
     if (!isHydrated || paused.current) return;
@@ -367,9 +395,28 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     if (!sb || owner.current !== uid || serialized === lastSaved.current) return;
     const id = generation.current;
     const agreedAt = consent.current;
+    if (CAS_ENABLED) {
+      try { localStorage.setItem(draftKey(uid), serialized); } catch { /* Export remains available in memory. */ }
+    }
     // Serialize writes so a slow earlier request cannot overwrite a newer state.
     writes.current = writes.current.then(async () => {
       if (id !== generation.current || owner.current !== uid) return;
+      if (CAS_ENABLED) {
+        if (blocked.current) return;
+        const write: ProfileWrite = { ownerId: uid!, expectedRevision: revision.current, writeId: crypto.randomUUID(), state: state as unknown as Record<string, unknown>, consentAgreedAt: agreedAt!, consentVersion: CONSENT_VERSION };
+        pendingWrite.current = { write, serialized };
+        const result = await saveProfileCAS((name, args) => sb.rpc(name, args), write);
+        if (id !== generation.current || owner.current !== uid) return;
+        if (result.status === 'saved') {
+          revision.current = result.revision; pendingWrite.current = null;
+          lastSaved.current = serialized; setSyncError(null);
+          try { if (localStorage.getItem(draftKey(uid)) === serialized) localStorage.removeItem(draftKey(uid)); } catch { /* Optional recovery cache. */ }
+        } else {
+          blocked.current = true; setSyncConflict(result.status === 'conflict');
+          setSyncError(result.status === 'conflict' ? '다른 기기에서 기록이 바뀌었어요. 덮어쓰지 않고 저장을 멈췄어요. 이 기기의 기록을 내려받은 뒤 서버 기록을 불러와 주세요.' : '서버 저장 실패: ' + result.message);
+        }
+        return;
+      }
       const { error } = await sb.from('persona_profiles').upsert({
         user_id: uid, state,
         gender: state.demographics?.gender || 'unspecified',
@@ -426,6 +473,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       }
       ++generation.current;
       owner.current = null;
+      setRecoveryDraft(null); setSyncConflict(false); setSyncError(null);
       setAuthUser(null);
       setState(loadGuest());
       setIsHydrated(true);
@@ -442,7 +490,22 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     await writes.current;
     try {
       if (id !== generation.current || uid !== owner.current) return { ok: false, error: '계정이 변경되어 삭제를 취소했습니다.' };
-      if (authUser && supabase) {
+      if (authUser && supabase && CAS_ENABLED) {
+        if (blocked.current) return { ok: false, error: '저장 오류를 해결한 뒤 초기화해 주세요. 다른 기기 기록은 덮어쓰지 않습니다.' };
+        const write: ProfileWrite = { ownerId: uid!, expectedRevision: revision.current, writeId: crypto.randomUUID(), state: BLANK_ROOM_STATE as unknown as Record<string, unknown>, consentAgreedAt: consent.current!, consentVersion: CONSENT_VERSION };
+        const result = await saveProfileCAS((name, args) => supabase!.rpc(name, args), write);
+        if (id !== generation.current || uid !== owner.current) return { ok: false, error: '계정이 변경되어 초기화를 마무리하지 않았습니다.' };
+        if (result.status !== 'saved') {
+          pendingWrite.current = { write, serialized: JSON.stringify(BLANK_ROOM_STATE), reset: true };
+          blocked.current = true; setSyncConflict(result.status === 'conflict');
+          try { localStorage.setItem(draftKey(authUser.userUuid), JSON.stringify(state)); } catch { /* Keep in-memory state. */ }
+          const message = result.status === 'conflict' ? '다른 기기 기록이 바뀌었어요. 서버 기록을 먼저 불러와 주세요.' : '초기화 결과를 확인하지 못했어요. 다시 시도로 같은 요청의 결과를 확인해 주세요.';
+          setSyncError(message); return { ok: false, error: message };
+        }
+        revision.current = result.revision;
+        try { localStorage.removeItem(draftKey(authUser.userUuid)); } catch { /* Optional cache. */ }
+        setRecoveryDraft(null);
+      } else if (authUser && supabase) {
         const { error } = await supabase.from('persona_profiles').delete().eq('user_id', authUser.userUuid);
         if (error) return { ok: false, error: error.message };
       } else localStorage.removeItem(STORAGE_KEY);
@@ -452,6 +515,45 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       return { ok: true };
     } catch { return { ok: false, error: '취향 데이터 삭제에 실패했습니다.' }; }
     finally { paused.current = false; setState((previous) => ({ ...previous })); }
+  };
+
+  const retrySync = () => {
+    if (!isHydrated) { setReloadToken(v => v + 1); return; }
+    if (!CAS_ENABLED) { setState(previous => ({ ...previous })); return; }
+    if (syncConflict || !supabase || !authUser) return;
+    const pending = pendingWrite.current;
+    if (!pending) { blocked.current = false; setState(previous => ({ ...previous })); return; }
+    const id = generation.current; const uid = authUser.userUuid;
+    writes.current = writes.current.then(async () => {
+      if (id !== generation.current || owner.current !== uid) return;
+      const result = await saveProfileCAS((name, args) => supabase!.rpc(name, args), pending.write);
+      if (id !== generation.current || owner.current !== uid) return;
+      if (result.status === 'saved') {
+        revision.current = result.revision; lastSaved.current = pending.serialized;
+        pendingWrite.current = null; blocked.current = false; setSyncError(null);
+        if (pending.reset) {
+          // Do not re-upload the pre-reset state after an ambiguous reset succeeds.
+          // Preserve any local edits made while its response was unknown as a recovery copy.
+          try { const raw = localStorage.getItem(draftKey(uid)); if (raw) setRecoveryDraft(sanitizePersonaState(JSON.parse(raw))); } catch { /* Optional cache. */ }
+          setState(BLANK_ROOM_STATE);
+        } else {
+          try { if (localStorage.getItem(draftKey(uid)) === pending.serialized) localStorage.removeItem(draftKey(uid)); } catch { /* Optional cache. */ }
+          setState(previous => ({ ...previous }));
+        }
+      } else {
+        setSyncConflict(result.status === 'conflict');
+        setSyncError(result.status === 'conflict' ? '다른 기기에서 기록이 바뀌었어요. 이 기기 기록을 내려받은 뒤 서버 기록을 불러와 주세요.' : '서버 저장 실패: ' + result.message);
+      }
+    });
+  };
+  const reloadServerProfile = async () => {
+    // Caller confirms replacement. Never auto-merge or discard local drafts.
+    await writes.current;
+    setReloadToken(v => v + 1);
+  };
+  const clearRecoveryDraft = () => {
+    if (authUser) { try { localStorage.removeItem(draftKey(authUser.userUuid)); } catch { return; } }
+    setRecoveryDraft(null);
   };
 
   const updateDemographics = (patch: Partial<DemographicProfile>) => {
@@ -640,7 +742,11 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         isHydrated,
         currentUserId,
         syncError,
-        retrySync: () => setState((previous) => ({ ...previous })),
+        retrySync,
+        reloadServerProfile,
+        syncConflict,
+        recoveryDraft,
+        clearRecoveryDraft,
         authUser,
         loginWithEmail,
         loginWithGoogle,
