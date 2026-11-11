@@ -22,6 +22,7 @@ import {
 } from './types';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { isEmailSignupEnabled, EMAIL_SIGNUP_PAUSED_MESSAGE } from './auth-availability';
 import { derivePersonaVectors } from './persona-scoring';
 import { saveProfileCAS, type ProfileWrite } from './profile-cas';
 
@@ -355,12 +356,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         }
         setState(loaded);
         const [local, domain] = (user.email || 'user@auth').split('@');
-        setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
-        setIsHydrated(true);
-      } catch (error) {
-        if (!alive || id !== generation.current) return;
-        // Keep verified session identity visible so logout remains available.
-        const [local, domain] = (user.email || 'user@auth').split('@');
+        setAuth…93 tokens truncated…main] = (user.email || 'user@auth').split('@');
         setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
         setSyncError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
         // Fail closed: no writes after failed profile loading.
@@ -436,6 +432,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) return { ok: false, error: '로그인 서비스가 아직 설정되지 않았습니다. 게스트 모드만 이용할 수 있습니다.' };
     try {
       if (mode === 'signup') {
+        if (!isEmailSignupEnabled()) return { ok: false, error: EMAIL_SIGNUP_PAUSED_MESSAGE };
         if (!consentAgreed) return { ok: false, error: '신규 가입에는 개인정보 수집·이용 동의가 필요합니다.' };
         const { data, error } = await supabase.auth.signUp({ email, password, options: {
           emailRedirectTo: window.location.origin,

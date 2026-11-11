@@ -25,11 +25,12 @@ const tick = async () => { await act(async () => { await new Promise(r => setTim
 const emit = async (s: any) => { act(() => mock.callback(s ? 'SIGNED_IN' : 'SIGNED_OUT', s)); await tick(); };
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('NEXT_PUBLIC_EMAIL_SIGNUP_ENABLED', 'true');
   vi.stubGlobal('localStorage', memory()); vi.stubGlobal('sessionStorage', memory()); vi.stubGlobal('window', { location: { origin: 'https://room.example' } });
   mock.read.mockResolvedValue({ data: null, error: null }); mock.save.mockResolvedValue({ error: null }); mock.remove.mockResolvedValue({ error: null }); mock.signout.mockResolvedValue({ error: null }); mock.updateUser.mockResolvedValue({ error: null });
   act(() => { root = create(<PersonaProvider><Probe /></PersonaProvider>); });
 });
-afterEach(() => { act(() => root.unmount()); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => root.unmount()); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe('account isolation and persistence', () => {
   it('durably records OAuth consent before clearing pending callback storage', async () => {
     const oauth = session('alice'); oauth.user.user_metadata = {} as any;
@@ -69,6 +70,11 @@ describe('account isolation and persistence', () => {
   it('fails closed on profile read errors', async () => {
     mock.read.mockResolvedValueOnce({ error: new Error('network') }); await emit(session('alice'));
     expect(store.isHydrated).toBe(false); expect(store.syncError).toBe('network'); expect(mock.save).not.toHaveBeenCalled();
+  });
+  it('blocks email signup until the delivery and recovery launch gate is enabled', async () => {
+    vi.stubEnv('NEXT_PUBLIC_EMAIL_SIGNUP_ENABLED', 'false');
+    const result = await store.loginWithEmail({ email: 'alice@test.example', password: 'test-password', consentAgreed: true, mode: 'signup' });
+    expect(result.ok).toBe(false); expect(result.error).toContain('준비 중'); expect(mock.signup).not.toHaveBeenCalled();
   });
   it('does not authenticate a signup without an actual session', async () => {
     await emit(null); mock.signup.mockResolvedValue({ data: { user: { id: 'alice' }, session: null }, error: null });

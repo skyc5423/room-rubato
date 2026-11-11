@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { usePersonaStore } from '@/lib/persona-store';
 import { DemographicProfile } from '@/lib/types';
+import { isEmailSignupEnabled, EMAIL_SIGNUP_PAUSED_MESSAGE } from '@/lib/auth-availability';
 
 const GENDER_OPTIONS: {
   value: NonNullable<DemographicProfile['gender']>;
@@ -192,7 +193,7 @@ export function Navbar() {
     });
   };
 
-  const handleDeleteAccount = async () => {
+  const handleResetSurvey = async () => {
     setIsLoading(true);
     const res = await deletePersonaData();
     setIsLoading(false);
@@ -200,7 +201,7 @@ export function Navbar() {
     if (res.ok) {
       setFeedbackMsg({
         type: 'success',
-        text: '취향 프로필을 삭제했습니다. 로그인 계정은 유지되며, 새 응답은 다시 저장됩니다.',
+        text: '설문 프로필을 초기화했어요. 로그인 계정·동의 기록·관찰실 기록은 유지됩니다.',
       });
     } else {
       setFeedbackMsg({
@@ -344,6 +345,8 @@ export function Navbar() {
                 </button>
               </div>
 
+              <Link href="/privacy" onClick={() => setIsAuthModalOpen(false)} className="mb-3 inline-flex min-h-11 items-center text-sm underline">데이터 저장·삭제 범위 보기</Link>
+
               {/* Section 1: Non-PII Demographic Attributes (Always Editable) */}
               <div className="mb-4 p-3.5 rounded-xl bg-[#FEF1D0]/45 border border-[#0042AF]/20 space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -443,10 +446,11 @@ export function Navbar() {
                       </span>
                     </div>
                     <p className="text-[11px] text-[#010D6E]/65 pt-1 border-t border-[#0042AF]/10">
-                      ✓ 취향 분석 테이블에는 이메일 없이 위 가명 UUID와 성별·연령대만 분리 저장됩니다.
+                      취향 프로필에는 계정 ID와 연결된 응답·응답시간·선택한 기본 정보가 저장됩니다. 익명 정보는 아닙니다.
                     </p>
                   </div>
 
+                  {confirmDelete && <p className="rounded-lg bg-[#FEF1D0] p-3 text-xs leading-5" role="alert">설문 응답·응답시간·요약을 비웁니다. 로그인 계정, 동의 기록, 관찰실 기록은 지워지지 않습니다. 초기화 후 이 화면에서 응답을 복구할 수 없습니다.</p>}
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
@@ -465,16 +469,16 @@ export function Navbar() {
                         onClick={() => setConfirmDelete(true)}
                         className="px-3 py-2 rounded-xl border border-[#D4653B]/40 text-[11.5px] text-[#D4653B] hover:bg-[#D4653B]/10"
                       >
-                        취향 프로필 삭제
+                        설문 프로필 초기화
                       </button>
                     ) : (
                       <button
                         type="button"
                         disabled={isLoading}
-                        onClick={handleDeleteAccount}
+                        onClick={handleResetSurvey}
                         className="px-3 py-2 rounded-xl bg-[#D4653B] text-[#FFFDF7] text-[11.5px] font-semibold"
                       >
-                        취향 데이터만 삭제할까요?
+                        설문 응답을 비울까요?
                       </button>
                     )}
                   </div>
@@ -511,7 +515,7 @@ export function Navbar() {
                           <strong>2. 저장 방식:</strong> 취향 프로필은 이메일 대신 계정 ID(UUID)로 연결합니다. 계정과 연결할 수 있는 가명 정보이며 완전히 익명인 데이터가 아닙니다.
                         </p>
                         <p>
-                          <strong>3. 파기 권리:</strong> 프로필 메뉴의 [취향 프로필 삭제] 클릭 시 현재 취향 프로필이 삭제됩니다. 로그인 계정은 유지됩니다.
+                          <strong>3. 초기화 범위:</strong> [설문 프로필 초기화]는 설문 응답과 요약을 비웁니다. 로그인 계정·동의·관찰실 기록은 유지됩니다. 전체 삭제 범위는 데이터 저장·삭제 안내를 확인해 주세요.
                         </p>
                       </div>
                     )}
@@ -551,7 +555,7 @@ export function Navbar() {
                           : 'text-[#010D6E]/75 hover:text-[#010D6E]'
                       }`}
                     >
-                      이메일 로그인/가입
+                      이메일 로그인
                     </button>
                   </div>
 
@@ -571,16 +575,17 @@ export function Navbar() {
                         <span>
                           {isLoading
                             ? '인증 처리 중...'
-                            : 'Google 계정으로 1초 만에 시작하기'}
+                            : 'Google 계정으로 시작하기'}
                         </span>
                       </button>
                     </form>
                   ) : (
                     <form onSubmit={handleEmailSubmit} className="space-y-2">
+                      {!isEmailSignupEnabled() && <p className="text-xs leading-relaxed">{EMAIL_SIGNUP_PAUSED_MESSAGE}</p>}
                       <label className="text-xs">이메일 인증 방식
                         <select value={emailMode} onChange={(e) => setEmailMode(e.target.value as 'signin' | 'signup')} className="ml-2 p-1 rounded">
                           <option value="signin">기존 계정 로그인</option>
-                          <option value="signup">새 계정 가입</option>
+                          {isEmailSignupEnabled() && <option value="signup">새 계정 가입</option>}
                         </select>
                       </label>
                       <input
@@ -594,7 +599,9 @@ export function Navbar() {
                         type="password"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="비밀번호 (6자 이상)"
+                        placeholder="비밀번호"
+                        aria-label="비밀번호"
+                        autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
                         className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
                       />
                       <button

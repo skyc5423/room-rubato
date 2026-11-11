@@ -51,7 +51,7 @@ export default function RootLayout({
                 </span>
               </div>
               <div className="text-[12px] text-[#0042AF]/75">
-                12가지 일상 분야의 취향 탐색기
+                <a href="/privacy" className="inline-flex min-h-11 items-center underline">데이터 저장·삭제 안내</a>
               </div>
             </div>
           </footer>

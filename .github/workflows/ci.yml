@@ -1,0 +1,43 @@
+name: Quality checks
+on:
+  pull_request:
+  push:
+    branches: [main, deploy/room-rubato]
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_PERSONA_CAS_ENABLED: 'true'
+      NEXT_PUBLIC_TASTE_CLOUD_SYNC: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Public-route smoke test on local production build
+        shell: bash
+        run: |
+          npm start -- -H 127.0.0.1 > /tmp/room-rubato-start.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          READY=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then READY=1; break; fi
+            sleep 1
+          done
+          test "$READY" = 1
+          node scripts/smoke.mjs http://127.0.0.1:3000

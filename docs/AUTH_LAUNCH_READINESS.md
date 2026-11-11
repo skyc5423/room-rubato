@@ -1,0 +1,26 @@
+# Authentication launch readiness (2026-11-11)
+
+## Verified
+- Current app calls Google signInWithOAuth without extra scopes.
+- Unauthenticated production authorize endpoint redirects to accounts.google.com with scope `email profile` (no token or secret captured).
+- Google documentation exempts basic identity-only requests from test-user allowlist and seven-day expiration rules. Therefore Testing does not by itself prove Room Rubato is restricted to registered testers. A second non-listed real account is still untested, and Workspace policies may block access.
+- Cloud Console remains `Site Unavailable` from the current cloud browser. No Google configuration changed.
+
+## Email launch gate
+`NEXT_PUBLIC_EMAIL_SIGNUP_ENABLED` defaults off. UI does not offer new email signup and the application handler rejects it. Existing email sign-in remains. This is an app guard, **not an auth-provider enforcement control**: direct Supabase signup endpoints retain current settings.
+Enable only after custom SMTP, confirmed email delivery, recovery UI/redirect handling, abuse limits and secret storage have been tested. Never disable email confirmation to evade delivery failures.
+Default Supabase SMTP is restricted to organization-team recipients and documented as two messages/hour, best-effort only. Custom SMTP requires a sender/provider/domain decision; no account, purchase or external email has been created/sent here.
+
+## Leaked password protection
+Supabase documents this as Pro-plan-and-above. Current Free project cannot be treated as fixed by a simple toggle. Keep Google authentication primary; do not upgrade plan or disable existing email accounts without the corresponding decision/approval.
+
+## Google production path
+Google Auth Platform > Audience > Publish app. Brand/name/logo verification is separate from sensitive/restricted-scope verification. Basic profile/email login does not require expanding permissions. Before public launch confirm real support contact, valid public privacy page, accurate brand/domain ownership and real-account access. No publishing or verification submission was performed.
+
+## Sources
+- https://support.google.com/cloud/answer/15549945?hl=en
+- https://developers.google.com/identity/protocols/oauth2/production-readiness/overview
+- https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification
+- https://supabase.com/docs/guides/auth/auth-smtp
+- https://supabase.com/docs/guides/auth/password-security
+- https://supabase.com/changelog.md
