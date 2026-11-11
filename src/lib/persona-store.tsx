@@ -356,7 +356,12 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         }
         setState(loaded);
         const [local, domain] = (user.email || 'user@auth').split('@');
-        setAuth…93 tokens truncated…main] = (user.email || 'user@auth').split('@');
+        setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
+        setIsHydrated(true);
+      } catch (error) {
+        if (!alive || id !== generation.current) return;
+        // Keep verified session identity visible so logout remains available.
+        const [local, domain] = (user.email || 'user@auth').split('@');
         setAuthUser({ userUuid: user.id, maskedEmail: `${local.slice(0, 2)}***@${domain}`, provider: user.app_metadata?.provider === 'google' ? 'google' : 'email' });
         setSyncError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
         // Fail closed: no writes after failed profile loading.
