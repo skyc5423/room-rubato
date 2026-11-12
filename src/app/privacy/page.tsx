@@ -38,6 +38,7 @@ export default function PrivacyPage() {
       <h2 id="account-data" className="text-xl font-semibold">로그인 계정과 회원 탈퇴</h2>
       <p className="mt-3">이메일 등 로그인 정보는 Supabase 인증 서비스가 관리합니다. Google 로그인으로 받은 정보와 로그인 세션은 설문 프로필과 별개입니다.</p>
       <p className="mt-3"><strong>현재 앱에는 회원 탈퇴 기능이 없습니다.</strong> 설문 초기화나 로그아웃을 회원 탈퇴로 안내하지 않습니다. 계정·동의·서버 기록·복구 사본의 처리 범위와 문의 경로가 정해지고 삭제 절차가 검증되기 전에는 탈퇴를 완료했다고 표시하지 않겠습니다.</p>
+      <Link className="mt-3 inline-flex min-h-11 items-center underline" href="/account/withdrawal">회원 탈퇴 준비 상태 확인하기</Link>
     </section>
     <Link className="mt-10 inline-flex min-h-11 items-center underline" href="/">홈으로 돌아가기</Link>
   </article>;
