@@ -4,15 +4,26 @@ import { useEffect, useRef, useState } from 'react';
 export function RhythmListening() {
   const context = useRef<AudioContext|null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const generation = useRef(0);
   const [playing,setPlaying]=useState<'a'|'b'|null>(null);
   const [error,setError]=useState('');
-  function stop() {if(timer.current) clearTimeout(timer.current);timer.current=null;void context.current?.close();context.current=null;setPlaying(null);}
-  useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);void context.current?.close();},[]);
+  function release() {
+    generation.current++;
+    if(timer.current) clearTimeout(timer.current);
+    timer.current=null;
+    const audio=context.current;context.current=null;
+    // Detach before closing: pending resume callbacks must not own this player.
+    if(audio) {try {void audio.close().catch(()=>{});} catch { /* Already unavailable. */ }}
+  }
+  function stop() {release();setPlaying(null);}
+  useEffect(()=>()=>release(),[]);
   async function play(pattern:'a'|'b') {
     stop();setError('');
+    const request=generation.current;
+    setPlaying(pattern); // Stop remains available while the browser resumes audio.
     try {
       const audio=new AudioContext();context.current=audio;await audio.resume();
-      if(context.current!==audio) return;
+      if(generation.current!==request || context.current!==audio) return;
       const beats=pattern==='a'?[0,4,8,12]:[0,3,6,10];
       const start=audio.currentTime+0.06;const step=0.15;
       for(let repeat=0;repeat<2;repeat++) for(let i=0;i<16;i++) {
@@ -20,7 +31,7 @@ export function RhythmListening() {
         if(beats.includes(i)) tone(audio,start+(repeat*16+i)*step,660,0.07);
       }
       setPlaying(pattern);timer.current=setTimeout(()=>{if(context.current===audio)stop();},5000);
-    } catch {stop();setError('이 브라우저에서 소리를 재생하지 못했어요. 도식의 점 위치로 비교할 수 있어요.');}
+    } catch {if(generation.current!==request)return;stop();setError('이 브라우저에서 소리를 재생하지 못했어요. 도식의 점 위치로 비교할 수 있어요.');}
   }
   function tone(audio:AudioContext,time:number,hz:number,volume:number) {
     const oscillator=audio.createOscillator();const gain=audio.createGain();oscillator.type='sine';oscillator.frequency.value=hz;gain.gain.setValueAtTime(volume,time);gain.gain.exponentialRampToValueAtTime(0.001,time+0.09);oscillator.connect(gain);gain.connect(audio.destination);oscillator.start(time);oscillator.stop(time+0.1);

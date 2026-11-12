@@ -1,3 +1,5 @@
+> **Historical planning document, superseded where noted.** The research/data-use and response-latency-to-personality proposals below are historical ideas, not current product behavior or permission to use personal responses for research. The current data-use decision is documented in [AUTH_LAUNCH_READINESS.md](AUTH_LAUNCH_READINESS.md); the bounded remaining release scope is in [COMPLETION_PLAN.md](COMPLETION_PLAN.md). The historical body is retained for context.
+
 # 마스터 기획서 & 4-Layer / 12-Domain 스키마 설계도
 
 > [!IMPORTANT]

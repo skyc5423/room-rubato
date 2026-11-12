@@ -1,10 +1,11 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
+import type { ArtworkDetail } from '@/lib/artwork-details';
 import { ObservationGuide } from './ObservationGuide';
 import { artworkStudies, type ArtworkStudyData } from '@/lib/artwork-studies';
 const control = 'min-h-11 rounded-xl border border-[#0042AF]/25 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4';
 
-export function ArtworkImage({ work, detail }: { work: ArtworkStudyData; detail: boolean }) {
+export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyData; detail: boolean; detailView?: ArtworkDetail }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
@@ -15,10 +16,10 @@ export function ArtworkImage({ work, detail }: { work: ArtworkStudyData; detail:
   }, []);
 
   return <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-[#eae6dc]" aria-busy={status === 'loading'}>
-    <img ref={imageRef} src={work.image} alt={`${work.alt}${detail ? ' · 부분 확대 보기' : ''}`} width="600" height="450" loading="lazy"
+    <img ref={imageRef} src={work.image} alt={detail&&detailView?detailView.alt:`${work.alt}${detail ? ' · 부분 확대 보기' : ''}`} width="600" height="450" loading="lazy"
       onLoad={() => setStatus('loaded')} onError={() => setStatus('error')} aria-hidden={status !== 'loaded'}
       className={`h-full w-full ${detail ? 'object-cover' : 'object-contain'}`}
-      style={{ visibility: status === 'loaded' ? 'visible' : 'hidden', ...(detail ? { transform: 'scale(1.6)', transformOrigin: work.position } : {}) }}/>
+      style={{ visibility: status === 'loaded' ? 'visible' : 'hidden', ...(detail&&detailView?{position:'absolute',maxWidth:'none',width:`${detailView.crop.sourceWidth/detailView.crop.width*100}%`,height:`${detailView.crop.sourceHeight/detailView.crop.height*100}%`,left:`${-detailView.crop.x/detailView.crop.width*100}%`,top:`${-detailView.crop.y/detailView.crop.height*100}%`}:detail ? { transform: 'scale(1.6)', transformOrigin: work.position } : {}) }}/>
     {status !== 'loaded' && <p role="status" className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm leading-6">
       {status === 'loading' ? '작품 이미지를 불러오는 중이에요.' : '이미지를 불러오지 못했어요. 아래 ‘이미지 크게 열기’에서 다시 확인해 주세요.'}
     </p>}

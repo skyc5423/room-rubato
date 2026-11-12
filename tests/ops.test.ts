@@ -27,4 +27,24 @@ describe('operational surface', () => {
     await expect(smoke('https://example.com', async () => new Response(null, { status: 302 }))).rejects.toThrow('got 302');
     vi.restoreAllMocks();
   });
+  it('checks both comparison journeys without credentials or response-body logging', async () => {
+    const requests: string[] = [];
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await smoke('https://example.com', async (input, options) => {
+        const url=String(input);
+        requests.push(url);
+        expect(options?.credentials).toBe('omit');
+        const health = url.endsWith('/api/health');
+        return new Response(health ? JSON.stringify({status:'ok',check:'liveness'}) : null, {
+          status: url.endsWith('/api/users') ? 410 : 200,
+          headers: {'x-content-type-options':'nosniff','x-frame-options':'DENY','cache-control':'no-store'},
+        });
+      });
+      expect(requests).toContain('https://example.com/compare');
+      expect(requests).toContain('https://example.com/compare/light-and-edges');
+      expect(requests).toContain('https://example.com/compare/gaze-and-frame');
+      expect(requests).toHaveLength(8);
+    } finally { log.mockRestore(); }
+  });
 });

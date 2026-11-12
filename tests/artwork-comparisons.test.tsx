@@ -14,7 +14,7 @@ describe('two-work comparison',()=>{
   expect(view!.root.findAllByType('img')).toHaveLength(2);
   expect(view!.root.findAllByType('textarea')).toHaveLength(0);
   expect(JSON.stringify(view!.toJSON())).not.toContain('미술관 자료에서 확인한 내용');
-  const toggle=view!.root.findByType('button');act(()=>toggle.props.onClick());
+  const toggle=view!.root.findAllByType('button').find(b=>b.props['aria-controls']==='comparison-context')!;act(()=>toggle.props.onClick());
   expect(toggle.props['aria-expanded']).toBe(true);
   expect(JSON.stringify(view!.toJSON())).toContain('Room Rubato의 비교 제안');
   expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light')).toBe(true);
@@ -23,3 +23,32 @@ describe('two-work comparison',()=>{
 });
 
 vi.mock('next/link',()=>({default:({children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=><a {...props}>{children}</a>}));
+
+it('keeps detail views independent, labels the crop, and restores the original whole image',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<ArtworkComparison study={artworkComparisons[1]}/>);});
+ const figures=()=>view!.root.findAllByType('figure');
+ const first=()=>figures()[0].findByType('img');
+ const second=()=>figures()[1].findByType('img');
+ act(()=>{first().props.onLoad();second().props.onLoad();});
+ expect(first().props.style.left).toBeUndefined();expect(second().props.style.left).toBeUndefined();
+ act(()=>figures()[1].findByType('button').props.onClick());
+ expect(figures()[1].findByType('button').props['aria-pressed']).toBe(true);
+ expect(second().props.alt).toContain('오른쪽 가장자리');expect(second().props.style.position).toBe('absolute');
+ expect(first().props.style.position).toBeUndefined();expect(second().props.style.visibility).toBe('visible');
+ act(()=>figures()[1].findByType('button').props.onClick());
+ expect(second().props.style.position).toBeUndefined();expect(second().props.alt).not.toContain('부분 확대:');
+ expect(figures()[1].findByType('button').props['aria-pressed']).toBe(false);
+ expect(JSON.stringify(view!.toJSON())).toContain('약 600px');
+ act(()=>view!.unmount());
+});
+
+it('retains image failure fallback and source links while showing a detail',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<ArtworkComparison study={artworkComparisons[0]}/>);});
+ const figure=view!.root.findAllByType('figure')[0];
+ act(()=>figure.findByType('button').props.onClick());
+ act(()=>figure.findByType('img').props.onError());
+ expect(figure.findByType('img').props.style.visibility).toBe('hidden');
+ expect(JSON.stringify(figure.findAllByProps({role:'status'}).map(n=>n.children))).toContain('불러오지 못했어요');
+ expect(figure.findAllByType('a').some(a=>a.props.href==='/artworks/met-437881.jpg')).toBe(true);
+ act(()=>view!.unmount());
+});
