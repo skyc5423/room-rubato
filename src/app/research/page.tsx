@@ -1,13 +1,14 @@
 'use client';
 
 import React from 'react';
+import { SurveyResetControl } from '@/components/SurveyResetControl';
 import Link from 'next/link';
 import { usePersonaStore } from '@/lib/persona-store';
 import { ALL_MASTER_DOMAINS } from '@/lib/domains-index';
 import { getRoomObjectByDomainId } from '@/lib/room-objects';
 
 export default function ResearchPage() {
-  const { state, resetAllData } = usePersonaStore();
+  const { state } = usePersonaStore();
   const completedList = Object.values(state.completedDomains);
 
   return (
@@ -28,13 +29,7 @@ export default function ResearchPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => { if (window.confirm("저장된 취향 결과와 응답 기록을 모두 지울까요? 이 작업은 되돌릴 수 없습니다. 계정과 동의 기록은 유지됩니다.")) resetAllData(); }}
-              className="px-4 py-2 rounded-full border border-[#0042AF]/30 text-[12.5px] text-[#0042AF] hover:border-[#0042AF]"
-            >
-              초기화
-            </button>
+            <SurveyResetControl className="px-4 py-2 rounded-full border border-[#0042AF]/30 text-[12.5px] text-[#0042AF] hover:border-[#0042AF]"/>
           </div>
         </div>
 

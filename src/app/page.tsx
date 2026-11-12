@@ -19,6 +19,7 @@ import {
 } from '@/lib/room-objects';
 import { RoomCanvas } from '@/components/RoomCanvas';
 import { RoomDialog } from '@/components/RoomDialog';
+import { SurveyResetControl } from '@/components/SurveyResetControl';
 import { DomainExplorer } from '@/components/DomainExplorer';
 import {
   SpecimenPlate,
@@ -33,7 +34,6 @@ export default function HomePage() {
     recordQuestionChoice,
     recordDailyPulseShift,
     recordCurationFeedback,
-    resetAllData,
   } = usePersonaStore();
 
   // Room interactive state
@@ -324,6 +324,9 @@ export default function HomePage() {
         </div>
       </section>
       <DomainExplorer completedIds={completedDomainIds} ready={isHydrated} onSelect={id=>{if(!isHydrated)return;if(state.completedDomains[id])handleOpenResultNote(id);else handleSelectRoomObject(id);}} />
+      <div className="border-b border-[#0042AF]/20 bg-[#FEF1D0] px-6 py-3 flex justify-end">
+        <SurveyResetControl className="text-sm text-[#0042AF] underline underline-offset-4"/>
+      </div>
       {/* =====================================================================
           SCENE 1: INTERACTIVE ILLUSTRATED ROOM (100SVH)
          ===================================================================== */}
@@ -392,16 +395,6 @@ export default function HomePage() {
                 <span className="font-medium text-[#010D6E]">
                   <strong>색이 채워진 물건 {completedDomainIds.length}개</strong>는 답한 분야예요. 아직 안 본 분야는 물건이나 위의 목록에서 골라보세요.
                 </span>
-                <span className="opacity-30 hidden sm:inline">|</span>
-                {completedDomainIds.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => { if (window.confirm("저장된 취향 결과와 응답 기록을 모두 지울까요? 이 작업은 되돌릴 수 없습니다. 계정과 동의 기록은 유지됩니다.")) resetAllData(); }}
-                    className="text-[#0042AF] hover:text-[#010D6E] underline underline-offset-4 font-semibold"
-                  >
-                    전체 초기화
-                  </button>
-                ) : null}
               </div>
             )}
 

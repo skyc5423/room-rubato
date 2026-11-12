@@ -24,7 +24,7 @@ Twenty-five distinct copy fields changed: the ten priority replacements, seven s
 
 ## Remaining boundary
 
-Many static deepAnalysis fields still claim that all listed scenes were selected. Matching a hand-written phenotype signature does not prove those exact choices; the separate result-grounding change must prevent such false personal history. Other blanket brand superlatives and artist/product facts need their own source-specific pass. Do not describe this focused regression suite as catalogue-wide factual certification.
+Many static deepAnalysis fields still claim that all listed scenes were selected. Matching a hand-written phenotype signature does not prove those exact choices; the delivered ResultEvidence component now replaces those strings in both result renderers with actual recorded-axis evidence (see RESULT_EVIDENCE.md). The static strings are not rendered as personal history. Other blanket brand superlatives and artist/product facts need their own source-specific pass. Do not describe this focused regression suite as catalogue-wide factual certification.
 
 ## Checks
 

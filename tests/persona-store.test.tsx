@@ -165,3 +165,10 @@ it.each([
   expect(store.state.dailyShiftLog).toEqual(history);
   expect(mock.save).not.toHaveBeenCalled();
 });
+it('preserves guest survey data if local removal fails',async()=>{
+ await emit(null);act(()=>store.updateDemographics({occupation:'research_edu'}));await tick();
+ const before=JSON.stringify(store.state),raw=localStorage.getItem('room_rubato_guest_state_v4');
+ vi.spyOn(localStorage,'removeItem').mockImplementation(()=>{throw Error('blocked');});
+ await act(async()=>{expect((await store.deletePersonaData()).ok).toBe(false);});
+ expect(JSON.stringify(store.state)).toBe(before);expect(localStorage.getItem('room_rubato_guest_state_v4')).toBe(raw);
+});

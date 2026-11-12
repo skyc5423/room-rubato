@@ -20,10 +20,11 @@ it('labels fictional scenarios and removes fabricated participant statistics', (
   }
 });
 it('does not expose destructive demo injection and guards profile resets', () => {
+  expect(readFileSync('src/components/SurveyResetControl.tsx', 'utf8')).toContain('window.confirm');
   for (const file of ['src/app/page.tsx', 'src/app/research/page.tsx']) {
     const source = readFileSync(file, 'utf8');
     expect(source).not.toContain('onClick={applyAnchorPresetDemo}');
     expect(source).not.toContain('onClick={resetAllData}');
-    expect(source).toContain('window.confirm');
+    expect(source).toContain('<SurveyResetControl');
   }
 });

@@ -90,7 +90,6 @@ interface PersonaContextValue {
     reaction: 'resonant' | 'not_me';
   }) => void;
   applyAnchorPresetDemo: () => void;
-  resetAllData: () => void;
 }
 
 // Never reuse the legacy shared key: it may contain another account's data.
@@ -725,10 +724,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     setState(demoState);
   };
 
-  const resetAllData = () => {
-    setState(BLANK_ROOM_STATE);
-  };
-
   return (
     <PersonaContext.Provider
       value={{
@@ -751,7 +746,6 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         recordDailyPulseShift,
         recordCurationFeedback,
         applyAnchorPresetDemo,
-        resetAllData,
       }}
     >
       {children}

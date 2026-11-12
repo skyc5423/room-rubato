@@ -7,3 +7,8 @@ Home chooses most recently updated started unfinished lesson, then bookmarked le
 All decisions run locally from the current owner's existing journal. No new schema, tracking, automatic writes, cloud request or research use of responses. Owner/readiness gating hides prior-owner summaries, and focus/pageshow/storage events refresh the snapshot. Unknown lessons are ignored and invalid dates sort to the end. Storage failures preserve browsing with an explicit notice.
 
 Validation covers selection priorities, no-write render, hidden memo content, owner switching, hydration/storage failure, and context continuation instead of untouched light. Browser live QA remains separate from unit checks; do not claim actual375px verification without a supported viewport.
+
+## Evidence checkpoint, 2026-11-12
+
+See [the current completion matrix](COMPLETION_PLAN.md) for delivered follow-up releases and explicit verification limits. Earlier validation sections describe their original slice, not the current overall completion state.
+The first-time home now includes actual artwork previews and a direct notebook entry before the survey grid; completed-note temporary edits have explicit same-tab recovery.

@@ -162,7 +162,7 @@ export function Navbar() {
     if (res.ok) {
       setFeedbackMsg({
         type: 'success',
-        text: '설문 프로필을 초기화했어요. 로그인 계정·동의 기록·관찰실 기록은 유지됩니다.',
+        text: '설문 응답·취향 결과, 오늘의 질문 선택과 추천 반응을 초기화했어요. 로그인 계정·동의 기록·관찰실 기록은 유지됩니다.',
       });
     } else {
       setFeedbackMsg({
@@ -333,7 +333,7 @@ export function Navbar() {
                     </p>
                   </div>
 
-                  {confirmDelete && <p className="rounded-lg bg-[#FEF1D0] p-3 text-xs leading-5" role="alert">설문 응답·응답시간·요약을 비웁니다. 로그인 계정, 동의 기록, 관찰실 기록은 지워지지 않습니다. 초기화 후 이 화면에서 응답을 복구할 수 없습니다.</p>}
+                  {confirmDelete && <p className="rounded-lg bg-[#FEF1D0] p-3 text-xs leading-5" role="alert">분야별 설문 응답·응답시간·요약, 오늘의 질문 선택과 추천 반응을 비웁니다. 로그인 계정, 동의 기록, 관찰실 기록은 지워지지 않습니다. 초기화 후 이 화면에서 응답을 복구할 수 없습니다.</p>}
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       type="button"
@@ -398,7 +398,7 @@ export function Navbar() {
                           <strong>2. 이용 목적과 저장 방식:</strong> 본인의 서비스 이용을 위한 저장·복원·요약에만 사용하며 연구·서비스 개선에 사용하지 않습니다. 취향 프로필은 이메일 대신 계정 ID(UUID)로 연결합니다. 계정과 연결할 수 있는 가명 정보이며 완전히 익명인 데이터가 아닙니다.
                         </p>
                         <p>
-                          <strong>3. 초기화 범위:</strong> [설문 프로필 초기화]는 설문 응답과 요약을 비웁니다. 로그인 계정·동의·관찰실 기록은 유지됩니다. 전체 삭제 범위는 데이터 저장·삭제 안내를 확인해 주세요.
+                          <strong>3. 초기화 범위:</strong> [설문 프로필 초기화]는 설문 응답과 요약, 오늘의 질문 선택과 추천 반응을 비웁니다. 로그인 계정·동의·관찰실 기록은 유지됩니다. 전체 삭제 범위는 데이터 저장·삭제 안내를 확인해 주세요.
                         </p>
                       </div>
                     )}

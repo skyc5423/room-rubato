@@ -32,3 +32,8 @@ Google Auth Platform > Audience > Publish app. Brand/name/logo verification is s
 - Code review found only account-scoped Supabase profile/journal persistence and local personal calculations. No application analytics SDK, external AI request, research export endpoint or aggregate-user endpoint is present. This is a source-code check, not an audit of provider operational logs or historical human access. Necessary hosting and authentication processing still occurs.
 - `/privacy` remains a current-functionality guide, not a completed legal privacy policy. Legal operator identity, retention/backup expiry, full account withdrawal, minimum age, provider processing/regions and operational log handling still need decisions and verification before public recruitment.
 - The unimplemented account-lifecycle proposal is not part of this release. No database, authentication-provider setting or stored user record is changed.
+
+## Evidence checkpoint, 2026-11-12
+
+See [the current completion matrix](COMPLETION_PLAN.md) for delivered follow-up releases and explicit verification limits. Earlier validation sections describe their original slice, not the current overall completion state.
+Account withdrawal now has a delivered disabled page and staged protocol/SQL proposal. Hosted activation, backup expiry and non-resurrection verification remain blocked; no deletion support is claimed active.

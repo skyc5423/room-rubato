@@ -1,10 +1,12 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { SurveyResetControl } from '../src/components/SurveyResetControl';
+import { RoomCanvas } from '../src/components/RoomCanvas';
 import { DomainExplorer } from '../src/components/DomainExplorer';
 import { DAILY_PULSE_QUESTIONS, ALL_MASTER_DOMAINS } from '../src/lib/domains-index';
 
-const store = vi.hoisted(() => ({ state: { dailyShiftLog: [] as any[], completedDomains: {}, layer3Vector: {}, layer1Vector: {}, layer2Vector: {}, choiceTelemetryLog: [], curationFeedbackLog: [] }, isHydrated: true, currentUserId: 'a', recordQuestionChoice: vi.fn(), recordDailyPulseShift: vi.fn() }));
+const store = vi.hoisted(() => ({ state: { dailyShiftLog: [] as any[], completedDomains: {}, layer3Vector: {}, layer1Vector: {}, layer2Vector: {}, choiceTelemetryLog: [], curationFeedbackLog: [] }, isHydrated: true, currentUserId: 'a', recordQuestionChoice: vi.fn(), recordDailyPulseShift: vi.fn(), deletePersonaData: vi.fn() }));
 vi.mock('../src/lib/persona-store', () => ({ usePersonaStore: () => store }));
 vi.mock('../src/components/SpecimenPlate', () => ({ SpecimenPlate: () => null, QUESTION_OPTION_IMAGES: {} }));
 vi.mock('next/link', () => ({ default: ({ children }: any) => <span>{children}</span> }));
@@ -119,4 +121,17 @@ it('keeps zero axes neutral and highlights small positive scores on the right',a
    expect(spans.find((s:any)=>s.children.includes(axis.rightLabel)).props.className.includes('font-bold')).toBe(score>0);
   }finally{act(()=>view?.unmount());store.state.completedDomains={};}
  }
+});
+
+it('keeps reset pending state mounted through room hover and question opening', async()=>{
+ let resolve!:(value:any)=>void;store.deletePersonaData.mockReturnValue(new Promise(r=>resolve=r));window.confirm=vi.fn(()=>true);
+ let view:any;act(()=>{view=create(<Page/>);});
+ const control=view.root.findByType(SurveyResetControl);let request:Promise<void>;
+ act(()=>{request=control.findByType('button').props.onClick();});
+ act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(ALL_MASTER_DOMAINS[0].id));
+ expect(view.root.findByType(SurveyResetControl)).toBe(control);expect(control.findByType('button').props.disabled).toBe(true);
+ act(()=>view.root.findByType(RoomCanvas).props.onSelectObject(ALL_MASTER_DOMAINS[0].id));
+ expect(view.root.findByType(SurveyResetControl)).toBe(control);
+ await act(async()=>{resolve({ok:false,error:'저장 상태를 확인해 주세요.'});await request;});
+ expect(control.findByProps({role:'alert'}).children.join('')).toContain('저장 상태');act(()=>view.unmount());
 });

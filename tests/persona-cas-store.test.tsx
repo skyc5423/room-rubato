@@ -28,3 +28,17 @@ describe('profile CAS client integration',()=>{
  it('retries an ambiguous reset without resurrecting the old state',async()=>{await emit();act(()=>store.updateDemographics({occupation:'research_edu'}));await tick();mock.rpc.mockRejectedValueOnce(Error('lost reset response'));await act(async()=>{expect((await store.deletePersonaData()).ok).toBe(false);});const reset=mock.rpc.mock.calls[1][1];act(()=>store.retrySync());await tick();expect(mock.rpc.mock.calls[2][1]).toEqual(reset);expect(mock.rpc).toHaveBeenCalledTimes(3);expect(store.state.demographics?.occupation).toBe('unspecified');expect(store.recoveryDraft?.demographics?.occupation).toBe('research_edu');});
  it('keeps session identity on load failure to permit signout',async()=>{mock.read.mockResolvedValueOnce({data:null,error:new Error('read failed')});await emit();expect(store.isHydrated).toBe(false);expect(store.authUser?.userUuid).toBe('alice');expect(mock.rpc).not.toHaveBeenCalled();});
 });
+it.each(['conflict','unknown'])('guarded reset preserves current state and recovery while writer is %s',async kind=>{
+ await emit();mock.rpc.mockResolvedValueOnce({data:null,error:{message:kind==='conflict'?'PERSONA_REVISION_CONFLICT':'offline'}});
+ act(()=>store.updateDemographics({occupation:'research_edu'}));await tick();
+ const before=JSON.stringify(store.state),recovery=localStorage.getItem('room_rubato_unsaved_profile_v1:alice'),calls=mock.rpc.mock.calls.length;
+ await act(async()=>{const result=await store.deletePersonaData();expect(result.ok).toBe(false);});
+ expect(JSON.stringify(store.state)).toBe(before);expect(localStorage.getItem('room_rubato_unsaved_profile_v1:alice')).toBe(recovery);expect(mock.rpc).toHaveBeenCalledTimes(calls);
+});
+it('does not erase a new owner when an old CAS reset completes',async()=>{
+ await emit('alice');let resolve!:(value:any)=>void;mock.rpc.mockReturnValueOnce(new Promise(r=>resolve=r));let deletion:Promise<any>;
+ await act(async()=>{deletion=store.deletePersonaData();});
+ mock.read.mockResolvedValueOnce({data:{state:{demographics:{occupation:'research_edu'}},revision:'bob-r1',consent_agreed_at:'2026-11-10T00:00:00Z'},error:null});await emit('bob');
+ await act(async()=>{resolve({data:'alice-r2',error:null});expect((await deletion).ok).toBe(false);});
+ expect(store.authUser?.userUuid).toBe('bob');expect(store.state.demographics?.occupation).toBe('research_edu');
+});

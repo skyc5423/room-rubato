@@ -18,3 +18,7 @@
 
 ## Release verification remaining
 New code is typechecked and unit-tested. Recheck keyboard SVG targets, skip link, chooser opening/closing, narrow-width wrapping and actual reduced-motion behavior after deployment. No claim of full WCAG conformance or retention improvement. Do not add notifications/streak pressure without evidence and opt-in.
+
+## Evidence checkpoint, 2026-11-12
+
+See [the current completion matrix](COMPLETION_PLAN.md) for delivered follow-up releases and explicit verification limits. Earlier validation sections describe their original slice, not the current overall completion state.

@@ -12,6 +12,7 @@ it('separates survey reset, journals, backups and account deletion without claim
   expect(html).toContain('백업까지 즉시 삭제한다는 의미는 아닙니다');
   expect(html).toContain('정식 개인정보 처리방침은 아직 확정되지 않았습니다');
   expect(html).toContain('계정에도 저장했다면');
+  expect(html).toContain('오늘의 질문 선택과 추천 반응을 비웁니다');
   expect(html).toContain('로그인만으로 업로드하지 않으며');
   expect(html).toContain('서비스 연구·개선, 모델 학습이나 다른 이용자와의 통계 비교에 사용하지 않습니다');
   expect(html).toContain('mailto:sangmin5423@gmail.com');
