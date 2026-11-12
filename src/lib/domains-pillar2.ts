@@ -8,7 +8,7 @@ export const PILLAR_2_DOMAINS: MasterDomain[] = [
     pillarName: '예술 · 문화 · 서사',
     title: '음악 · 소리',
     shortTitle: '음악',
-    subtitle: '평소 자주 듣는 악기 소리와 스피커·턴테이블, 플레이리스트 10가지를 고르면 내 음악 취향의 5가지 축과 맞춤 청음 스타일을 분석해 드립니다.',
+    subtitle: '악기·스피커·턴테이블·플레이리스트를 묘사한 10개 장면을 비교해 보세요. 실제 청음 없이 글로 고르는 활동이며, 다음에 들어볼 음악과 감상 방식을 제안합니다.',
     iconName: 'Music',
     accentColor: '#191F28',
     anchorExampleForUser: true,
@@ -639,7 +639,7 @@ export const PILLAR_2_DOMAINS: MasterDomain[] = [
     pillarName: '예술 · 문화 · 서사',
     title: '영화 · 드라마',
     shortTitle: '영화',
-    subtitle: '10번의 구체적인 장면·감상 선택을 통해 내 영화·시리즈 취향을 구성하는 5가지 감각 축과 8가지 관객 유형을 분석합니다.',
+    subtitle: '영화·시리즈의 장면과 감상 방식을 묘사한 10개 질문에서 끌리는 쪽을 골라보세요. 이야기 전개와 화면, 감상 환경을 비교해 봅니다.',
     iconName: 'Film',
     accentColor: '#191F28',
     axes: [
@@ -1193,7 +1193,7 @@ export const PILLAR_2_DOMAINS: MasterDomain[] = [
     pillarName: '예술 · 문화 · 서사',
     title: '문학 · 책',
     shortTitle: '문학',
-    subtitle: '10번의 구체적인 책장과 독서 풍경 선택을 통해 내 독서 취향을 이루는 5가지 축과 8가지 독자 유형을 분석합니다.',
+    subtitle: '책장과 독서 풍경을 묘사한 10개 장면을 비교해 보세요. 읽고 싶은 이야기와 문장, 책을 만나는 방식에 대해 생각해 봅니다.',
     iconName: 'BookOpen',
     accentColor: '#191F28',
     axes: [
@@ -1747,7 +1747,7 @@ export const PILLAR_2_DOMAINS: MasterDomain[] = [
     pillarName: '예술 · 문화 · 서사',
     title: '여행 · 휴식',
     shortTitle: '여행',
-    subtitle: '10번의 구체적인 여정과 숙소·장비 선택을 통해 내 여행 취향을 이루는 5가지 감각 축과 8가지 여행자 유형을 분석합니다.',
+    subtitle: '여정·숙소·여행 장비를 묘사한 10개 장면에서 더 끌리는 쪽을 골라보세요. 계획과 여유, 이동과 머무름을 비교해 봅니다.',
     iconName: 'Compass',
     accentColor: '#191F28',
     axes: [

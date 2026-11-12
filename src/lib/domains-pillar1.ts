@@ -8,7 +8,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
     pillarName: '의식주와 일상 감각',
     title: '패션 · 스타일',
     shortTitle: '패션',
-    subtitle: '패션 용어를 몰라도 평소 손이 가는 실제 옷과 신발, 가방 10가지를 고르면 내 옷장 취향의 5가지 축과 맞춤 스타일을 분석해 드립니다.',
+    subtitle: '옷·신발·가방을 묘사한 10개 질문에서 더 끌리는 쪽을 골라보세요. 선택을 색감·핏·장식 등의 기준으로 정리하고, 비교해 볼 스타일을 제안합니다.',
     iconName: 'Shirt',
     accentColor: '#191F28',
     axes: [
@@ -24,7 +24,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
       },
       {
         axisKey: 'color_tone',
-        leftLabel: '검정 · 회색 · 남색 무채색',
+        leftLabel: '검정 · 회색 · 남색',
         rightLabel: '베이지 · 올리브 · 밝은 색감',
       },
       {
@@ -363,7 +363,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
     phenotypes: [
       {
         id: 'fas-clean-minimal',
-        name: '무채색 정핏 미니멀형',
+        name: '검정·회색·네이비의 정핏 미니멀형',
         englishCode: 'Clean Monotone Minimal',
         axisSignature: {
           formality: 0.75,
@@ -379,13 +379,13 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
           conceptualism: 0.5,
           warmth: -0.4,
         },
-        summary: '로고나 화려한 색 없이 검정·회색·네이비 무채색과 몸에 딱 맞는 슬랙스·셔츠·싱글 코트로 가장 깔끔한 인상을 만드는 타입입니다.',
+        summary: '검정·회색·네이비와 장식이 적은 셔츠·슬랙스·싱글 코트를 중심으로 묶은 스타일 제안입니다. 색과 핏을 비교해 보세요.',
         deepAnalysis:
           '선택하신 항목들을 보면 [깔끔한 흰 셔츠 + 검은색 슬랙스 + 가죽 로퍼], [매끈한 무지 셔츠·티셔츠], [네이비 싱글 코트], [로고 없는 무지 가죽 가방] 쪽을 일관되게 고르셨습니다. 옷을 많이 사기보다 핏이 잘 맞는 검정·차콜·네이비 기본 아이템 몇 벌만 갖춰 두면 아침마다 코디 고민 없이 가장 세련되어 보이는 유형입니다.',
         decisionGuide: [
           '기본 조합 제안: 무늬 없는 셔츠나 정핏 니트에 검은색·차콜 슬랙스와 가죽 로퍼를 맞춰보세요. 색을 줄인 상태에서 핏과 소재에 따라 인상이 어떻게 달라지는지 살펴볼 수 있어요.',
           '쇼핑할 때 체크할 점: 장식이 없는 옷일수록 어깨선과 바지 기장이 내 몸에 딱 맞는지(수선 여부)가 전체 인상을 좌우합니다.',
-          '피하면 좋은 아이템: 가슴에 큰 그래픽이 들어간 후드티나 지나치게 통이 넓은 카고바지는 옷장에서 손이 안 갈 확률이 높습니다.',
+          '비교해 볼 아이템: 큰 그래픽 후드티나 넓은 카고바지도 함께 입어보세요. 장식과 바지 폭이 달라질 때 어느 쪽이 편하고 자주 입고 싶은지 확인해 보세요.',
         ],
         curations: [
           {
@@ -399,7 +399,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
             id: 'cur-fas-2',
             category: '추천 브랜드',
             title: '무신사 스탠다드 · 코스(COS) · 띠어리(Theory) · 컨템포러리 라인',
-            reason: '로고 없이 깔끔한 재단과 차분한 모노톤 색감을 가장 잘 뽑아내는 브랜드들입니다.',
+            reason: '이 브랜드들의 셔츠와 슬랙스를 비교할 때 로고 크기, 어깨선, 원단과 색을 살펴보세요. 같은 브랜드 안에서도 제품별 차이가 있습니다.',
             tags: ['모노톤', '단정한출근룩', '깔끔한핏'],
           },
         ],
@@ -519,14 +519,14 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
             id: 'cur-fas-7',
             category: '핵심 옷장 조합',
             title: '탄탄한 헤비웨이트 흰 무지 티 + 일자 연청 데님 + 캔버스 스니커즈',
-            reason: '언제 누가 봐도 호불호 없이 깔끔하고 산뜻한 정석 데일리 캐주얼입니다.',
+            reason: '흰 무지 티셔츠와 연청 데님, 캔버스화를 함께 보는 조합입니다. 티셔츠 두께와 바지 폭을 바꾸며 원하는 인상을 찾아보세요.',
             tags: ['꾸안꾸', '데님코디', '무지기본템'],
           },
           {
             id: 'cur-fas-8',
             category: '추천 브랜드',
             title: '리바이스 · 유니클로 U · 무신사 스탠다드 · 컨버스',
-            reason: '유행을 타지 않는 기본 청바지와 무지 티셔츠, 캔버스화를 가장 탄탄하게 만듭니다.',
+            reason: '청바지·무지 티셔츠·캔버스화를 찾아볼 브랜드 목록입니다. 제품별 원단 두께, 봉제와 착용감을 비교해 보세요.',
             tags: ['베이직룩', '청바지핏', '깔끔한일상복'],
           },
         ],
@@ -561,7 +561,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
             id: 'cur-fas-9',
             category: '핵심 옷장 조합',
             title: '블랙 나일론 윈드브레이커 + 그레이 러닝화 + 나일론 백팩 + 스마트워치',
-            reason: '고르신 활동성·실용성·무채색 선호를 100% 충족하는 도시적 스포티 룩입니다.',
+            reason: '바람막이·러닝화·백팩을 검정과 회색으로 맞춘 조합입니다. 움직이기 편한지, 필요한 수납공간이 있는지 제품별로 확인해 보세요.',
             tags: ['스포티캐주얼', '고프코어', '실용주의'],
           },
           {
@@ -708,7 +708,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
     pillarName: '의식주와 일상 감각',
     title: '공간 · 인테리어',
     shortTitle: '공간',
-    subtitle: '인테리어 전문 용어를 몰라도 내가 머물고 싶은 실제 카페, 책상, 창가, 조명, 소품 10가지를 고르면 나만의 공간 취향 5가지 축과 맞춤 인테리어를 분석해 드립니다.',
+    subtitle: '카페·책상·창가·조명을 묘사한 10개 장면을 비교해 보세요. 재료와 빛, 물건을 배치하는 방식 중 눈이 가는 요소를 살펴봅니다.',
     iconName: 'Home',
     accentColor: '#191F28',
     axes: [
@@ -1405,7 +1405,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
     pillarName: '의식주와 일상 감각',
     title: '미식 · 커피 · 향',
     shortTitle: '미식 · 향',
-    subtitle: '음식과 커피, 향기를 고를 때 실제 눈앞에 놓인 12가지 식탁과 추출 도구, 향의 풍경을 고르면 내 미각·후각의 6가지 축과 맞춤 미식 취향을 분석해 드립니다.',
+    subtitle: '식탁·커피 도구·향을 묘사한 12개 질문에서 끌리는 장면을 골라보세요. 맛이나 향을 직접 평가하는 검사가 아니라, 장면 선택을 정리하는 활동입니다.',
     iconName: 'Coffee',
     accentColor: '#191F28',
     axes: [
@@ -2167,7 +2167,7 @@ export const PILLAR_1_DOMAINS: MasterDomain[] = [
     pillarName: '의식주와 일상 감각',
     title: '미술 · 디자인 · 시각예술',
     shortTitle: '미술 · 디자인',
-    subtitle: '미술사 용어를 몰라도 실제 전시실과 화실, 액자 속 10가지 작품과 조형물을 고르면 내 시각적 안목의 5가지 축과 맞춤 예술 취향을 분석해 드립니다.',
+    subtitle: '전시실·화실·작품을 묘사한 10개 장면에서 더 보고 싶은 쪽을 골라보세요. 색과 질감, 구도 등 선택한 장면의 특징을 살펴봅니다.',
     iconName: 'Palette',
     accentColor: '#191F28',
     axes: [

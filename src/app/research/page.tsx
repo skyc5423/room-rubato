@@ -63,7 +63,7 @@ export default function ResearchPage() {
                 const pheno =
                   dom.phenotypes.find(
                     (p) => p.id === item.matchedPhenotypeId
-                  ) ?? dom.phenotypes[0];
+                  );
 
                 return (
                   <div
@@ -77,11 +77,12 @@ export default function ResearchPage() {
                       <span>평균 {(item.avgResponseTimeMs / 1000).toFixed(1)}초</span>
                     </div>
                     <p className="font-editorial text-[15px] text-[#010D6E] mb-1">
-                      {pheno.name}
+                      {pheno?.name??'저장된 유형 확인 필요'}
                     </p>
                     <p className="text-[12px] text-[#010D6E]/70">
                       {dom.title}
                     </p>
+                    {!pheno&&<Link href={`/domain/${dom.slug}`} className="inline-flex min-h-11 items-center text-sm underline">저장 기록 확인하기 →</Link>}
                   </div>
                 );
               })}

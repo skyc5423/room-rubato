@@ -1,5 +1,9 @@
 'use client';
 
+import { recordedChoice } from '@/lib/recorded-choice';
+import { CurationSources } from '@/components/CurationSources';
+import { UnavailableResult } from '@/components/UnavailableResult';
+import { CurationScope } from '@/components/CurationScope';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useRef, useState } from 'react';
@@ -101,8 +105,8 @@ export default function DomainDetailPage() {
   const matchedPhenotype = existingCompletion
     ? domain.phenotypes.find(
         (p) => p.id === existingCompletion.matchedPhenotypeId
-      ) || domain.phenotypes[0]
-    : domain.phenotypes[0];
+      )
+    : undefined;
 
   const nextUnplayedDomains = ALL_MASTER_DOMAINS.filter(
     (d) => d.id !== domain.id && !state.completedDomains[d.id]
@@ -239,6 +243,8 @@ export default function DomainDetailPage() {
             })}
           </div>
         </div>
+      ) : !matchedPhenotype ? (
+        <div className="paper-sheet rounded-3xl p-7 md:p-10"><UnavailableResult domain={domain} scores={existingCompletion?.axisScores} log={state.choiceTelemetryLog}/></div>
       ) : (
         <div className="space-y-8">
           <div className="paper-sheet rounded-3xl p-7 md:p-10">
@@ -370,14 +376,12 @@ export default function DomainDetailPage() {
 
             <div className="mb-6">
               <p className="text-[12.5px] font-semibold text-[#0042AF] mb-2.5">
-                내가 실제로 고른 {domain.questions.length}가지 아이템 기록
+                저장된 문항별 선택
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {domain.questions.map((q, idx) => {
-                  const chosenLog = [...state.choiceTelemetryLog]
-                    .reverse()
-                    .find((l) => l.questionId === q.id);
-                  const chosenSide = chosenLog?.chosenOption ?? 'A';
+                  const chosenSide = recordedChoice(state.choiceTelemetryLog,domain.id,q.id);
+                        if(!chosenSide)return <div key={q.id} className="rounded-xl border border-[#0042AF]/20 bg-[#FFFDF7] p-3"><span className="text-xs text-[#0042AF]">Q{idx+1}</span><p className="mt-2 text-sm text-[#010D6E]">저장된 선택 없음</p></div>;
                   const chosenOpt =
                     chosenSide === 'A' ? q.optionA : q.optionB;
                   const imgSrc =
@@ -411,7 +415,7 @@ export default function DomainDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-5 border-t border-[#0042AF]/15">
               <div className="rounded-2xl bg-[#FEF1D0]/60 p-5 border border-[#0042AF]/20">
                 <h2 className="font-editorial text-[16px] text-[#010D6E] mb-3">
-                  고를 때 실패 줄이는 기준 3가지
+                  함께 살펴볼 기준
                 </h2>
                 <ul className="space-y-2 text-[14px] text-[#010D6E]/85">
                   {matchedPhenotype.decisionGuide.map((rule, idx) => (
@@ -426,9 +430,7 @@ export default function DomainDetailPage() {
               </div>
 
               <div className="rounded-2xl bg-[#FFFDF7] p-5 border border-[#0042AF]/20">
-                <h2 className="font-editorial text-[16px] text-[#010D6E] mb-3">
-                  추천 브랜드 · 레퍼런스
-                </h2>
+                <CurationScope headingLevel={2}/>
                 <div className="space-y-3">
                   {matchedPhenotype.curations.map((rec) => {
                     const feedback = state.curationFeedbackLog.find(
@@ -450,6 +452,7 @@ export default function DomainDetailPage() {
                         <p className="text-[12.5px] text-[#010D6E]/75 mt-0.5">
                           {rec.reason}
                         </p>
+                              <CurationSources id={rec.id}/>
                         <div className="mt-1.5 flex gap-2 text-[11.5px]">
                           <button
                             type="button"

@@ -8,7 +8,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
     pillarName: '사고방식 · 일 · 삶의 태도',
     title: 'AI · 우주 · 기술',
     shortTitle: 'AI · 우주',
-    subtitle: '평소 자주 쓰는 디지털 도구와 데스크 세팅, 과학·우주 오브제 10가지를 고르면 내 기술 수용도와 탐구 성향의 5가지 축을 분석해 드립니다.',
+    subtitle: '디지털 도구·책상 구성·과학과 우주에 관한 물건을 묘사한 10개 장면을 비교해 보세요. 도구를 쓰고 탐구하는 여러 방식을 살펴봅니다.',
     iconName: 'Orbit',
     accentColor: '#191F28',
     anchorExampleForUser: true,
@@ -621,7 +621,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
     pillarName: '사고방식 · 일 · 삶의 태도',
     title: '경제 · 소비 기준',
     shortTitle: '경제',
-    subtitle: '금고와 청사진, 가죽 가방과 공방 체험, 시계와 카메라 등 10가지 장면을 고르면 내 자산 운용과 소비 가치관의 5가지 축을 분석해 드립니다.',
+    subtitle: '소유·소비·경험에 관한 10개 장면을 비교해 보세요. 선택을 돌아보기 위한 활동이며, 재무 상태나 투자 적합성을 평가하지 않습니다.',
     iconName: 'Scale',
     accentColor: '#191F28',
     anchorExampleForUser: true,
@@ -984,7 +984,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
       },
       {
         id: 'eco-fortress-steward',
-        name: '철제 금고와 가죽 장부로 자산을 단단히 지키는 원칙주의 관리가',
+        name: '금고와 장부로 살펴보는 계획적 자산 관리',
         englishCode: 'Fortress Safe & Ledger Steward',
         axisSignature: {
           risk_return: -0.95,
@@ -1012,7 +1012,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
             category: '자산 관리',
             title: '하드커버 가죽 자산 원장(Ledger) & 계단식 만기 적립 포트폴리오',
             reason: '자산 원장에는 수입·지출과 자금이 필요한 날짜를 기록해 볼 수 있습니다. 만기를 나누는 방식 자체가 원금 보전이나 수익을 보장하지는 않으며, 이 결과는 개인의 투자 적합성을 평가하지 않습니다.',
-            tags: ['철제금고안정감', '가죽가계부', '계단식복리'],
+            tags: ['철제금고안정감', '가죽가계부', '만기분산'],
           },
         ],
       },
@@ -1229,7 +1229,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
     pillarName: '사고방식 · 일 · 삶의 태도',
     title: '인간관계 · 일하는 방식',
     shortTitle: '관계 · 일',
-    subtitle: '창가 2인석과 5인 모임, 헤드폰 낀 서재와 포스트잇 화이트보드 등 10가지 장면을 고르면 내 관계 밀도와 업무 스타일의 5가지 축을 분석해 드립니다.',
+    subtitle: '둘이 앉은 창가 자리·여럿이 모인 자리·서재·화이트보드 앞 등 10개 장면을 비교해 보세요. 대화와 일에 필요한 환경을 생각해 봅니다.',
     iconName: 'Users',
     accentColor: '#191F28',
     axes: [
@@ -1845,7 +1845,7 @@ export const PILLAR_3_DOMAINS: MasterDomain[] = [
     pillarName: '사고방식 · 일 · 삶의 태도',
     title: '삶의 철학 · 내면의 기준',
     shortTitle: '삶의 철학',
-    subtitle: '비 오는 창가와 야생화 들판, 도서관 나선 계단과 낮잠 자는 고양이, 괘종시계와 모래시계 등 10가지 장면을 통해 내 삶의 5가지 축을 분석해 드립니다.',
+    subtitle: '비 오는 창가·야생화 들판·도서관·시계 등을 묘사한 10개 장면에서 끌리는 쪽을 골라보세요. 일상에서 시간을 보내고 주변을 바라보는 방식을 돌아봅니다.',
     iconName: 'Sparkles',
     accentColor: '#191F28',
     axes: [

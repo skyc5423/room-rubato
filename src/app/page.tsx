@@ -3,6 +3,10 @@
 import { HomeObservationPreview } from '@/components/HomeObservationPreview';
 import { NotebookReturn } from '@/components/NotebookReturn';
 import { koreanDay } from '@/lib/daily-date';
+import { recordedChoice } from '@/lib/recorded-choice';
+import { CurationSources } from '@/components/CurationSources';
+import { UnavailableResult } from '@/components/UnavailableResult';
+import { CurationScope } from '@/components/CurationScope';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -114,14 +118,13 @@ export default function HomePage() {
     const completed = state.completedDomains[hoveredDomainId];
     if (completed) {
       const matched =
-        domain.phenotypes.find((p) => p.id === completed.matchedPhenotypeId) ??
-        domain.phenotypes[0];
+        domain.phenotypes.find((p) => p.id === completed.matchedPhenotypeId);
       return {
         isCompleted: true,
         domain,
         roomObj,
-        headline: `내 ${domain.shortTitle} 취향: ${matched.name}`,
-        body: matched.summary,
+        headline: matched?`내 ${domain.shortTitle} 취향: ${matched.name}`:`${domain.shortTitle}: 저장된 유형 확인 필요`,
+        body: matched?.summary??'현재 목록에서 저장된 유형을 찾지 못했어요. 기록을 열어 저장된 점수와 선택을 확인해 보세요.',
       };
     } else {
       const pred = predictUnplayedDomainPhenotype(
@@ -237,7 +240,7 @@ export default function HomePage() {
       return (
         activeDomain.phenotypes.find(
           (p) => p.id === activeCompletedResult.matchedPhenotypeId
-        ) ?? activeDomain.phenotypes[0]
+        ) ?? null
       );
     }
     return predictUnplayedDomainPhenotype(
@@ -549,7 +552,12 @@ export default function HomePage() {
               </div>
             ) : (
               /* MODE B: CLEAR RESULT VIEW */
-              activeMatchedPhenotype && (
+              !activeMatchedPhenotype ? (
+                <div className="w-full max-w-[780px] my-auto paper-sheet rounded-3xl p-6 sm:p-9">
+                  <UnavailableResult domain={activeDomain} scores={activeCompletedResult?.axisScores} log={state.choiceTelemetryLog}/>
+                  <div className="mt-5 flex flex-wrap gap-3"><button type="button" className="btn-cream min-h-11 px-4" onClick={handleStartRechoose}>다시 선택하기</button><button type="button" className="btn-cream min-h-11 px-4" onClick={handleCloseOverlay}>방으로 돌아가기</button></div>
+                </div>
+              ) : (
                 <div className="w-full max-w-[780px] my-auto paper-sheet rounded-3xl p-6 sm:p-9 relative">
                   <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-[#0042AF]/15">
                     <div className="flex items-center gap-2.5">
@@ -708,14 +716,12 @@ export default function HomePage() {
                   {/* Question Option Illustrations Strip */}
                   <div className="mb-6">
                     <p className="text-[12.5px] font-semibold text-[#0042AF] mb-2.5">
-                      내가 고른 {activeDomain.questions.length}가지 실제 아이템
+                      저장된 문항별 선택
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                       {activeDomain.questions.map((q, idx) => {
-                        const chosenLog = [...state.choiceTelemetryLog]
-                          .reverse()
-                          .find((l) => l.questionId === q.id);
-                        const chosenSide = chosenLog?.chosenOption ?? 'A';
+                        const chosenSide = recordedChoice(state.choiceTelemetryLog,activeDomain.id,q.id);
+                        if(!chosenSide)return <div key={q.id} className="rounded-xl border border-[#0042AF]/20 bg-[#FFFDF7] p-3"><span className="text-xs text-[#0042AF]">Q{idx+1}</span><p className="mt-2 text-sm text-[#010D6E]">저장된 선택 없음</p></div>;
                         const chosenOpt =
                           chosenSide === 'A' ? q.optionA : q.optionB;
                         const imgSrc =
@@ -749,7 +755,7 @@ export default function HomePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                     <div className="rounded-2xl bg-[#FEF1D0]/55 border border-[#0042AF]/20 p-4 sm:p-5">
                       <h3 className="font-editorial text-[15.5px] text-[#010D6E] mb-3">
-                        고를 때 실패 줄이는 기준 3가지
+                        함께 살펴볼 기준
                       </h3>
                       <ul className="space-y-2 text-[13.5px] text-[#010D6E]/85 leading-relaxed">
                         {activeMatchedPhenotype.decisionGuide.map(
@@ -766,9 +772,7 @@ export default function HomePage() {
                     </div>
 
                     <div className="rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-4 sm:p-5">
-                      <h3 className="font-editorial text-[15.5px] text-[#010D6E] mb-3">
-                        추천 브랜드 · 레퍼런스
-                      </h3>
+                      <CurationScope headingLevel={3}/>
                       <div className="space-y-2.5">
                         {activeMatchedPhenotype.curations.map((rec) => {
                           const existingReaction =
@@ -791,6 +795,7 @@ export default function HomePage() {
                               <p className="text-[12px] text-[#010D6E]/75 mt-0.5">
                                 {rec.reason}
                               </p>
+                              <CurationSources id={rec.id}/>
                               <div className="mt-1.5 flex items-center gap-2 text-[11px]">
                                 <button
                                   type="button"
@@ -937,7 +942,7 @@ export default function HomePage() {
                   const pheno =
                     dom.phenotypes.find(
                       (p) => p.id === res.matchedPhenotypeId
-                    ) ?? dom.phenotypes[0];
+                    );
 
                   return (
                     <button
@@ -969,7 +974,7 @@ export default function HomePage() {
                             </span>
                           </div>
                           <p className="font-editorial text-[15px] text-[#010D6E] truncate">
-                            {pheno.name}
+                            {pheno?.name??'저장된 유형 확인 필요'}
                           </p>
                         </div>
                       </div>
