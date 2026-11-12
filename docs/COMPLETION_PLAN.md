@@ -67,3 +67,11 @@ Deliver one consolidated report: final production URL/commit, features completed
 6. Service readiness: data minimization, truthful limitations, auth/recovery, backup/restore, account lifecycle, privacy/retention disclosures, release/rollback checks. Keep sensitive/destructive gates disabled until verified.
 
 Backup and deletion readiness remain unverified. Account setup alone is not evidence of a working bucket, encrypted backup, retention schedule or successful restore.
+
+## Further learning and narrow-layout slice, 2026-11-12
+
+The six-category review identified concrete improvements beyond the release checkpoint above: rhythm reference pulses were not independently playable and subdivisions were ambiguously labelled; related lessons lacked explicit observation bridges; the space activity's core professional case lacked Korean architectural scholarship. The candidate fixes those gaps without increasing lesson count or collecting additional answers. See RHYTHM_REFERENCE_REVIEW.md, lesson-transfer-bridges.md and KOREAN_ARCHITECTURE_CASE.md for source scope, independent/original content and verification.
+
+A supported ordinary OS window resize also enabled a narrow browser check: page screenshot485px wide, exact CSS viewport not independently measured. Home/notebook/comparison reflowed without obvious clipping, but excess top spacing remained below the in-flow header. Core pages now use24px top padding at that breakpoint, retaining desktop fixed-header clearance. This does not establish375px acceptance. No exposed capture/listen capability was found for actual audio verification; pulse scheduling and start/stop UI are separate evidence.
+
+Combined candidate:231 tests across39 files and typecheck passed. Production build, exact-commit CI/deployment and post-deploy checks are reported at release; pending checks must not be inferred from this source record. No notebook records, questionnaire answers, scores, schema or backup/login configuration are changed.

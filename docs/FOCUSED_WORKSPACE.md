@@ -42,3 +42,7 @@ The text-only opening is replaced by an editorial preview of the existing full V
 ## Source usability recheck
 
 A source audit found no material scientific overclaim in the reviewed lesson summaries. Reber's legacy psy2.ucsd.edu URL returned502 in one direct fetch (not evidence of permanent disappearance); the verified pages.ucsd.edu author-hosted full-text mirror replaces it. Minimalism now links to MoMA's dedicated topic and PBS's official readable episode/transcript page. Playback was not verified. No personal responses were accessed for this audit.
+
+## Narrow-window follow-up, 2026-11-12
+
+A legitimate ordinary OS window resize produced a485px-wide page screenshot (CSS viewport not independently measured), without bypassing blocked DevTools. Read-only home/notebook/comparison checks found a large empty gap below wrapped navigation. Source confirms the header is in normal document flow below640px while these pages still reserved128px top padding for a fixed header. Core entry pages now use24px small-screen padding, retaining128px at the existing fixed-header breakpoint. This is a layout correction, not a375px acceptance claim. Actual narrow interaction recheck remains required; no response records are modified.

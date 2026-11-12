@@ -314,3 +314,30 @@ it('clears a confirmed deleted draft and unregisters its unload warning',()=>{
  expect(window.removeEventListener).toHaveBeenCalledWith('beforeunload',handler);act(()=>view!.unmount());
  act(()=>{view=create(<TasteNotebook/>);});expect(button(view!,'임시 수정 이어가기')).toBeUndefined();act(()=>view!.unmount());
 });
+
+it('opens related observation questions without writing answers or progress',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ const before=[...storage.entries()];
+ const footer=view!.root.findAllByType('section').find(s=>s.props['aria-labelledby']==='lesson-bridges-heading')!;
+ expect(footer).toBeTruthy();
+ act(()=>footer.findAllByType('button')[0].props.onClick());
+ expect(JSON.stringify(view!.root.findByProps({id:'lesson-heading'}).children)).toContain('주변이 바꾸는 같은 색');
+ expect([...storage.entries()]).toEqual(before);
+ expect(tabStorage.size).toBe(0);
+ act(()=>view!.unmount());
+});
+
+it('keeps the edited record and draft when a related bridge exit is declined',()=>{
+ const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'original',completedAt:'2026-11-12',updatedAt:'2026-11-12'}}});storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'synthetic draft'}}));
+ const beforeDraft=[...tabStorage.entries()];window.confirm=vi.fn(()=>false);
+ const footer=view!.root.findAllByType('section').find(s=>s.props['aria-labelledby']==='lesson-bridges-heading')!;
+ act(()=>footer.findAllByType('button')[0].props.onClick());
+ expect(window.confirm).toHaveBeenCalledOnce();
+ expect(view!.root.findByProps({id:'lesson-heading'}).children.join('')).toContain('명암은 형태를 만든다');
+ expect(view!.root.findByType('textarea').props.value).toBe('synthetic draft');
+ expect(storage.get(journalKey('guest'))).toBe(raw);expect([...tabStorage.entries()]).toEqual(beforeDraft);
+ act(()=>view!.unmount());
+});

@@ -317,7 +317,7 @@ export default function HomePage() {
 
   return (
     <div className="w-full">
-      <section aria-labelledby="observation-entry" className="border-b border-[#0042AF]/20 bg-[#F6F3E9] px-5 pb-8 pt-32 sm:px-8">
+      <section aria-labelledby="observation-entry" className="border-b border-[#0042AF]/20 bg-[#F6F3E9] px-5 pb-8 pt-6 sm:pt-32 sm:px-8">
         <div className="mx-auto max-w-6xl">
           <header className="mb-8 max-w-3xl"><p className="text-sm tracking-wide text-[#0042AF]">ROOM RUBATO · 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">작품을 보고, 좋아하는 이유를 찾아보세요.</h1></header>
           <div className="grid gap-8 lg:grid-cols-[2fr_1fr] lg:items-start"><HomeObservationPreview embedded/><NotebookReturn withArtworkPreview/></div>
