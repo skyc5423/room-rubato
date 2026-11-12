@@ -138,7 +138,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
     "verifiedAt": "2026-11-11",
     "titleKo": "물주전자를 든 여인",
-    "alt": "왼쪽 창을 연 여인이 오른손으로 금속 주전자를 잡고 있다. 흰 머리 덮개와 주전자에 빛이 닿는다.",
+    "alt": "여인이 한 손으로 창을 잡고 다른 손으로 금속 주전자를 잡고 있다. 흰 머리 덮개와 주전자에 빛이 닿는다.",
     "concept": "빛의 경로",
     "lessonIds": [
       "light",

@@ -15,7 +15,7 @@ const choices: { value: ObservationChoice; label: string }[] = [{ value:'a',labe
 const stages = ['먼저 보기', '단서 읽기', '다시 보기'];
 const button = 'min-h-11 rounded-xl border border-[#0042AF]/25 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4';
 
-export function TasteNotebook() {
+export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const { authUser, isHydrated } = usePersonaStore();
   const owner = authUser?.userUuid || 'guest';
   const [loadedOwner,setLoadedOwner] = useState<string|null>(null);
@@ -45,13 +45,24 @@ export function TasteNotebook() {
     window.addEventListener('storage',sync);return ()=>window.removeEventListener('storage',sync);
   },[owner,isHydrated]);
   const ready = isHydrated && loadedOwner===owner;
+  const openedLink = useRef<string|null>(null);
+  useEffect(()=>{
+    if(draftEntryState && draftOwner===owner)return;
+    if(!ready || !initialLesson || !tasteLessons.some(item=>item.id===initialLesson))return;
+    const key=`${owner}:${initialLesson}`;
+    if(openedLink.current===key)return;
+    openedLink.current=key;
+    const saved=journal.entries[initialLesson];
+    setSelected(initialLesson);setStage(saved?.after?2:saved?.before?1:0);
+    setVariation(saved?.afterSetting??saved?.beforeSetting??60);
+  },[ready,owner,initialLesson,journal,draftEntryState,draftOwner]);
   const draftEntry = ready&&draftOwner===owner?draftEntryState:null;
   useEffect(()=>{if(selected)lessonHeading.current?.focus();},[!!draftEntry]);
   const currentJournal = ready?journal:emptyJournal();
   const lesson = tasteLessons.find(n=>n.id===selected);
   const persistedEntry = lesson?currentJournal.entries[lesson.id]:undefined;
   const entry = draftEntry?.lessonId===lesson?.id && draftEntry ? draftEntry : persistedEntry;
-  const reviewOnly = !!persistedEntry?.completedAt && !draftEntry;
+  const reviewOnly = !!persistedEntry?.completedAt && draftEntry?.lessonId!==lesson?.id;
   const variationLabel = lesson?.diagram==='perspective'?'B 그림의 소실점 위치':lesson?.diagram==='rhythm'?'B 배열의 간격 변화':lesson?.diagram==='space'?'B 구획의 불투명도':lesson?.diagram==='context'?'B 구성의 어긋남':lesson?.diagram==='contrast'?'두 배경의 명도':lesson?.diagram==='complexity'?'B 도형의 크기':'B 도형의 명암 대비';
   const completed = tasteLessons.filter(n=>currentJournal.entries[n.id]?.completedAt);
   const nextId = suggestNext(tasteLessons.map(n=>n.id),currentJournal);

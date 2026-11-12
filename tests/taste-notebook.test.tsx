@@ -151,3 +151,35 @@ it('preserves the prior record if saving an explicit edit fails',()=>{
  act(()=>button(view!,'수정 취소').props.onClick());expect(view!.root.findByType('textarea').props.value).toBe('old');
  expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.memo).toBe('old');act(()=>view!.unmount());
 });
+
+describe('notebook comparison deep links',()=>{
+ it('opens an allowlisted lesson without saving',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+  expect(view!.root.findAllByType('svg')).toHaveLength(1);expect(storage.size).toBe(0);
+  act(()=>view!.unmount());
+ });
+ it('ignores unknown lessons',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="unknown"/>);});
+  expect(view!.root.findAllByType('article')).toHaveLength(8);expect(storage.size).toBe(0);act(()=>view!.unmount());
+ });
+ it('opens an existing completed record read-only without replacing its settings',()=>{
+  const entry={lessonId:'light',version:1,before:'a',after:'b',beforeSetting:27,afterSetting:31,memo:'preserve',completedAt:'2026-11-11T00:00:00Z',updatedAt:'2026-11-11T00:00:00Z'};
+  const raw=JSON.stringify({version:1,entries:{light:entry}});storage.set(journalKey('guest'),raw);
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+  expect(storage.get(journalKey('guest'))).toBe(raw);
+  expect(JSON.stringify(view!.toJSON())).toContain('preserve');
+  expect(view!.root.findByType('textarea').props.readOnly).toBe(true);act(()=>view!.unmount());
+ });
+});
+
+vi.mock('next/link',()=>({default:({children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=><a {...props}>{children}</a>}));
+
+it('does not switch or write another completed record while a deep-linked draft is open',()=>{
+ const make=(id:string)=>({lessonId:id,version:1,before:'a',after:'b',memo:'keep '+id,completedAt:'2026-11-11T00:00:00Z',updatedAt:'2026-11-11T00:00:00Z'});
+ const raw=JSON.stringify({version:1,entries:{light:make('light'),context:make('context')}});storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>view!.update(<TasteNotebook initialLesson="context"/>));
+ expect(view!.root.findByType('textarea').props.value).toBe('keep light');
+ expect(storage.get(journalKey('guest'))).toBe(raw);act(()=>view!.unmount());
+});

@@ -4,7 +4,7 @@ import { ObservationGuide } from './ObservationGuide';
 import { artworkStudies, type ArtworkStudyData } from '@/lib/artwork-studies';
 const control = 'min-h-11 rounded-xl border border-[#0042AF]/25 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4';
 
-function ArtworkImage({ work, detail }: { work: ArtworkStudyData; detail: boolean }) {
+export function ArtworkImage({ work, detail }: { work: ArtworkStudyData; detail: boolean }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
