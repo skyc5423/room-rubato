@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { koreanDay } from '@/lib/daily-date';
-import { DAILY_PULSE_QUESTIONS } from '@/lib/domains-index';
+import { ALL_MASTER_DOMAINS, DAILY_PULSE_QUESTIONS } from '@/lib/domains-index';
 import { usePersonaStore } from '@/lib/persona-store';
 import { SpecimenPlate } from '@/components/SpecimenPlate';
 
@@ -17,6 +17,7 @@ export default function DailyPulsePage() {
 
   const startRef = useRef<number>(Date.now());
   const pulse = DAILY_PULSE_QUESTIONS[questionIdx];
+  const relatedDomain = ALL_MASTER_DOMAINS.find(domain => domain.id === pulse.domainId);
   const [today, setToday] = useState(() => koreanDay(Date.now()));
   useEffect(() => {
     const refreshDay = () => setToday(koreanDay(Date.now()));
@@ -190,8 +191,10 @@ export default function DailyPulsePage() {
                 : '가상 상황을 읽은 뒤에도 처음 선택을 유지하셨네요'}
             </h3>
             <p className="text-[14px] text-[#010D6E]/80">
-              처음 고르기까지 {(phase1TimeMs / 1000).toFixed(1)}초가 걸렸습니다. 이 시간만으로 확신이나 성격을 판단하지 않습니다.
+              처음 고르기까지 {(phase1TimeMs / 1000).toFixed(1)}초가 걸렸습니다. 응답 시간이나 선택의 유지·변경으로 확신이나 성격을 판단하지 않으며, 오늘의 답변은 성향 점수에 반영하지 않습니다.
             </p>
+            <p className="mt-4 text-[14px] text-[#010D6E] leading-relaxed">{pulse.yesterdayInsight.keyTakeaway}</p>
+            {relatedDomain && <Link href={`/domain/${relatedDomain.slug}`} className="inline-block mt-4 text-[14px] text-[#0042AF] underline underline-offset-4">{pulse.domainTitle} 더 살펴보기 →</Link>}
           </div>
         )}
       </section>

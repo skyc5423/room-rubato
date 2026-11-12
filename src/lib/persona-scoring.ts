@@ -3,12 +3,12 @@ import type { ChoiceTelemetryEntry, CompletedDomainResult, DailyShiftEntry, Laye
 
 /** Derived, experimental scores. Keep raw history; count only the latest answer
  * to each question so repeating a questionnaire cannot amplify its influence.
- * This runs on a new submission, not as a migration on profile load.
+ * Daily fictional-situation answers are records only, never trait evidence.
  */
 export function derivePersonaVectors(
   telemetry: ChoiceTelemetryEntry[],
   completedDomains: Record<number, CompletedDomainResult>,
-  dailyShifts: DailyShiftEntry[],
+  _dailyShifts: DailyShiftEntry[],
 ) {
   const layer1Vector = { ...INITIAL_LAYER1_VECTOR };
   const layer2Vector = { ...INITIAL_LAYER2_VECTOR, domainConviction: {} as Record<number, number> };
@@ -38,9 +38,6 @@ export function derivePersonaVectors(
       layer3Vector[key as keyof Layer3AestheticVector] += value * scale;
     }
   }
-  // Preserve the existing daily calculation separately from questionnaire scores.
-  // These are experimental scores, not validated psychological measurements.
-  for (const entry of dailyShifts) layer2Vector.socialConformity += entry.didShift ? 0.25 : -0.25;
   for (const [id, result] of Object.entries(completedDomains)) {
     layer2Vector.domainConviction[Number(id)] = result.convictionScore;
   }

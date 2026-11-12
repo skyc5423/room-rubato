@@ -17,6 +17,9 @@ it('restores completed pulse from persisted state without recording again', () =
   act(() => { view = create(<Page />); });
   expect(JSON.stringify(view.toJSON())).toContain('가상 상황을 읽고 선택을 바꾸셨네요');
   expect(JSON.stringify(view.toJSON())).toContain('2.1');
+  expect(JSON.stringify(view.toJSON())).toContain('오늘의 답변은 성향 점수에 반영하지 않습니다');
+  expect(JSON.stringify(view.toJSON())).toContain(DAILY_PULSE_QUESTIONS[0].yesterdayInsight.keyTakeaway);
+  expect(JSON.stringify(view.toJSON())).toContain('더 살펴보기');
   expect(store.recordDailyPulseShift).not.toHaveBeenCalled();
   act(() => view.unmount());
 });

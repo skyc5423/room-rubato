@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { ALL_MASTER_DOMAINS } from '../src/lib/domains-index';
 import { PersonaProvider, usePersonaStore } from '../src/lib/persona-store';
 
 const mock = vi.hoisted(() => { process.env.NEXT_PUBLIC_PERSONA_CAS_ENABLED = 'false'; return ({ callback: null as any, read: vi.fn(), save: vi.fn(), remove: vi.fn(), signin: vi.fn(), signup: vi.fn(), signout: vi.fn(), updateUser: vi.fn() }); });
@@ -24,7 +25,7 @@ const memory = () => { const map = new Map<string,string>(); return { getItem: (
 const tick = async () => { await act(async () => { await new Promise(r => setTimeout(r, 10)); }); };
 const emit = async (s: any) => { act(() => mock.callback(s ? 'SIGNED_IN' : 'SIGNED_OUT', s)); await tick(); };
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   vi.stubEnv('NEXT_PUBLIC_EMAIL_SIGNUP_ENABLED', 'true');
   vi.stubGlobal('localStorage', memory()); vi.stubGlobal('sessionStorage', memory()); vi.stubGlobal('window', { location: { origin: 'https://room.example' } });
   mock.read.mockResolvedValue({ data: null, error: null }); mock.save.mockResolvedValue({ error: null }); mock.remove.mockResolvedValue({ error: null }); mock.signout.mockResolvedValue({ error: null }); mock.updateUser.mockResolvedValue({ error: null });
@@ -100,4 +101,67 @@ describe('account isolation and persistence', () => {
     await act(async () => { resolve({ error: null }); await deletion; }); await tick();
     expect(mock.remove).toHaveBeenCalledTimes(1); expect(mock.save).toHaveBeenCalledTimes(1); expect(store.state.demographics?.occupation).toBe('unspecified');
   });
+});
+
+describe('daily answers are reflection records only', () => {
+  const daily = { pulseId: 'daily-pulse-1', phase1Choice: 'A' as const, phase1ResponseTimeMs: 2100, phase2ChoiceAfterSocialProof: 'B' as const };
+  it('keeps all vectors unchanged for both kept and changed answers, including survey recomputation', async () => {
+    await emit(null);
+    const domain = ALL_MASTER_DOMAINS[0];
+    const submission = { domain, answers: domain.questions.map(q => ({ questionId: q.id, chosenOption: 'A' as const, responseTimeMs: 2000 })) };
+    act(() => { store.recordQuestionChoice(submission); });
+    const before = structuredClone(store.state);
+    act(() => store.recordDailyPulseShift(daily));
+    act(() => store.recordDailyPulseShift({ ...daily, phase2ChoiceAfterSocialProof: 'A' }));
+    for (const key of ['layer1Vector', 'layer2Vector', 'layer3Vector'] as const) expect(store.state[key]).toEqual(before[key]);
+    const history = structuredClone(store.state.dailyShiftLog);
+    expect(history.map(entry => entry.didShift)).toEqual([true, false]);
+    act(() => { store.recordQuestionChoice(submission); });
+    for (const key of ['layer1Vector', 'layer2Vector', 'layer3Vector'] as const) expect(store.state[key]).toEqual(before[key]);
+    expect(store.state.dailyShiftLog).toEqual(history);
+  });
+  it.each(['guest', 'account'])('preserves historical aggregates on %s hydration and reload', async (mode) => {
+    const dailyShiftLog = [{ ...daily, timestamp: '2026-11-10T00:00:00Z', didShift: true }];
+    const legacy = {
+      layer1Vector: { openness: .8 },
+      layer2Vector: { socialConformity: .75, riskAversion: -.5 },
+      layer3Vector: { novelty: .6 },
+      dailyShiftLog,
+    };
+    const load = async () => {
+      if (mode === 'guest') { localStorage.setItem('room_rubato_guest_state_v4', JSON.stringify(legacy)); await emit(null); }
+      else { mock.read.mockResolvedValue({ data: { state: legacy }, error: null }); await act(async () => store.reloadServerProfile()); await emit(session('alice')); }
+    };
+    await load();
+    const original = structuredClone(store.state);
+    expect(original.layer2Vector.socialConformity).toBe(.75);
+    expect(original.layer1Vector.openness).toBe(.8);
+    expect(original.layer3Vector.novelty).toBe(.6);
+    expect(original.dailyShiftLog).toEqual(dailyShiftLog);
+    await load();
+    expect(store.state).toEqual(original);
+    expect(mock.save).not.toHaveBeenCalled();
+  });
+});
+
+it.each([
+  ['explicit empty history', { completedDomains: {}, choiceTelemetryLog: [] }],
+  ['orphan known answers', { completedDomains: {}, choiceTelemetryLog: [{ domainId: ALL_MASTER_DOMAINS[0].id, questionId: ALL_MASTER_DOMAINS[0].questions[0].id, chosenOption: 'A', responseTimeMs: 1000, timestamp: '2026-11-10T00:00:00Z' }] }],
+  ['orphan unknown answers', { completedDomains: {}, choiceTelemetryLog: [{ domainId: 999, questionId: 'unknown', chosenOption: 'A', responseTimeMs: 1000, timestamp: '2026-11-10T00:00:00Z' }] }],
+  ['filtered completion', { completedDomains: { 1: { domainId: 1, completedAt: '2026-11-10T00:00:00Z' } }, choiceTelemetryLog: [] }],
+  ['missing telemetry', { completedDomains: {} }],
+  ['missing completed domains', { choiceTelemetryLog: [] }],
+  ['malformed telemetry', { completedDomains: {}, choiceTelemetryLog: {} }],
+  ['malformed completed domains', { completedDomains: [], choiceTelemetryLog: [] }],
+])('preserves legacy aggregates with %s through a daily answer and reload', async (_label, survey) => {
+  const legacy = { ...survey, layer2Vector: { socialConformity: .75 }, dailyShiftLog: [] };
+  localStorage.setItem('room_rubato_guest_state_v4', JSON.stringify(legacy));
+  await emit(null);
+  expect(store.state.layer2Vector.socialConformity).toBe(.75);
+  act(() => store.recordDailyPulseShift({ pulseId: 'test', phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'B', phase1ResponseTimeMs: 1000 }));
+  const history = structuredClone(store.state.dailyShiftLog);
+  await emit(null);
+  expect(store.state.layer2Vector.socialConformity).toBe(.75);
+  expect(store.state.dailyShiftLog).toEqual(history);
+  expect(mock.save).not.toHaveBeenCalled();
 });

@@ -667,19 +667,11 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       didShift,
     };
 
-    setState((prev) => {
-      const conformityDelta = didShift ? 0.25 : -0.25;
-      return {
-        ...prev,
-        layer2Vector: {
-          ...prev.layer2Vector,
-          socialConformity: clampUnit(
-            prev.layer2Vector.socialConformity + conformityDelta
-          ),
-        },
-        dailyShiftLog: [...prev.dailyShiftLog, entry],
-      };
-    });
+    // A fictional situation supports reflection, not personality inference.
+    setState((prev) => ({
+      ...prev,
+      dailyShiftLog: [...prev.dailyShiftLog, entry],
+    }));
   };
 
   const recordCurationFeedback: PersonaContextValue['recordCurationFeedback'] =

@@ -29,10 +29,16 @@ describe('latest-answer persona derivation', () => {
     expect(derivePersonaVectors(log, completed, [])).toEqual(derivePersonaVectors(current, completed, []));
     expect(JSON.stringify(log)).toBe(before);
   });
-  it('does not count incomplete/unknown domains and preserves daily contributions', () => {
+  it('does not count incomplete domains or infer traits from daily answers', () => {
     const baseline = derivePersonaVectors([], {}, []);
     expect(derivePersonaVectors(answers(domain.id, 'A', '2026-11-10'), {}, [])).toEqual(baseline);
     const daily = { timestamp: '2026-11-10T00:00:00Z', pulseId: 'test', phase1Choice: 'A' as const, phase2ChoiceAfterSocialProof: 'B' as const, phase1ResponseTimeMs: 2000, didShift: true };
-    expect(derivePersonaVectors([], {}, [daily]).layer2Vector.socialConformity).toBe(.25);
+    expect(derivePersonaVectors([], {}, [daily])).toEqual(baseline);
+    const completed = { [domain.id]: result(domain.id) };
+    const log = answers(domain.id, 'A', '2026-11-10');
+    const dailyHistory = [daily, { ...daily, didShift: false, phase2ChoiceAfterSocialProof: 'A' as const }];
+    const before = JSON.stringify(dailyHistory);
+    expect(derivePersonaVectors(log, completed, dailyHistory)).toEqual(derivePersonaVectors(log, completed, []));
+    expect(JSON.stringify(dailyHistory)).toBe(before);
   });
 });
