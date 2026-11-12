@@ -36,6 +36,25 @@ export function Navbar() {
   const [isLoading, setIsLoading] = useState(false);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
   const profilePanelRef = useRef<HTMLDivElement>(null);
+  const authView = useRef(0);
+  const authPending = useRef(false);
+  const mounted = useRef(true);
+
+  // Closing a form clears its secret, not an authentication request already sent.
+  function leaveAuthForm() {
+    ++authView.current;
+    setPasswordInput('');
+    setFeedbackMsg(null);
+  }
+  function dismissAuthPanel() {
+    leaveAuthForm();
+    setIsAuthModalOpen(false);
+  }
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; ++authView.current; };
+  }, []);
+  useEffect(() => { leaveAuthForm(); }, [authUser?.userUuid]);
 
   useEffect(() => {
     if (!isAuthModalOpen) return;
@@ -44,7 +63,7 @@ export function Navbar() {
     panel?.querySelector<HTMLButtonElement>('button')?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsAuthModalOpen(false);
+        dismissAuthPanel();
         button?.focus();
       }
       if (event.key !== 'Tab' || !panel) return;
@@ -55,7 +74,7 @@ export function Navbar() {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && !panel?.contains(event.target) && !button?.contains(event.target)) setIsAuthModalOpen(false);
+      if (event.target instanceof Node && !panel?.contains(event.target) && !button?.contains(event.target)) dismissAuthPanel();
     };
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('pointerdown', onPointerDown);
@@ -65,7 +84,7 @@ export function Navbar() {
     };
   }, [isAuthModalOpen]);
 
-  useEffect(() => { setIsAuthModalOpen(false); }, [pathname]);
+  useEffect(() => { dismissAuthPanel(); }, [pathname]);
 
   const completedCount = isHydrated
     ? Object.keys(state.completedDomains).length
@@ -79,6 +98,7 @@ export function Navbar() {
 
   const handleGoogleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authPending.current) return;
     setFeedbackMsg(null);
     if (!consentAgreed) {
       setFeedbackMsg({
@@ -88,13 +108,18 @@ export function Navbar() {
       return;
     }
 
+    const view = authView.current;
+    authPending.current = true;
     setIsLoading(true);
     const res = await loginWithGoogle({
       googleEmail: emailInput,
       consentAgreed,
       demographics,
-    });
+    }).catch((): Awaited<ReturnType<typeof loginWithGoogle>> => ({ ok: false, error: 'Google 인증을 시작하지 못했습니다.' }));
+    authPending.current = false;
+    if (!mounted.current) return;
     setIsLoading(false);
+    if (view !== authView.current) return;
 
     if (!res.ok) {
       setFeedbackMsg({
@@ -115,6 +140,7 @@ export function Navbar() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authPending.current) return;
     setFeedbackMsg(null);
     if (!consentAgreed) {
       setFeedbackMsg({
@@ -124,6 +150,8 @@ export function Navbar() {
       return;
     }
 
+    const view = authView.current;
+    authPending.current = true;
     setIsLoading(true);
     const res = await loginWithEmail({
       email: emailInput,
@@ -131,8 +159,11 @@ export function Navbar() {
       mode: emailMode,
       consentAgreed,
       demographics,
-    });
+    }).catch((): Awaited<ReturnType<typeof loginWithEmail>> => ({ ok: false, error: '인증 서버에 연결하지 못했습니다.' }));
+    authPending.current = false;
+    if (!mounted.current) return;
     setIsLoading(false);
+    if (view !== authView.current) return;
 
     if (!res.ok) {
       setFeedbackMsg({
@@ -261,7 +292,8 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => {
-                setIsAuthModalOpen((prev) => !prev);
+                if (isAuthModalOpen) dismissAuthPanel();
+                else setIsAuthModalOpen(true);
                 setFeedbackMsg(null);
                 setConfirmDelete(false);
               }}
@@ -299,14 +331,14 @@ export function Navbar() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setIsAuthModalOpen(false); profileButtonRef.current?.focus(); }}
+                  onClick={() => { dismissAuthPanel(); profileButtonRef.current?.focus(); }}
                   className="text-[12px] text-[#0042AF]/80 hover:text-[#010D6E]"
                 >
                   닫기 ✕
                 </button>
               </div>
 
-              <Link href="/privacy" onClick={() => setIsAuthModalOpen(false)} className="mb-3 inline-flex min-h-11 items-center text-sm underline">데이터 저장·삭제 범위 보기</Link>
+              <Link href="/privacy" onClick={dismissAuthPanel} className="mb-3 inline-flex min-h-11 items-center text-sm underline">데이터 저장·삭제 범위 보기</Link>
 
               <p className="mb-4 text-xs leading-5 text-[#0042AF]/80">성별·연령대·직군은 새로 입력받지 않습니다. 응답과 메모는 본인의 서비스 이용에만 사용하며 연구·서비스 개선에는 사용하지 않습니다.</p>
 
@@ -409,8 +441,8 @@ export function Navbar() {
                     <button
                       type="button"
                       onClick={() => {
+                        leaveAuthForm();
                         setAuthTab('google');
-                        setFeedbackMsg(null);
                       }}
                       className={`py-1.5 rounded-lg text-[12px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${
                         authTab === 'google'
@@ -429,8 +461,8 @@ export function Navbar() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (authTab !== 'email') leaveAuthForm();
                         setAuthTab('email');
-                        setFeedbackMsg(null);
                       }}
                       className={`py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${
                         authTab === 'email'
@@ -464,6 +496,7 @@ export function Navbar() {
                     </form>
                   ) : (
                     <form onSubmit={handleEmailSubmit} className="space-y-2">
+                      <p className="text-xs leading-6">이 앱에서는 아직 비밀번호 재설정을 제공하지 않아요. 로그인 도움이 필요하면 <a className="underline" href="mailto:sangmin5423@gmail.com">sangmin5423@gmail.com</a>으로 문의해 주세요. 비밀번호나 인증 코드는 보내지 마세요. 문의만으로 계정이 복구되거나 비밀번호가 바뀌지는 않습니다.</p>
                       {!isEmailSignupEnabled() && <p className="text-xs leading-relaxed">{EMAIL_SIGNUP_PAUSED_MESSAGE}</p>}
                       <label className="text-xs">이메일 인증 방식
                         <select value={emailMode} onChange={(e) => setEmailMode(e.target.value as 'signin' | 'signup')} className="ml-2 p-1 rounded">
@@ -505,6 +538,7 @@ export function Navbar() {
                 </div>
               )}
 
+              {isLoading && !authUser && <p role="status" className="mt-3 text-xs leading-5">인증 요청을 확인하고 있어요. 창을 닫아도 이미 보낸 요청은 취소되지 않으며 로그인은 완료될 수 있어요.</p>}
               {syncError && <div role="alert" className="text-xs text-red-700">{syncError}{authUser && <button type="button" onClick={retrySync} className="ml-2 underline">저장 재시도</button>}</div>}
               {feedbackMsg && (
                 <p

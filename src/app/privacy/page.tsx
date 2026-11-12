@@ -19,6 +19,23 @@ export default function PrivacyPage() {
       <p className="mt-3 text-sm">문의할 때 비밀번호나 인증 코드는 보내지 마세요. 연락처를 통한 문의는 즉시 자동 삭제를 의미하지 않습니다.</p>
     </section>
 
+    <section className="mt-9" aria-labelledby="service-providers">
+      <h2 id="service-providers" className="text-xl font-semibold">페이지 제공과 외부 서비스</h2>
+      <ul className="mt-3 list-disc space-y-3 pl-5">
+        <li><strong>Vercel</strong>은 웹페이지와 정적 파일을 제공합니다. 접속 과정에서 IP 주소·브라우저 정보 같은 요청 정보가 서비스 운영 과정에서 처리될 수 있습니다.</li>
+        <li><strong>Supabase</strong>는 로그인과 계정별 서버 기록을 처리합니다. 현재 데이터베이스 프로젝트의 설정 지역은 서울입니다. 이 설정이 인증·지원·로그 등 모든 처리와 전송이 국내에서만 이루어진다는 뜻은 아닙니다.</li>
+        <li><strong>Google</strong> 로그인은 해당 버튼을 선택할 때 연결됩니다. 외부 기관·창작자 자료 링크를 열면 그 사이트로 이동하며, 해당 사이트의 개인정보 안내가 적용됩니다.</li>
+      </ul>
+      <p className="mt-3">글꼴과 작품 이미지는 이 사이트에서 제공합니다. 외부 영상 플레이어를 자동으로 불러오지 않습니다. 서비스 코드에는 별도의 이용자 분석·광고 추적 도구나 응답을 외부 AI로 전송하는 기능을 넣지 않았습니다. 이것이 호스팅·인증 제공자의 운영 로그까지 없다는 뜻은 아닙니다.</p>
+      <p className="mt-3 text-sm">제공자별 처리 범위·국외 이전·로그 보유기간과 법적 고지 항목은 추가 확인이 필요합니다. 아래 제공자 문서가 Room Rubato의 정식 개인정보 처리방침을 대신하지 않습니다.</p>
+      <ul className="mt-2 space-y-2 text-sm">
+        <li><a className="underline" href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noopener noreferrer">Vercel 개인정보 안내 ↗</a></li>
+        <li><a className="underline" href="https://supabase.com/legal/customer-resources/data-processing-addendum" target="_blank" rel="noopener noreferrer">Supabase 고객 데이터 처리 문서 ↗</a></li>
+        <li><a className="underline" href="https://supabase.com/docs/guides/platform/regions" target="_blank" rel="noopener noreferrer">Supabase 프로젝트 지역 안내 ↗</a></li>
+      </ul>
+      <p className="mt-3 text-xs">기능·프로젝트 설정 확인: 2026.11.12. 이용 목적과 저장·삭제 범위는 이 페이지의 각 항목을 함께 확인해 주세요.</p>
+    </section>
+
     <section className="mt-9" aria-labelledby="survey-data">
       <h2 id="survey-data" className="text-xl font-semibold">설문과 오늘의 질문</h2>
       <p className="mt-3">게스트의 응답은 이 브라우저에 저장됩니다. 로그인 후에는 계정 ID와 연결된 별도 프로필에 응답·응답시간·완료 상태·선택한 기본 정보가 저장됩니다. 계정 ID로 연결되므로 익명 데이터라고 볼 수는 없어요.</p>

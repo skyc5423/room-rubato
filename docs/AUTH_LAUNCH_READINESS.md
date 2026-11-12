@@ -37,3 +37,9 @@ Google Auth Platform > Audience > Publish app. Brand/name/logo verification is s
 
 See [the current completion matrix](COMPLETION_PLAN.md) for delivered follow-up releases and explicit verification limits. Earlier validation sections describe their original slice, not the current overall completion state.
 Account withdrawal now has a delivered disabled page and staged protocol/SQL proposal. Hosted activation, backup expiry and non-resurrection verification remain blocked; no deletion support is claimed active.
+
+## Source-level privacy and recovery checkpoint, 2026-11-12
+
+The dismissed-form password lifecycle and pending-response UI are corrected in [AUTH_SECRET_LIFECYCLE.md](AUTH_SECRET_LIFECYCLE.md). Existing email sign-in now explicitly states that in-app password reset is unavailable and provides the approved support contact without requesting passwords/codes or promising recovery. SMTP, recovery redirects and real delivery remain unverified; no provider change or signup activation follows from this UI correction.
+
+Read-only project metadata confirmed the database project region as `ap-northeast-2` (Seoul); deployment metadata separately reported Vercel compute `icn1`. These are location facts, not guarantees that Auth, CDN, support, logs, backups or every transfer remain domestic. See SERVICE_PROVIDER_INVENTORY.md for the consolidated provider/source scope. Operator legal identity, minimum age, retention, processor/transfer disclosures and legal review remain distinct owner/provider decisions, not values inferred from these region settings.

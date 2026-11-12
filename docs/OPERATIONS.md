@@ -3,7 +3,7 @@
 ## What is implemented (not a monitoring subscription)
 
 - `GET /api/health` is an uncached, public **liveness** response. It does not touch the database, check OAuth, prove writes work, or expose configuration/user data. HTTP 200 must not be described as full service health.
-- `node scripts/smoke.mjs https://room-rubato.vercel.app` performs eight public, unauthenticated GETs. Redirects fail rather than masquerading as healthy sign-in pages. It prints only route/status; never response bodies, tokens, cookies or note text.
+- `node scripts/smoke.mjs https://room-rubato.vercel.app` performs ten public, unauthenticated GETs. Redirects fail rather than masquerading as healthy sign-in pages. It prints only route/status; never response bodies, tokens, cookies or note text.
 - `.github/workflows/ci.yml` runs tests, types, build, and a local-production smoke test with read-only repository permissions. It uses no production secrets and does not deploy. Publishing the workflow enables runs on subsequent pushes/PRs; it has **no scheduled uptime monitoring or alert subscription**.
 - The config adds MIME sniff protection, origin-only cross-origin referrers, anti-framing and unused sensor permissions restrictions. It does not add COOP that could break OAuth popups or a speculative CSP that could block Next/Supabase. CSP needs a separately tested nonce/report rollout; no reporting endpoint is configured.
 

@@ -28,3 +28,17 @@ it('does not ask for unused demographic information or broad statistical consent
   expect(source).not.toContain('취향·통계 데이터 수집');
   expect(source).toContain('연구·서비스 개선에는 사용하지 않습니다');
 });
+
+it('identifies providers without claiming all-domestic processing or no operational logs',()=>{
+ const html=renderToStaticMarkup(<PrivacyPage/>);
+ for(const text of ['Vercel','Supabase','Google','설정 지역은 서울','모든 처리와 전송이 국내에서만','운영 로그까지 없다는 뜻은 아닙니다','정식 개인정보 처리방침을 대신하지'])expect(html).toContain(text);
+ expect(html).toContain('https://supabase.com/legal/customer-resources/data-processing-addendum');
+});
+
+it('allows same-origin font disclosure only after remote font imports are removed',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const css=readFileSync('src/app/globals.css','utf8');
+ expect(css).not.toMatch(/@import\s+url\(["']?https?:/);
+ expect(css).not.toMatch(/url\(\s*["']?(?:https?:)?\/\//);
+ expect(renderToStaticMarkup(<PrivacyPage/>)).toContain('글꼴과 작품 이미지는 이 사이트에서 제공합니다');
+});

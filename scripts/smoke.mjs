@@ -8,7 +8,7 @@ export function validateTarget(input) {
   return url.origin;
 }
 export async function smoke(origin, fetcher = fetch) {
-  const checks = [['/', 200], ['/notes', 200], ['/daily', 200], ['/compare', 200], ['/compare/light-and-edges', 200], ['/compare/gaze-and-frame', 200], ['/api/health', 200], ['/api/users', 410]];
+  const checks = [['/', 200], ['/notes', 200], ['/daily', 200], ['/compare', 200], ['/compare/light-and-edges', 200], ['/compare/gaze-and-frame', 200], ['/privacy', 200], ['/account/withdrawal', 200], ['/api/health', 200], ['/api/users', 410]];
   for (const [path, expected] of checks) {
     const response = await fetcher(`${origin}${path}`, { redirect: 'manual', credentials: 'omit', signal: AbortSignal.timeout(15000), headers: { Accept: path.startsWith('/api/') ? 'application/json' : 'text/html' } });
     if (response.status !== expected) throw new Error(`${path}: expected ${expected}, got ${response.status}`);

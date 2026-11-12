@@ -341,3 +341,12 @@ it('keeps the edited record and draft when a related bridge exit is declined',()
  expect(storage.get(journalKey('guest'))).toBe(raw);expect([...tabStorage.entries()]).toEqual(beforeDraft);
  act(()=>view!.unmount());
 });
+it('keeps cinema sequence navigation separate from notebook answers and resets on reopening',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="context"/>);});const before=[...storage.entries()];
+ const panel=()=>view!.root.findByProps({'aria-labelledby':'cinema-sequence-title'});
+ const next=()=>panel().findAllByType('button').find(b=>b.children.join('')==='다음 컷')!;
+ act(()=>next().props.onClick());act(()=>next().props.onClick());expect(panel().findByProps({role:'status'}).children.join('')).toContain('3/4');
+ expect([...storage.entries()]).toEqual(before);expect(tabStorage.size).toBe(0);
+ act(()=>button(view!,'← 목록으로').props.onClick());act(()=>view!.unmount());
+ act(()=>{view=create(<TasteNotebook initialLesson="context"/>);});expect(panel().findByProps({role:'status'}).children.join('')).toContain('1/4');expect([...storage.entries()]).toEqual(before);act(()=>view!.unmount());
+});

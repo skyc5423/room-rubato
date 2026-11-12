@@ -1,6 +1,7 @@
 'use client';
 import {LessonBridges} from './LessonBridges';
 
+import {CinemaSequenceStudy} from './CinemaSequenceStudy';
 import {ArchitectureCaseStudy} from './ArchitectureCaseStudy';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePersonaStore } from '@/lib/persona-store';
@@ -208,6 +209,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
         </div>
       </div>
       {lesson.id==='space'&&<ArchitectureCaseStudy key={lesson.id}/>}
+      {lesson.id==='context'&&<CinemaSequenceStudy key={lesson.id}/>}
       <ArtworkStudy key={lesson.id} lessonId={lesson.id}/>
       {lesson.diagram==='syncopation'&&<aside className="mt-6 rounded-2xl border border-[#0042AF]/20 bg-white p-5 text-sm leading-7"><h3 className="font-semibold">다른 음악의 반복도 들어볼까요? · 선택 활동</h3><p className="mt-2">위 합성 클릭은 장단을 재현한 소리가 아닙니다. 아래 기관 자료를 따로 듣고, 되풀이되는 흐름에서 무엇이 같고 다른지 내 말로 적어보세요. 음악 사이의 구조나 선호가 같다고 가정하지 않습니다.</p><ul className="mt-3 space-y-3"><li><a className="underline" target="_blank" rel="noopener noreferrer" href="https://academy.gugak.go.kr/open/open/lecture/detail.do?currentMenuId=900006007&openLectureSeq=1536&srchListType=SERIES&srchOpenCategorySeq=">국립국악원 · 장단맞춰, 쿵딱! ↗</a><p className="text-xs">굿거리장단과 자진모리장단을 소개하는 어린이용 교육 애니메이션입니다. 원본 영상과 활동지는 기관 사이트에서 확인해 주세요.</p></li><li><a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.carnegiehall.org/Education/Programs/Music-Educators-Toolbox/1-Performing-and-Composing-Four-Beat-Patterns">Carnegie Hall · 네 박 패턴 연주와 만들기 ↗</a><p className="text-xs">일정한 박을 유지하는 역할과 리듬을 연주하는 역할을 나누는 초등 음악교육 사례를 참고했어요. 위 소리는 별도로 만든 예시이며 기관의 음원이나 활동지를 복제하지 않았어요. 성인 학습 효과를 검증한 자료는 아닙니다.</p></li></ul><p className="mt-3 text-xs opacity-70">외부 영상·악보·활동지는 복제하지 않습니다. 이 비교 제안은 Room Rubato가 작성했으며 기관 공동 개발을 뜻하지 않습니다.</p></aside>}
       <section className="mt-8 rounded-2xl bg-[#FEF1D0]/70 p-5"><h3 className="font-semibold">화면 밖에서 해보기</h3><p className="mt-2 leading-7">{lesson.activity}</p></section>
