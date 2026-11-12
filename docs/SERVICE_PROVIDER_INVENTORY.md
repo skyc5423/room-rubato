@@ -21,7 +21,8 @@ Still needed before claiming full public-service readiness: operator legal ident
 ### Project-specific facts from narrow connected metadata
 
 - **Supabase:** `get_project` identifies `room-rubato` as `ACTIVE_HEALTHY`, region `ap-northeast-2`, PostgreSQL `17.11.0.018` (engine 17). Its organization's `get_organization` result reports `plan: free` and `tier: tier_free`. Neither result contains a log-retention value or Auth audit-storage configuration.
-- **Vercel:** the selected team's Observability configuration request returned HTTP 404 with the explicit message **“Observability Plus is not enabled”**. This establishes the add-on status, not the team's base plan, trace collection, absence of logs or log deletion. The connected `get_team` result exposed only identity and SAML fields, not billing plan or retention.
+- **Vercel:** the selected team's Observability configuration request returned HTTP 404 with the explicit message **“Observability Plus is not enabled”**. This establishes the add-on status, not the team's base plan, trace collection, absence of logs or log deletion. The connected `get_team` result exposed only identity and SAML fields, not billing plan or retention. A subsequent `list_teams` check found the target team but returned the same limited fields; it did not provide a plan through this alternative.
+- **Vercel production domain:** `get_project_domain` identifies `room-rubato.vercel.app` as attached to the Room Rubato project with `verified: true` and `redirect: null`. The production-domain list returned only that domain (`count: 1`, `next: null`). `get_domain_config` reports `misconfigured: false`, no conflicts and `ipStatus: optional-change`. No DNS change is required by that result or was performed. Platform domain verification does not establish Google Search Console ownership or Google OAuth brand verification; see [authentication readiness](./AUTH_LAUNCH_READINESS.md).
 
 ### Official product limits, kept separate from actual configuration
 
@@ -35,7 +36,7 @@ Still needed before claiming full public-service readiness: operator legal ident
 
 | Target | Unverified field | Why it remains unverified |
 | --- | --- | --- |
-| Vercel team/project | Current base billing plan and resulting runtime-log window | `get_team` omitted billing/retention; there is no dedicated plan-only tool in the available connector. No unrelated billing transactions or broad project/environment response was fetched. |
+| Vercel team/project | Current base billing plan and resulting runtime-log window | Both `get_team` and the subsequent `list_teams` result omitted billing/retention; there is no dedicated plan-only tool in the available connector. No unrelated billing transactions or broad project/environment response was fetched. |
 | Vercel project | Trace enablement, sampling rules and effective trace retention | No configuration-only tracing read is exposed by the available connector. Trace-query tools return actual records and were not used. |
 | Vercel project | Drain count/enabled status, external destinations and their retention | The [list-drains response](https://vercel.com/docs/rest-api/drains/retrieve-a-list-of-all-drains) includes delivery endpoints, headers and secrets. The connector has no count/status-only field projection, so it was not called; `includeMetadata: false` is not documented as a secret-redaction guarantee. |
 | Supabase project | Auth database-audit toggle and cleanup policy; managed-drain configuration | Available metadata tools do not expose these settings. No Auth configuration, audit rows or log query was fetched. |

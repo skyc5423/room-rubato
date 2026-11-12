@@ -36,3 +36,7 @@ No external uptime service, notification recipient, paid plan, schedule, or back
 - GitHub least-privilege workflow guidance: https://docs.github.com/en/actions/reference/security/secure-use
 
 Actions refs were resolved from their official Git repositories before pinning (checkout v4 and setup-node v4). Future action updates require review, not an unpinned tag switch.
+
+## Dependency advisory checkpoint (2026-11-12)
+
+`npm audit --omit=dev --json` against the committed lockfile reported zero known production dependency advisories (31 production dependencies). A follow-up `npm audit --json` including development dependencies also reported zero known advisories. No dependency or lockfile was changed. This is the registry's advisory snapshot, not a penetration test, proof of zero vulnerabilities, or provider configuration audit. Recheck as dependencies and advisories change.

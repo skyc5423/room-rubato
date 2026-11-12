@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { SavedRecordInspector } from '@/components/SavedRecordInspector';
 import { SurveyResetControl } from '@/components/SurveyResetControl';
 import Link from 'next/link';
 import { usePersonaStore } from '@/lib/persona-store';
@@ -8,7 +9,7 @@ import { ALL_MASTER_DOMAINS } from '@/lib/domains-index';
 import { getRoomObjectByDomainId } from '@/lib/room-objects';
 
 export default function ResearchPage() {
-  const { state } = usePersonaStore();
+  const { state, authUser } = usePersonaStore();
   const completedList = Object.values(state.completedDomains);
 
   return (
@@ -189,20 +190,7 @@ export default function ResearchPage() {
           </section>
         </div>
 
-        {/* Raw JSON Ground-Truth Export */}
-        <section className="paper-sheet rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-display italic text-[15px] text-[#0042AF]">
-              Ground-Truth JSON Snapshot
-            </span>
-            <span className="text-[12px] text-[#0042AF]/75">
-              선택 시간(responseTimeMs) · 동조 변화(didShift) 포함
-            </span>
-          </div>
-          <pre className="bg-[#FEF1D0]/75 border border-[#0042AF]/20 rounded-2xl p-4 text-[12px] text-[#010D6E] overflow-x-auto max-h-[300px]">
-            {JSON.stringify(state, null, 2)}
-          </pre>
-        </section>
+        <SavedRecordInspector key={authUser?.userUuid ?? 'guest'} state={state} />
       </div>
     </div>
   );

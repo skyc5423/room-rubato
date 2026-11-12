@@ -172,3 +172,8 @@ it('preserves guest survey data if local removal fails',async()=>{
  await act(async()=>{expect((await store.deletePersonaData()).ok).toBe(false);});
  expect(JSON.stringify(store.state)).toBe(before);expect(localStorage.getItem('room_rubato_guest_state_v4')).toBe(raw);
 });
+it('does not promote a future temporary OAuth consent timestamp to durable metadata',async()=>{
+ const oauth=session('alice');oauth.user.user_metadata={} as any;
+ sessionStorage.setItem('room_rubato_pending_consent_v1',JSON.stringify({version:'2026-11-10',at:new Date(Date.now()+60_000).toISOString()}));
+ await emit(oauth);expect(mock.updateUser).not.toHaveBeenCalled();expect(store.isHydrated).toBe(false);expect(store.syncError).toContain('동의 기록');
+});

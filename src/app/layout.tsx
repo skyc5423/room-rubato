@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { PersonaProvider } from '@/lib/persona-store';
+import { AuthReturnNotice } from '@/components/AuthReturnNotice';
 import { Navbar } from '@/components/Navbar';
 import { PersonaSyncStatus } from '@/components/PersonaSyncStatus';
 
@@ -38,7 +39,7 @@ export default function RootLayout({
         <PersonaProvider>
           <Navbar />
           <PersonaSyncStatus />
-          <main id="main-content" tabIndex={-1} className="flex-1 relative z-10">{children}</main>
+          <main id="main-content" tabIndex={-1} className="flex-1 relative z-10"><AuthReturnNotice />{children}</main>
           <footer className="border-t border-[#0042AF]/15 bg-[#F6E2B3]/40">
             <div className="max-w-[1380px] mx-auto px-6 py-7 flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[#0042AF]">
               <div className="flex items-center gap-3">

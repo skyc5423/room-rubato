@@ -1,5 +1,7 @@
 'use client';
 
+import {PENDING_AUTH_CONSENT_KEY,pendingAuthConsentAt} from './pending-auth-consent';
+
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import {
   clampUnit,
@@ -94,7 +96,7 @@ interface PersonaContextValue {
 
 // Never reuse the legacy shared key: it may contain another account's data.
 const STORAGE_KEY = 'room_rubato_guest_state_v4';
-const CONSENT_KEY = 'room_rubato_pending_consent_v1';
+const CONSENT_KEY = PENDING_AUTH_CONSENT_KEY;
 const CONSENT_VERSION = '2026-11-10';
 const AUTH_SESSION_KEY = 'room_rubato_auth_session_v3';
 // Enable only after CAS schema + permission cutover have been verified.
@@ -325,8 +327,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         let agreedAt = row?.consent_agreed_at || user.user_metadata?.consent_agreed_at;
         if (!agreedAt) {
           try {
-            const pending = JSON.parse(sessionStorage.getItem(CONSENT_KEY) || 'null');
-            if (pending?.version === CONSENT_VERSION && Date.now() - Date.parse(pending.at) < 15 * 60 * 1000) agreedAt = pending.at;
+            agreedAt = pendingAuthConsentAt(sessionStorage.getItem(CONSENT_KEY), CONSENT_VERSION) || undefined;
           } catch { /* No valid pending consent. */ }
         }
         if (!agreedAt) throw new Error('동의 기록을 확인할 수 없습니다. 로그아웃 후 동의하고 다시 로그인해 주세요.');
