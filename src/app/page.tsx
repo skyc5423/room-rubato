@@ -316,11 +316,11 @@ export default function HomePage() {
     <div className="w-full">
       <section aria-labelledby="observation-entry" className="border-b border-[#0042AF]/20 bg-[#F6F3E9] px-5 pb-8 pt-32 sm:px-8">
         <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[1.5fr_1fr] md:items-center">
-          <div><p className="text-xs tracking-widest text-[#0042AF]">직접 보고 듣는 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">취향을 묻기 전에,<br className="sm:hidden"/> 감상할 거리를 먼저.</h1><p className="mt-3 max-w-xl text-sm leading-7 text-[#010D6E]/80">빛을 움직이고, 간격을 바꾸고, 리듬을 들어보세요. 처음의 선택과 설명을 읽은 뒤의 선택을 나란히 남길 수 있어요.</p></div>
+          <div><p className="text-xs tracking-widest text-[#0042AF]">직접 보고 듣는 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">취향을 묻기 전에,<br className="sm:hidden"/> 감상할 거리를 먼저.</h1><p className="mt-3 max-w-xl text-sm leading-7 text-[#010D6E]/80">명암을 바꾸고, 간격을 조절하고, 리듬을 들어보세요. 처음의 선택과 설명을 읽은 뒤의 선택을 나란히 남길 수 있어요.</p></div>
           <NotebookReturn />
         </div>
       </section>
-      <DomainExplorer completedIds={completedDomainIds} ready={isHydrated} onSelect={handleSelectRoomObject} />
+      <DomainExplorer completedIds={completedDomainIds} ready={isHydrated} onSelect={id=>{if(!isHydrated)return;if(state.completedDomains[id])handleOpenResultNote(id);else handleSelectRoomObject(id);}} />
       {/* =====================================================================
           SCENE 1: INTERACTIVE ILLUSTRATED ROOM (100SVH)
          ===================================================================== */}

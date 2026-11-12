@@ -191,3 +191,27 @@ it('resumes a started context lesson instead of the first untouched catalogue le
  expect(JSON.stringify(view!.toJSON())).toContain('좋은 것과 흥미로운 것은 다르다');
  expect(parseJournal(storage.get(journalKey('guest'))!).entries.light).toBeUndefined();act(()=>view!.unmount());
 });
+it('verifies contrast without writing answers or losing slider settings',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="contrast"/>);});
+ const slider=()=>view!.root.findByType('input');
+ act(()=>slider().props.onChange({target:{value:'23'}}));
+ act(()=>button(view!,'두 배경을 같은 회색으로 가리기').props.onClick());
+ expect(slider().props.value).toBe(23);expect(slider().props.disabled).toBe(true);
+ expect(button(view!,'A 쪽').props.disabled).toBe(true);expect(storage.size).toBe(0);
+ expect(view!.root.findByType('svg').props['aria-label']).toContain('확인 보기');
+ act(()=>button(view!,'원래 배경으로 돌아가기').props.onClick());
+ expect(slider().props.value).toBe(23);expect(slider().props.disabled).toBe(false);
+ expect(button(view!,'A 쪽').props.disabled).toBe(false);expect(storage.size).toBe(0);act(()=>view!.unmount());
+});
+
+it('keeps saved contrast records read-only through verification and restores normal view on reopening',()=>{
+ const raw=JSON.stringify({version:1,entries:{contrast:{lessonId:'contrast',version:1,before:'a',after:'b',beforeSetting:22,afterSetting:31,memo:'preserve',completedAt:'2026-11-12',updatedAt:'2026-11-12'}}});storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="contrast"/>);});
+ act(()=>button(view!,'두 배경을 같은 회색으로 가리기').props.onClick());
+ expect(button(view!,'이번 탐색 마치기').props.disabled).toBe(true);expect(storage.get(journalKey('guest'))).toBe(raw);
+ act(()=>button(view!,'← 목록으로').props.onClick());
+ const card=view!.root.findAllByType('article').find(a=>JSON.stringify(a.findAllByType('h2').map(h=>h.children)).includes('주변이 바꾸는 같은 색'))!;
+ act(()=>card.findAllByType('button').find(b=>JSON.stringify(b.children).includes('다시 살펴보기'))!.props.onClick());
+ expect(view!.root.findByType('svg').props['aria-label']).not.toContain('확인 보기');
+ expect(button(view!,'A 쪽').props.disabled).toBe(true);expect(storage.get(journalKey('guest'))).toBe(raw);act(()=>view!.unmount());
+});

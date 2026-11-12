@@ -1,7 +1,8 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { DAILY_PULSE_QUESTIONS } from '../src/lib/domains-index';
+import { DomainExplorer } from '../src/components/DomainExplorer';
+import { DAILY_PULSE_QUESTIONS, ALL_MASTER_DOMAINS } from '../src/lib/domains-index';
 
 const store = vi.hoisted(() => ({ state: { dailyShiftLog: [] as any[], completedDomains: {}, layer3Vector: {}, layer1Vector: {}, layer2Vector: {}, choiceTelemetryLog: [], curationFeedbackLog: [] }, isHydrated: true, currentUserId: 'a', recordQuestionChoice: vi.fn(), recordDailyPulseShift: vi.fn() }));
 vi.mock('../src/lib/persona-store', () => ({ usePersonaStore: () => store }));
@@ -81,4 +82,15 @@ it('does not claim personal traits or peer results before any questionnaire is c
   expect(text).not.toContain('나와 비슷한 사람들의 선택');
   expect(text).not.toContain('클래식한 기본템을 선호함');
   act(() => view.unmount());
+});
+
+it('opens the saved result from a completed domain list instead of restarting questions',()=>{
+ const domain=ALL_MASTER_DOMAINS[0];
+ (store.state.completedDomains as any)[domain.id]={matchedPhenotypeId:domain.phenotypes[0].id,axisScores:{},avgResponseTimeMs:2000};
+ let view:any;
+ try{
+  act(()=>{view=create(<Page/>);});
+  act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));
+  expect(JSON.stringify(view.toJSON())).toContain('나의 매칭 결과');
+ }finally{act(()=>view?.unmount());store.state.completedDomains={};}
 });
