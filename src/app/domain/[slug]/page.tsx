@@ -52,7 +52,7 @@ export default function DomainDetailPage() {
 
   if (!domain) {
     return (
-      <div className="max-w-[760px] mx-auto px-6 pt-32 pb-24 text-center">
+      <div className="max-w-[760px] mx-auto px-6 pt-6 sm:pt-32 pb-24 text-center">
         <h1 className="font-editorial text-[24px] text-[#010D6E] mb-4">
           찾으시는 분야가 없습니다
         </h1>
@@ -64,7 +64,7 @@ export default function DomainDetailPage() {
   }
 
   if (!isHydrated) {
-    return <div role="status" className="max-w-[760px] mx-auto px-6 pt-32 pb-24">저장된 응답을 불러오는 중입니다.</div>;
+    return <div role="status" className="max-w-[760px] mx-auto px-6 pt-6 sm:pt-32 pb-24">저장된 응답을 불러오는 중입니다.</div>;
   }
 
   const existingCompletion = state.completedDomains[domain.id];
@@ -109,7 +109,7 @@ export default function DomainDetailPage() {
   ).slice(0, 3);
 
   return (
-    <div className="max-w-[980px] mx-auto px-6 pt-28 pb-20">
+    <div className="max-w-[980px] mx-auto px-6 pt-6 sm:pt-28 pb-20">
       <div className="flex items-center justify-between mb-6">
         <Link href="/" className="btn-cream px-4 py-2 text-[13px]">
           <span>←</span>

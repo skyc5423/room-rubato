@@ -43,7 +43,7 @@ export default function DailyPulsePage() {
   }, [currentUserId, today]);
 
   if (!isHydrated) {
-    return <div className="px-6 pt-28" role="status">저장된 응답을 불러오는 중입니다.</div>;
+    return <div className="px-6 pt-6 sm:pt-28" role="status">저장된 응답을 불러오는 중입니다.</div>;
   }
 
 
@@ -78,7 +78,7 @@ export default function DailyPulsePage() {
     phase1Choice && phase2Choice && phase1Choice !== phase2Choice;
 
   return (
-    <div className="max-w-[980px] mx-auto px-6 pt-28 pb-20 space-y-10">
+    <div className="max-w-[980px] mx-auto px-6 pt-6 sm:pt-28 pb-20 space-y-10">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <p className="font-display italic text-[17px] text-[#0042AF] mb-1">

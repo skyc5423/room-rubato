@@ -12,7 +12,7 @@ export default function ResearchPage() {
   const completedList = Object.values(state.completedDomains);
 
   return (
-    <div className="min-h-[100svh] bg-[#FEF1D0] text-[#010D6E] pt-28 pb-20 px-6">
+    <div className="min-h-[100svh] bg-[#FEF1D0] text-[#010D6E] pt-6 sm:pt-28 pb-20 px-6">
       <div className="max-w-[980px] mx-auto space-y-10">
         {/* Header */}
         <div className="border-b border-[#0042AF]/20 pb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
