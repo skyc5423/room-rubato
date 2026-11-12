@@ -13,9 +13,9 @@ it('manually advances both sequences, supports previous and repeated reset, and 
  const button=(label:string)=>view!.root.findAllByType('button').find(b=>b.children.join('')===label)!;
  const click=(label:string)=>act(()=>button(label).props.onClick());
  expect(view!.root.findAllByType(CinemaSceneDrawing).map(node=>node.props)).toEqual([{scene:'door'},{scene:'door'}]);
- expect(button('이전 컷').props.disabled).toBe(true);expect(view!.root.findByProps({role:'status'}).children.join('')).toContain('1/4');
+ expect(button('이전 컷').props['aria-disabled']).toBe(true);expect(button('이전 컷').props.disabled).toBeUndefined();click('이전 컷');expect(view!.root.findByProps({role:'status'}).children.join('')).toContain('1/4');
  click('다음 컷');click('다음 컷');expect(view!.root.findAllByType(CinemaSceneDrawing).map(node=>node.props)).toEqual([{scene:'door'},{scene:'chair'}]);expect(view!.root.findByProps({role:'status'}).children.join('')).toBe('3/4 · A는 닫힌 문, B는 빈 의자입니다.');
- click('다음 컷');expect(button('다음 컷').props.disabled).toBe(true);expect(view!.root.findByProps({role:'status'}).children.join('')).toBe('4/4 · A는 빈 의자, B는 닫힌 문입니다.');
+ click('다음 컷');expect(button('다음 컷').props['aria-disabled']).toBe(true);expect(button('다음 컷').props.disabled).toBeUndefined();click('다음 컷');expect(view!.root.findByProps({role:'status'}).children.join('')).toBe('4/4 · A는 빈 의자, B는 닫힌 문입니다.');
  click('이전 컷');expect(view!.root.findByProps({role:'status'}).children.join('')).toContain('3/4');click('처음부터 보기');click('처음부터 보기');expect(view!.root.findByProps({role:'status'}).children.join('')).toContain('1/4');
  for(const sequence of ['A','B'])expect(view!.root.findByProps({'aria-label':`${sequence} 전체 순서`}).findAllByType('li')).toHaveLength(4);
  expect(view!.root.findAllByProps({'aria-current':'step'})).toHaveLength(2);act(()=>view!.unmount());

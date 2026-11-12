@@ -19,7 +19,7 @@ export function CinemaSceneDrawing({scene}:{scene:CinemaScene}){
 }
 export function CinemaSequenceStudy(){
  const [step,setStep]=useState(0);
- const control='min-h-11 rounded-xl border border-[#0042AF]/40 bg-white px-4 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:opacity-40';
+ const control='min-h-11 rounded-xl border border-[#0042AF]/40 bg-white px-4 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 aria-disabled:opacity-40';
  return <section className="mt-8 border-t border-[#0042AF]/15 pt-8" aria-labelledby="cinema-sequence-title">
   <p className="text-xs font-semibold text-[#0042AF]">그림의 맥락에서 영화의 순서로</p>
   <h3 id="cinema-sequence-title" className="mt-2 text-xl font-semibold">마지막에 무엇을 보았나요?</h3>
@@ -31,8 +31,8 @@ export function CinemaSequenceStudy(){
    <ol aria-label={`${sequence} 전체 순서`} className="mt-3 flex flex-wrap gap-x-3 gap-y-2 text-sm leading-6">{cinemaSequences[sequence].map((scene,index)=><li key={index} aria-current={index===step?'step':undefined} className={index===step?'font-semibold underline underline-offset-4':''}>{index+1}. {cinemaScenes[scene].name}</li>)}</ol>
   </figure>)}</div>
   <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="두 묶음의 컷 함께 이동">
-   <button className={control} type="button" disabled={step===0} onClick={()=>setStep(n=>Math.max(0,n-1))}>이전 컷</button>
-   <button className={control} type="button" disabled={step===3} onClick={()=>setStep(n=>Math.min(3,n+1))}>다음 컷</button>
+   <button className={control} type="button" aria-disabled={step===0} onClick={()=>{if(step===0)return;setStep(n=>Math.max(0,n-1));}}>이전 컷</button>
+   <button className={control} type="button" aria-disabled={step===3} onClick={()=>{if(step===3)return;setStep(n=>Math.min(3,n+1));}}>다음 컷</button>
    <button className={control} type="button" onClick={()=>setStep(0)}>처음부터 보기</button>
   </div>
   <p className="mt-3 text-sm leading-6" role="status">{step+1}/4 · A는 {cinemaScenes[cinemaSequences.A[step]].name}, B는 {cinemaScenes[cinemaSequences.B[step]].name}입니다.</p>

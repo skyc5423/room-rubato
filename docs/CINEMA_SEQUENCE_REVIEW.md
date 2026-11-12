@@ -22,3 +22,7 @@ The case is placed below the existing context lesson’s primary choices, not in
 Synthetic tests verify sequence order/counts, reusable scene markup, all four manual steps, previous/end bounds/repeated reset, text overview and current-step semantics, source/interpretation limits, no media/timers/storage calls, and notebook integration without answer writes. Typecheck, flagged production build and HTTP smoke results accompany the delivery commit. No live user record or authentication operation is part of this work.
 
 Final local verification: 244/244 tests across 41 files, TypeScript, CAS/cloud-flagged production build and all 8 existing HTTP smoke routes passed. Independent source/UI review found no blocker. Browser visual/keyboard QA and post-deployment checks remain separate; this candidate was not published by its implementation worker.
+
+## Live keyboard follow-up
+
+Read-only production QA found that native disabled Next at the fourth cut dropped focus to the document. Endpoint navigation buttons now remain native focusable buttons with `aria-disabled` and explicitly guarded no-op handlers. This preserves the action's focus context while exposing unavailable direction; previous/next cannot exceed the four-cut bounds. WAI's button pattern (https://www.w3.org/WAI/ARIA/apg/patterns/button/, read2026-11-12) supports retaining focus when the context is not dismissed and announcing unavailable actions with aria-disabled. Synthetic tests verify endpoint semantics/no-op bounds; actual keyboard focus remains a separate browser check.
