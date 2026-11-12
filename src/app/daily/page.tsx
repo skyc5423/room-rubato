@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {storedSeconds} from '@/lib/result-display';
 import { koreanDay } from '@/lib/daily-date';
 import { ALL_MASTER_DOMAINS, DAILY_PULSE_QUESTIONS } from '@/lib/domains-index';
 import { usePersonaStore } from '@/lib/persona-store';
@@ -33,7 +34,7 @@ export default function DailyPulsePage() {
   const phase = saved ? 'done' : draftPhase;
   const phase1Choice = saved?.phase1Choice ?? draftPhase1Choice;
   const phase2Choice = saved?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
-  const phase1TimeMs = saved?.phase1ResponseTimeMs ?? draftPhase1TimeMs;
+  const phase1TimeMs = saved ? saved.phase1ResponseTimeMs : draftPhase1TimeMs;
 
   useEffect(() => {
     setPhase('phase1');
@@ -191,7 +192,7 @@ export default function DailyPulsePage() {
                 : '가상 상황을 읽은 뒤에도 처음 선택을 유지하셨네요'}
             </h3>
             <p className="text-[14px] text-[#010D6E]/80">
-              처음 고르기까지 {(phase1TimeMs / 1000).toFixed(1)}초가 걸렸습니다. 응답 시간이나 선택의 유지·변경으로 확신이나 성격을 판단하지 않으며, 오늘의 답변은 성향 점수에 반영하지 않습니다.
+              {storedSeconds(phase1TimeMs)===null?'저장된 응답 시간을 확인할 수 없어요.':`처음 고르기까지 ${storedSeconds(phase1TimeMs)}초가 걸렸습니다.`} 응답 시간이나 선택의 유지·변경으로 확신이나 성격을 판단하지 않으며, 오늘의 답변은 성향 점수에 반영하지 않습니다.
             </p>
             <p className="mt-4 text-[14px] text-[#010D6E] leading-relaxed">{pulse.yesterdayInsight.keyTakeaway}</p>
             {relatedDomain && <Link href={`/domain/${relatedDomain.slug}`} className="inline-block mt-4 text-[14px] text-[#0042AF] underline underline-offset-4">{pulse.domainTitle} 더 살펴보기 →</Link>}

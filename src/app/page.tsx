@@ -8,6 +8,7 @@ import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
 import { ResultEvidence } from '@/components/ResultEvidence';
+import {storedSeconds} from '@/lib/result-display';
 import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -256,21 +257,24 @@ export default function HomePage() {
   ]);
 
   const describeResponseTempo = (avgMs?: number) => {
-    if (!avgMs) return '이 분야에서 고른 답을 정리한 결과예요.';
-    const sec = (avgMs / 1000).toFixed(1);
+    const sec=storedSeconds(avgMs);
+    if(sec===null)return '저장된 응답 시간을 확인할 수 없어요. 시간만으로 취향의 확신을 판단하지 않습니다.';
     return `문항당 평균 ${sec}초가 기록됐습니다. 읽는 속도나 중단 시간도 포함될 수 있어, 응답 시간만으로 취향의 확신을 판단하지 않습니다.`;
   };
 
   const roomCommonTraits = useMemo(() => {
     if (completedDomainIds.length === 0) return [];
     const l3 = state.layer3Vector;
+    const complexity=recordedAxisScore(l3,'complexity');
+    const conceptualism=recordedAxisScore(l3,'conceptualism');
+    const novelty=recordedAxisScore(l3,'novelty');
     const lines: string[] = [];
-    if (l3.complexity <= -0.2) lines.push('이번 응답에서는 장식이 적고 단순한 쪽을 더 골랐어요.');
-    else if (l3.complexity >= 0.2) lines.push('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');
-    if (l3.conceptualism >= 0.2) lines.push('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');
-    else if (l3.conceptualism <= -0.2) lines.push('이번 응답에서는 설명보다 바로 느껴지는 인상을 더 골랐어요.');
-    if (l3.novelty >= 0.2) lines.push('이번 응답에서는 익숙한 것보다 새로운 시도를 더 골랐어요.');
-    else if (l3.novelty <= -0.2) lines.push('이번 응답에서는 새로운 시도보다 익숙한 스타일을 더 골랐어요.');
+    if (complexity!==undefined&&complexity <= -0.2) lines.push('이번 응답에서는 장식이 적고 단순한 쪽을 더 골랐어요.');
+    else if (complexity!==undefined&&complexity >= 0.2) lines.push('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');
+    if (conceptualism!==undefined&&conceptualism >= 0.2) lines.push('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');
+    else if (conceptualism!==undefined&&conceptualism <= -0.2) lines.push('이번 응답에서는 설명보다 바로 느껴지는 인상을 더 골랐어요.');
+    if (novelty!==undefined&&novelty >= 0.2) lines.push('이번 응답에서는 익숙한 것보다 새로운 시도를 더 골랐어요.');
+    else if (novelty!==undefined&&novelty <= -0.2) lines.push('이번 응답에서는 새로운 시도보다 익숙한 스타일을 더 골랐어요.');
     return lines;
   }, [state.layer3Vector, completedDomainIds.length]);
 

@@ -73,3 +73,12 @@ it('switches to each new question accessibly and keeps completed answers separat
   expect(JSON.stringify(view.toJSON())).toContain('이 답변 선택하기');
   act(() => view.unmount());
 });
+
+it.each([null,undefined,'bad',-1000])('never substitutes draft duration for an invalid saved daily time %s',(value)=>{
+ store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B',phase1ResponseTimeMs:value}];let view:any;
+ try{act(()=>{view=create(<Page/>);});expect(JSON.stringify(view.toJSON())).toContain('저장된 응답 시간을 확인할 수 없어요');expect(store.state.dailyShiftLog[0].phase1ResponseTimeMs).toBe(value);expect(store.recordDailyPulseShift).not.toHaveBeenCalled();}finally{act(()=>view?.unmount());}
+});
+it('preserves an actual saved zero duration',()=>{
+ store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B',phase1ResponseTimeMs:0}];let view:any;
+ try{act(()=>{view=create(<Page/>);});expect(view.root.findAllByType('p').some((p:any)=>p.children.join('').includes('처음 고르기까지 0.0초'))).toBe(true);expect(store.state.dailyShiftLog[0].phase1ResponseTimeMs).toBe(0);}finally{act(()=>view?.unmount());}
+});

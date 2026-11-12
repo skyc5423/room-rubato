@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import {formatStoredScore,storedSeconds} from '@/lib/result-display';
 import { SavedRecordInspector } from '@/components/SavedRecordInspector';
 import { SurveyResetControl } from '@/components/SurveyResetControl';
 import Link from 'next/link';
@@ -74,7 +75,7 @@ export default function ResearchPage() {
                       <span className="font-num font-bold">
                         {robj.code} · {robj.shortObject}
                       </span>
-                      <span>평균 {(item.avgResponseTimeMs / 1000).toFixed(1)}초</span>
+                      <span>{storedSeconds(item.avgResponseTimeMs)===null?'응답 시간 확인 불가':`평균 ${storedSeconds(item.avgResponseTimeMs)}초`}</span>
                     </div>
                     <p className="font-editorial text-[15px] text-[#010D6E] mb-1">
                       {pheno?.name??'저장된 유형 확인 필요'}
@@ -116,7 +117,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : formatStoredScore(row.val)}
                   </span>
                 </div>
               ))}
@@ -155,7 +156,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : formatStoredScore(row.val)}
                   </span>
                 </div>
               ))}
@@ -183,7 +184,7 @@ export default function ResearchPage() {
                 >
                   <span className="text-[#010D6E]/80">{row.label}</span>
                   <span className="font-num font-semibold text-[#0042AF]">
-                    {completedList.length === 0 ? '응답 없음' : row.val >= 0 ? `+${row.val.toFixed(2)}` : row.val.toFixed(2)}
+                    {completedList.length === 0 ? '응답 없음' : formatStoredScore(row.val)}
                   </span>
                 </div>
               ))}

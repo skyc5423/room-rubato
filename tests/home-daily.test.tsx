@@ -170,3 +170,13 @@ it('does not replace an unknown saved type with the first type',async()=>{
  const retry=view.root.findAllByType('button').find((b:any)=>b.children.join('').includes('다시 선택하기'));act(()=>retry.props.onClick());expect(store.recordQuestionChoice).not.toHaveBeenCalled();expect(JSON.stringify(store.state)).toBe(before);
  }finally{act(()=>view?.unmount());store.state.completedDomains={};store.state.choiceTelemetryLog=[];}
 });
+
+it.each(['bad','2000',-1000,Infinity,null])('rejects invalid home response-time display %s',(value)=>{
+ const domain=ALL_MASTER_DOMAINS.find(d=>d.slug==='fashion')!;(store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:domain.phenotypes[0].id,axisScores:{},avgResponseTimeMs:value,completedAt:'2026-11-12'};let view:any;
+ try{act(()=>{view=create(<Page/>);});act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));expect(JSON.stringify(view.toJSON())).toContain('저장된 응답 시간을 확인할 수 없어요');expect((store.state.completedDomains as any)[domain.id].avgResponseTimeMs).toBe(value);}finally{act(()=>view?.unmount());store.state.completedDomains={};}
+});
+it('preserves an actual zero duration and rejects coercive common-trait summaries',()=>{
+ const domain=ALL_MASTER_DOMAINS[0];(store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:domain.phenotypes[0].id,axisScores:{},avgResponseTimeMs:0,completedAt:'2026-11-12'};
+ const previous=store.state.layer3Vector;store.state.layer3Vector={complexity:'0.8',conceptualism:Infinity,novelty:null} as any;let view:any;
+ try{act(()=>{view=create(<Page/>);});act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));const text=JSON.stringify(view.toJSON());expect(text).toContain('문항당 평균 0.0초');expect(text).not.toContain('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');expect(text).not.toContain('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');expect((store.state.layer3Vector as any).complexity).toBe('0.8');}finally{act(()=>view?.unmount());store.state.completedDomains={};store.state.layer3Vector=previous;}
+});
