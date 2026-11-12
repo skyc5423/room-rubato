@@ -1358,3 +1358,9 @@ h1, h2, h3, h4, p, span, div, button, a, li {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .room-camera { transform: none !important; }
 }
+
+/* Notebook navigation explicitly aligns its heading; the mobile navbar stays in flow. */
+#lesson-heading, #notebook-heading { scroll-margin-top: 1.5rem; }
+@media (min-width: 640px) {
+  #lesson-heading, #notebook-heading { scroll-margin-top: 8rem; }
+}

@@ -34,3 +34,11 @@ for(const lesson of tasteLessons)it(`offers free choice and exact existing desti
  });
  act(()=>view!.unmount());
 });
+
+it('makes the existing Korean architecture case discoverable without equating depicted and physical light',()=>{
+ const bridge=lessonBridges.light.find(item=>item.to==='space');
+ expect(bridge?.connection).toContain('뮤지엄 SAN');
+ expect(bridge?.connection).toContain('그림의 명암은 빛을 표현');
+ expect(bridge?.connection).toContain('실제 빛의 통로');
+ expect(tasteLessons).toHaveLength(8);
+});

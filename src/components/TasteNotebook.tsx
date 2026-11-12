@@ -36,6 +36,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [category,setCategory] = useState('전체');
   const [view,setView] = useState<'explore'|'saved'|'record'>('explore');
   const [notice,setNotice] = useState('');
+  const [navigationError,setNavigationError]=useState('');
   const [draftEntryState,setDraftEntry] = useState<JournalEntry|null>(null);
   const [draftOwner,setDraftOwner] = useState<string|null>(null);
   const [recovery,setRecovery]=useState<{owner:string;value:NotebookDraft}|null>(null);
@@ -44,7 +45,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const lessonHeading = useRef<HTMLHeadingElement>(null);
   const notebookHeading = useRef<HTMLHeadingElement>(null);
   const hadLesson = useRef(false);
-  useEffect(() => { if(selected){lessonHeading.current?.focus();hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus();hadLesson.current=false;} }, [selected,stage]);
+  useEffect(() => { if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus({preventScroll:true});notebookHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=false;} }, [selected,stage]);
   useEffect(()=>{
     if (!isHydrated) return;
     try { setJournal(parseJournal(localStorage.getItem(journalKey(owner))));setStorageError(''); }
@@ -56,19 +57,39 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     window.addEventListener('storage',sync);return ()=>window.removeEventListener('storage',sync);
   },[owner,isHydrated]);
   const ready = isHydrated && loadedOwner===owner;
-  const openedLink = useRef<string|null>(null);
-  useEffect(()=>{
-    if(draftEntryState && draftOwner===owner)return;
-    if(!ready || !initialLesson || !tasteLessons.some(item=>item.id===initialLesson))return;
-    const key=`${owner}:${initialLesson}`;
-    if(openedLink.current===key)return;
-    openedLink.current=key;
-    const saved=journal.entries[initialLesson];
-    setSelected(initialLesson);setStage(saved?.after?2:saved?.before?1:0);
+  // Native history is supported by Next: each lesson/list transition has a reloadable URL.
+  function writeLessonUrl(id:string|null,replace=false){
+    if(!window.location?.href || !window.history)return;
+    const url=new URL(window.location.href);
+    if(url.pathname!=='/notes')return;
+    if(id)url.searchParams.set('lesson',id);else url.searchParams.delete('lesson');
+    if(url.href===window.location.href)return;
+    const data={...window.history.state};
+    // Let Next copy its own internal state and synchronize the canonical URL.
+    delete data.__NA;delete data._N;delete data.__PRIVATE_NEXTJS_INTERNALS_TREE;
+    try{window.history[replace?'replaceState':'pushState'](data,'',url.href);setNavigationError('');}
+    catch{setNavigationError('주소를 바꾸지 못했어요. 새로고침하면 이전 탐색이 열릴 수 있어요.');}
+  }
+  function readLessonUrl(){
+    const id=window.location?.href?new URL(window.location.href).searchParams.get('lesson'):initialLesson;
+    return id&&tasteLessons.some(item=>item.id===id)?id:null;
+  }
+  function showLesson(id:string|null){
+    const saved=id?journal.entries[id]:undefined;
+    setSelected(id);setStage(saved?.after?2:saved?.before?1:0);
     setVariation(saved?.afterSetting??saved?.beforeSetting??60);
-  },[ready,owner,initialLesson,journal,draftEntryState,draftOwner]);
+  }
+  const routeOwner=useRef<string|null>(null);
+  const routeProp=useRef<string|undefined>(undefined);
+  useEffect(()=>{
+    if(!ready||draftEntryState&&draftOwner===owner)return;
+    if(routeOwner.current===owner&&routeProp.current===initialLesson)return;
+    routeOwner.current=owner;routeProp.current=initialLesson;
+    const id=readLessonUrl();showLesson(id);
+    if(!id)writeLessonUrl(null,true);
+  },[ready,owner,initialLesson,draftEntryState,draftOwner]);
   const draftEntry = ready&&draftOwner===owner?draftEntryState:null;
-  useEffect(()=>{if(selected)lessonHeading.current?.focus();},[!!draftEntry]);
+  useEffect(()=>{if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});}},[!!draftEntry]);
   useEffect(()=>{
     if(!draftEntry||!draftBase.current)return;
     try{sessionStorage.setItem(notebookDraftKey(owner),JSON.stringify({version:1,base:draftBase.current,entry:draftEntry,stage,variation}));setDraftStorageError('');}
@@ -79,6 +100,24 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
     window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
   },[!!draftEntry]);
+  useEffect(()=>{
+    if(!ready)return;
+    const onPop=()=>{
+      const withinNotebook=!window.location?.href||new URL(window.location.href).pathname==='/notes';
+      if(withinNotebook&&readLessonUrl()===selected)return; // Anchor-only history is not a lesson exit.
+      // Back/Forward is not intercepted. Keep an explicit recovery copy, never a journal save.
+      if(draftEntry&&draftBase.current){
+        const value:NotebookDraft={version:1,base:draftBase.current,entry:draftEntry,stage,variation};
+        setRecovery({owner,value});
+        try{sessionStorage.setItem(notebookDraftKey(owner),JSON.stringify(value));}
+        catch{setDraftStorageError('임시 수정을 이 화면에 보관했지만 탭 저장에 실패했어요. 새로고침 전에 수정을 이어가 저장하거나 메모를 복사해 주세요.');}
+        setDraftEntry(null);draftBase.current=null;
+      }
+      if(window.location?.href&&new URL(window.location.href).pathname!=='/notes')return;
+      const id=readLessonUrl();showLesson(id);if(!id)writeLessonUrl(null,true);
+    };
+    window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);
+  },[ready,owner,journal,draftEntry,stage,variation,selected]);
   const pendingRecovery=ready&&recovery?.owner===owner?recovery.value:null;
   function clearTabDraft():boolean {
     try{sessionStorage.removeItem(notebookDraftKey(owner));setRecovery(null);setDraftStorageError('');return true;}
@@ -93,7 +132,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     try{
       const current=parseJournal(localStorage.getItem(journalKey(owner)));
       if(!sameDraftBase(current.entries[pendingRecovery.entry.lessonId],pendingRecovery.base)){setJournal(current);setDraftStorageError('원래 기록이 바뀌었거나 삭제되어 임시 수정을 이어갈 수 없어요. 아래 메모를 복사해 보관한 뒤 임시 수정을 버려주세요.');return;}
-      draftBase.current=pendingRecovery.base;setDraftOwner(owner);setDraftEntry(pendingRecovery.entry);setSelected(pendingRecovery.entry.lessonId);setStage(pendingRecovery.stage);setVariation(pendingRecovery.variation);setRecovery(null);setNotice('임시 수정을 불러왔어요. 저장하기 전까지 기존 기록은 바뀌지 않습니다.');
+      draftBase.current=pendingRecovery.base;setDraftOwner(owner);setDraftEntry(pendingRecovery.entry);setSelected(pendingRecovery.entry.lessonId);writeLessonUrl(pendingRecovery.entry.lessonId);setStage(pendingRecovery.stage);setVariation(pendingRecovery.variation);setRecovery(null);setNotice('임시 수정을 불러왔어요. 저장하기 전까지 기존 기록은 바뀌지 않습니다.');
     }catch{setDraftStorageError('기존 기록을 확인할 수 없어 임시 수정을 불러오지 않았어요. 메모를 복사해 보관해 주세요.');}
   }
   const currentJournal = ready?journal:emptyJournal();
@@ -130,7 +169,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 다른 탐색을 열까요? 기존 기록은 유지돼요.'))return;
     const saved = currentJournal.entries[n.id];
     if(!discardDraft())return;
-    setSelected(n.id);
+    setSelected(n.id);writeLessonUrl(n.id);
     setStage(saved?.after ? 2 : saved?.before ? 1 : 0);
     setVariation(saved?.afterSetting ?? saved?.beforeSetting ?? 60);
     setNotice('');
@@ -156,7 +195,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       localStorage.setItem(`${journalKey(owner)}:before-cloud-restore`, JSON.stringify(currentJournal));
       setHasRestoreBackup(true);
       localStorage.setItem(journalKey(owner), JSON.stringify(value));
-      setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); setStage(0); setStorageError('');
+      setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
       return true;
     } catch { setStorageError('브라우저 기록을 보관할 수 없어 서버 기록 불러오기를 중단했어요.'); return false; }
   }
@@ -188,6 +227,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       <div className="rounded-2xl bg-[#010D6E] p-5 text-white"><p className="text-sm opacity-80">내가 살펴본 단서</p><p className="mt-1 text-3xl">{completed.length}<span className="text-base opacity-70"> / {tasteLessons.length}</span></p><p className="mt-2 text-sm leading-6">한 편에 3–4분. 순서대로 하지 않아도, 하루를 건너뛰어도 기록은 남아요.</p>{ready&&<button type="button" className="mt-4 min-h-11 rounded-xl bg-[#FEF1D0] px-4 text-sm text-[#010D6E]" onClick={()=>open(tasteLessons.find(n=>n.id===(resumeId||nextId||returnProgress.target?.id||tasteLessons[0].id))!)}>{resumeId?'멈춘 탐색 이어보기':completed.length===0?'첫 탐색 시작':nextId?'아직 안 본 단서 살펴보기':'다시 보고 싶은 단서 찾기'} →</button>}</div>
     </header>}
     {!lesson&&<a href="#notebook-storage" className="mt-2 inline-flex min-h-11 items-center text-sm underline underline-offset-4">저장 범위와 기록 관리 보기</a>}
+    {navigationError&&<p role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 text-sm">{navigationError}</p>}
     {ready&&draftStorageError&&<p role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 text-sm">{draftStorageError}</p>}
     {ready&&draftStorageError&&!draftEntry&&!pendingRecovery&&<button className={button} onClick={()=>{if(window.confirm('이 탭에 남은 임시 수정 사본을 지울까요? 저장된 기록은 유지돼요.'))clearTabDraft();}}>임시 사본 삭제 다시 시도</button>}
     {pendingRecovery&&!draftEntry&&<aside className="my-4 rounded-xl border border-[#0042AF]/20 bg-white p-4" aria-label="남아 있는 임시 수정"><h2 className="font-semibold">이 탭에 저장하지 않은 수정이 있어요</h2><p className="mt-2 text-sm leading-6">{tasteLessons.find(l=>l.id===pendingRecovery.entry.lessonId)?.title} · 기존 기록은 바뀌지 않았어요. 원래 기록이 바뀌거나 삭제됐다면 이어갈 수 없어요.</p><div className="mt-3 flex flex-wrap gap-2"><button className={button} onClick={recoverDraft}>임시 수정 이어가기</button><button className={button} onClick={()=>{if(window.confirm('이 탭의 임시 수정만 버릴까요? 저장된 기록은 유지돼요.'))clearTabDraft();}}>임시 수정 버리기</button></div><details className="mt-3"><summary className="min-h-11 cursor-pointer py-2 text-sm underline">임시 메모 복사하기</summary><textarea aria-label="임시 수정 메모" readOnly value={pendingRecovery.entry.memo} className="w-full min-h-24 border p-2"/></details><p className="mt-2 text-xs leading-5">이 탭에서만 보관하며 서버로 보내지 않아요. 탭을 닫으면 사라질 수 있어요.</p></aside>}
@@ -195,7 +235,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     {!ready&&<p role="status" className="mt-4">기록을 불러오는 중이에요.</p>}
     {!lesson&&<div className="my-6 flex flex-wrap items-center gap-2" aria-label="노트 보기 방식">{([{id:'explore',label:'전체 탐색'},{id:'saved',label:'다시 볼 단서'},{id:'record',label:'내 기록'}] as const).map(v=><button key={v.id} className={`${button} ${view===v.id?'bg-[#0042AF] text-white':'bg-white/60'}`} aria-pressed={view===v.id} onClick={()=>{if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 이동할까요? 기존 기록은 유지돼요.'))return;if(!discardDraft())return;setView(v.id);setSelected(null);setCategory('전체');}}>{v.label}</button>)}<button className={`${button} ml-auto`} disabled={!ready||!Object.keys(currentJournal.entries).length} onClick={exportNotes}>기록 내보내기</button></div>}
     {lesson ? <article className="rounded-3xl border border-[#0042AF]/20 bg-white/85 p-5 sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3"><button className={button} onClick={()=>{if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 목록으로 갈까요? 기존 기록은 유지돼요.'))return;if(!discardDraft())return;setSelected(null);}}>← 목록으로</button><button className={button} aria-pressed={!!entry?.bookmarked} onClick={()=>save(lesson.id,{bookmarked:!entry?.bookmarked})}>{entry?.bookmarked?'✓ 다시 볼 단서에 저장됨':'＋ 다시 볼 단서에 저장'}{draftEntry?' (수정 저장 전)':''}</button>{entry&&<button className={button} onClick={()=>deleteEntry(lesson.id)}>이 탐색 기록 지우기</button>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><button className={button} onClick={()=>{if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 목록으로 갈까요? 기존 기록은 유지돼요.'))return;if(!discardDraft())return;setSelected(null);writeLessonUrl(null);}}>← 목록으로</button><button className={button} aria-pressed={!!entry?.bookmarked} onClick={()=>save(lesson.id,{bookmarked:!entry?.bookmarked})}>{entry?.bookmarked?'✓ 다시 볼 단서에 저장됨':'＋ 다시 볼 단서에 저장'}{draftEntry?' (수정 저장 전)':''}</button>{entry&&<button className={button} onClick={()=>deleteEntry(lesson.id)}>이 탐색 기록 지우기</button>}</div>
       <p className="mt-4 text-sm text-[#0042AF]">관찰실 · {lesson.category} · 약 {lesson.minutes}분</p><h1 id="lesson-heading" ref={lessonHeading} tabIndex={-1} className="mt-2 text-2xl font-semibold sm:text-3xl focus:outline-none">{lesson.title}</h1><p className="mt-2 leading-7">{lesson.subtitle}</p><p className="mt-2 text-sm leading-6 text-[#010D6E]/75">선택과 메모는 {authUser?'현재 계정의':'게스트'} 기록으로 이 브라우저에 먼저 저장돼요. <a href="#notebook-storage" className="inline-flex min-h-11 items-center underline underline-offset-4">저장·기록 관리</a></p>
       {reviewOnly&&<aside className="mt-4 rounded-xl bg-[#edf2ee] p-4 text-sm leading-6"><p>완료한 기록을 다시 보고 있어요. 선택과 메모는 그대로 유지됩니다. 도식은 자유롭게 움직여 비교할 수 있어요.</p><details className="mt-2"><summary className="min-h-11 cursor-pointer py-2 underline underline-offset-4">저장된 질문과 설정 보기</summary><dl className="mt-2 space-y-2"><dt className="font-semibold">첫 질문: {lesson.prompt}</dt><dd>{choices.find(c=>c.value===persistedEntry?.before)?.label||'미선택'}{persistedEntry?.beforeSetting!==undefined?` · 도식 설정 ${persistedEntry.beforeSetting}`:''}</dd><dt className="font-semibold">다시 본 질문: {lesson.reflection}</dt><dd>{choices.find(c=>c.value===persistedEntry?.after)?.label||'미선택'}{persistedEntry?.afterSetting!==undefined?` · 도식 설정 ${persistedEntry.afterSetting}`:''}</dd></dl><p className="mt-2 text-xs">질문이나 설정도 달라졌다면 선택의 차이가 학습만으로 생겼다고 볼 수는 없어요.</p></details><button className={`${button} mt-3`} onClick={()=>{if(pendingRecovery){setDraftStorageError('먼저 남아 있는 임시 수정을 이어가거나 버려주세요.');return;}draftBase.current={...persistedEntry!};setDraftOwner(owner);setDraftEntry({...persistedEntry!});}}>현재 기록 편집하기</button></aside>}{draftEntry&&<aside className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-6"><p>수정 중이에요. 아래에서 저장하기 전까지 기존 기록은 유지돼요. 임시 수정은 이 탭에만 보관하며 서버로 보내지 않아요. 새로고침하거나 다른 페이지에서 돌아오면 이어갈 수 있지만, 탭을 닫으면 사라질 수 있어요. 보관 오류가 표시되면 이동 전에 메모를 복사해 주세요. 저장하면 기존 기록을 교체합니다.</p><button className={`${button} mt-3`} onClick={()=>{if(!discardDraft())return;setStage(2);setVariation(persistedEntry?.afterSetting??persistedEntry?.beforeSetting??60);setNotice('수정을 취소했어요. 기존 기록을 유지합니다.');}}>수정 취소 · 기존 기록 보기</button></aside>}
       {stage>0&&<button className={`${button} mt-4`} onClick={()=>{setStage(0);setNotice('');}}>첫 관찰 다시 보기</button>}

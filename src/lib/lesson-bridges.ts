@@ -3,7 +3,8 @@ export interface LessonBridge { to: string; connection: string; question: string
 export const lessonBridges: Record<string, LessonBridge[]> = {
  light: [
   {to:'contrast',connection:'물체 안의 명암에서 물체 주변의 색으로 옮겨봅니다.',question:'대상 색은 같아도 배경이 바뀌면 어떻게 보일까요?'},
-  {to:'context',connection:'보이는 형태에서 그것을 고르는 기준으로 질문을 바꿉니다.',question:'입체적으로 보이는 쪽과 방에 두고 싶은 쪽은 같을까요?'}],
+  {to:'context',connection:'보이는 형태에서 그것을 고르는 기준으로 질문을 바꿉니다.',question:'입체적으로 보이는 쪽과 방에 두고 싶은 쪽은 같을까요?'},
+  {to:'space',connection:'그림의 명암은 빛을 표현하고, 건물의 창과 벽은 실제 빛의 통로를 만듭니다. 공간 활동의 국내 사례에서 뮤지엄 SAN을 살펴보세요.',question:'밖이 보이는 창과 빛이 들어오는 틈은 같은 곳인가요?'}],
  rhythm: [
   {to:'space',connection:'막대 사이의 빈틈에서 공간을 나누는 경계로 옮겨봅니다.',question:'시선이 통하는 것과 사람이 지나는 것은 어떻게 다를까요?'},
   {to:'complexity',connection:'간격의 규칙에서 여러 형태의 반복으로 시선을 넓힙니다.',question:'요소가 많아져도 규칙을 찾으면 읽기 편해질까요?'}],

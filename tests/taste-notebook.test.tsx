@@ -350,3 +350,69 @@ it('keeps cinema sequence navigation separate from notebook answers and resets o
  act(()=>button(view!,'← 목록으로').props.onClick());act(()=>view!.unmount());
  act(()=>{view=create(<TasteNotebook initialLesson="context"/>);});expect(panel().findByProps({role:'status'}).children.join('')).toContain('1/4');expect([...storage.entries()]).toEqual(before);act(()=>view!.unmount());
 });
+
+describe('notebook URL history',()=>{
+  function historyAt(path='/notes?lesson=light'){
+    const listeners=new Set<()=>void>();let stack=[`https://room-rubato.test${path}`],index=0;
+    const location={href:stack[0]};const state={__NA:true,__PRIVATE_NEXTJS_INTERNALS_TREE:'preserved',custom:'kept'};let canonical=location.href;
+    const integrate=(data:Record<string,unknown>,url:string)=>{if(!data.__NA&&!data._N){canonical=url;Object.assign(data,{__NA:true,__PRIVATE_NEXTJS_INTERNALS_TREE:state.__PRIVATE_NEXTJS_INTERNALS_TREE});}};
+    const history={state,pushState:vi.fn((_s:Record<string,unknown>,_t:string,url:string)=>{integrate(_s,url);stack=stack.slice(0,index+1);stack.push(url);index++;location.href=url;}),replaceState:vi.fn((_s:Record<string,unknown>,_t:string,url:string)=>{integrate(_s,url);stack[index]=url;location.href=url;})};
+    vi.stubGlobal('window',{location,history,confirm:vi.fn(()=>false),addEventListener:(name:string,fn:()=>void)=>{if(name==='popstate')listeners.add(fn);},removeEventListener:(name:string,fn:()=>void)=>{if(name==='popstate')listeners.delete(fn);}});
+    return {history,location,canonical:()=>canonical,go:(delta:number)=>{index+=delta;location.href=stack[index];listeners.forEach(fn=>fn());}};
+  }
+  it('pushes related lessons and list; restores Back, Forward and reload without journal writes',()=>{
+    const h=historyAt();let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+    const related=view!.root.findAllByType('button').find(b=>JSON.stringify(b.children).includes('주변이 바꾸는 같은 색'))!;
+    expect(related).toBeTruthy();act(()=>related.props.onClick());
+    expect(h.location.href).toContain('lesson=contrast');expect(h.canonical()).toBe(h.location.href);expect(storage.size).toBe(0);
+    act(()=>h.go(-1));expect(view!.root.findByProps({id:'lesson-heading'}).children.join('')).toContain('명암');
+    act(()=>h.go(1));expect(view!.root.findByProps({id:'lesson-heading'}).children.join('')).toContain('주변이');
+    act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="contrast"/>);});
+    expect(view!.root.findByProps({id:'lesson-heading'}).children.join('')).toContain('주변이');
+    act(()=>button(view!,'목록으로').props.onClick());expect(new URL(h.location.href).searchParams.has('lesson')).toBe(false);
+    expect(view!.root.findAllByType('article')).toHaveLength(8);
+    act(()=>h.go(-1));expect(view!.root.findByProps({id:'lesson-heading'}).children.join('')).toContain('주변이');
+    expect(h.history.pushState.mock.calls.every(call=>call[0].custom==='kept'&&call[0].__NA===true)).toBe(true);expect(h.canonical()).toBe('https://room-rubato.test/notes');expect(storage.size).toBe(0);act(()=>view!.unmount());
+  });
+  it.each([false,true])('preserves unsaved edits on Back without writing originals (tab failure %s)',(fails)=>{
+    const h=historyAt('/notes');
+    const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'original',completedAt:'2026-11-12',updatedAt:'2026-11-12'}}});storage.set(journalKey('guest'),raw);
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    // The catalogue's lesson button opens the completed record without changing it.
+    const title=view!.root.findAllByType('button').find(b=>JSON.stringify(b.children).includes('명암은 형태를 만든다'))!;
+    act(()=>title.props.onClick());act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+    act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'recover this'}}));
+    act(()=>button(view!,'목록으로').props.onClick());expect(h.location.href).toContain('lesson=light');
+    if(fails)vi.stubGlobal('sessionStorage',{getItem:(k:string)=>tabStorage.get(k)||null,setItem:()=>{throw Error('quota');},removeItem:(k:string)=>tabStorage.delete(k)});
+    act(()=>h.go(-1));expect(view!.root.findAllByType('article')).toHaveLength(8);expect(storage.get(journalKey('guest'))).toBe(raw);
+    act(()=>button(view!,'임시 수정 이어가기').props.onClick());expect(h.location.href).toContain('lesson=light');expect(view!.root.findByType('textarea').props.value).toBe('recover this');expect(storage.get(journalKey('guest'))).toBe(raw);
+    act(()=>view!.unmount());
+  });
+  it('does not interrupt a draft for same-lesson anchor history',()=>{
+    const h=historyAt();const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'original',completedAt:'2026-11-12',updatedAt:'2026-11-12'}}});storage.set(journalKey('guest'),raw);
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});act(()=>button(view!,'현재 기록 편집하기').props.onClick());act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'still editing'}}));
+    act(()=>view!.root.findByType('input').props.onChange({target:{value:'91'}}));
+    h.history.pushState({},'',h.location.href+'#notebook-storage');act(()=>h.go(-1));
+    expect(view!.root.findByType('input').props.value).toBe(91);expect(view!.root.findByType('textarea').props.value).toBe('still editing');expect(button(view!,'수정한 기록 저장하기')).toBeDefined();expect(button(view!,'임시 수정 이어가기')).toBeUndefined();expect(storage.get(journalKey('guest'))).toBe(raw);act(()=>view!.unmount());
+  });
+  it('never rewrites a different route on popstate',()=>{
+    const h=historyAt('/compare/light-and-edges?lesson=invalid');h.history.pushState({},'','https://room-rubato.test/notes?lesson=light');let view:ReactTestRenderer;
+    act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});act(()=>h.go(-1));expect(h.location.href).toBe('https://room-rubato.test/compare/light-and-edges?lesson=invalid');expect(h.history.replaceState).not.toHaveBeenCalled();act(()=>view!.unmount());
+  });
+  it('surfaces history write failure even while changing lesson content',()=>{
+    const h=historyAt();h.history.pushState.mockImplementation(()=>{throw Error('blocked');});let view:ReactTestRenderer;
+    act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+    act(()=>button(view!,'주변이 바꾸는 같은 색').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('주소를 바꾸지 못했어요');expect(h.location.href).toContain('lesson=light');
+    act(()=>view!.unmount());
+  });
+  it('explicitly scrolls the focused heading with existing global header clearance',()=>{
+    historyAt();const focus=vi.fn(),scrollIntoView=vi.fn();let view:ReactTestRenderer;
+    act(()=>{view=create(<TasteNotebook initialLesson="light"/>,{createNodeMock:node=>node.type==='h1'?{focus,scrollIntoView}:null});});
+    expect(focus).toHaveBeenCalledWith({preventScroll:true});expect(scrollIntoView).toHaveBeenCalledWith({block:'start',behavior:'instant'});act(()=>view!.unmount());
+  });
+  it('normalizes invalid lessons to list and preserves unrelated URL context',()=>{
+    const h=historyAt('/notes?lesson=not-real&from=compare#notebook-storage');let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="not-real"/>);});
+    expect(view!.root.findAllByType('article')).toHaveLength(8);expect(h.location.href).toBe('https://room-rubato.test/notes?from=compare#notebook-storage');expect(storage.size).toBe(0);act(()=>view!.unmount());
+  });
+});
