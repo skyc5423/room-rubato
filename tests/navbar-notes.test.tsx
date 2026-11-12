@@ -11,6 +11,6 @@ it('offers a visible notes link with current-page semantics', () => {
   const link = view.root.findAllByType('a').find((node: any) => node.props.href === '/notes');
   expect(link.props['aria-current']).toBe('page');
   expect(link.props.className).not.toContain('hidden');
-  expect(link.children).toContain('취향 노트');
+  expect(link.children).toContain('관찰실');
   act(() => view.unmount());
 });

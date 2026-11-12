@@ -233,7 +233,7 @@ export function Navbar() {
                   : 'text-[#010D6E] hover:bg-[#FEF1D0]'
               }`}
             >
-              취향 노트
+              관찰실
             </Link>
             <Link
               href="/research"

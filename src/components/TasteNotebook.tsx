@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePersonaStore } from '@/lib/persona-store';
 import { tasteLessons, TasteLesson } from '@/lib/taste-lessons';
+import { notebookReturn } from '@/lib/notebook-return';
 import { emptyJournal, journalKey, parseJournal, updateJournal, suggestNext, TasteJournal, JournalEntry, ObservationChoice } from '@/lib/taste-journal';
 import { TasteStudyDiagram } from './TasteStudyDiagram';
 import { RhythmListening } from './RhythmListening';
@@ -65,6 +66,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const reviewOnly = !!persistedEntry?.completedAt && draftEntry?.lessonId!==lesson?.id;
   const variationLabel = lesson?.diagram==='perspective'?'B 그림의 소실점 위치':lesson?.diagram==='rhythm'?'B 배열의 간격 변화':lesson?.diagram==='space'?'B 구획의 불투명도':lesson?.diagram==='context'?'B 구성의 어긋남':lesson?.diagram==='contrast'?'두 배경의 명도':lesson?.diagram==='complexity'?'B 도형의 크기':'B 도형의 명암 대비';
   const completed = tasteLessons.filter(n=>currentJournal.entries[n.id]?.completedAt);
+  const returnProgress = notebookReturn(currentJournal);
+  const resumeId = returnProgress.kind==='continue'?returnProgress.target?.id:undefined;
   const nextId = suggestNext(tasteLessons.map(n=>n.id),currentJournal);
   const categories = ['전체',...new Set(tasteLessons.map(n=>n.category))];
   const visible = useMemo(()=>tasteLessons.filter(n=>(category==='전체'||n.category===category)&&(view==='explore'||(view==='saved'?currentJournal.entries[n.id]?.bookmarked:currentJournal.entries[n.id]))),[category,view,currentJournal]);
@@ -142,7 +145,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   return <section className="mx-auto max-w-6xl px-5 pb-20 pt-32 text-[#010D6E]" aria-labelledby="notebook-heading">
     <header className="grid gap-6 border-b border-[#0042AF]/20 pb-8 md:grid-cols-[1.5fr_1fr]">
       <div><p className="text-sm tracking-wide text-[#0042AF]">ROOM RUBATO / 관찰실</p><h1 id="notebook-heading" ref={notebookHeading} tabIndex={-1} className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">좋아하는 이유를 찾아보는 시간</h1><p className="mt-4 max-w-xl leading-7">직접 바꿔 보고, 용어를 배우고, 다시 골라보세요. 같은 것을 두 번 보면서 생긴 차이를 나만의 말로 남기는 여덟 가지 탐색입니다.</p></div>
-      <div className="rounded-2xl bg-[#010D6E] p-5 text-white"><p className="text-sm opacity-80">내가 살펴본 단서</p><p className="mt-1 text-3xl">{completed.length}<span className="text-base opacity-70"> / {tasteLessons.length}</span></p><p className="mt-2 text-sm leading-6">한 편에 3–4분. 순서대로 하지 않아도, 하루를 건너뛰어도 기록은 남아요.</p>{ready&&<button type="button" className="mt-4 min-h-11 rounded-xl bg-[#FEF1D0] px-4 text-sm text-[#010D6E]" onClick={()=>open(tasteLessons.find(n=>n.id===(nextId||tasteLessons[0].id))!)}>{completed.length===0?'첫 탐색 시작':nextId?'아직 안 본 단서 살펴보기':'다시 보고 싶은 단서 찾기'} →</button>}</div>
+      <div className="rounded-2xl bg-[#010D6E] p-5 text-white"><p className="text-sm opacity-80">내가 살펴본 단서</p><p className="mt-1 text-3xl">{completed.length}<span className="text-base opacity-70"> / {tasteLessons.length}</span></p><p className="mt-2 text-sm leading-6">한 편에 3–4분. 순서대로 하지 않아도, 하루를 건너뛰어도 기록은 남아요.</p>{ready&&<button type="button" className="mt-4 min-h-11 rounded-xl bg-[#FEF1D0] px-4 text-sm text-[#010D6E]" onClick={()=>open(tasteLessons.find(n=>n.id===(resumeId||nextId||returnProgress.target?.id||tasteLessons[0].id))!)}>{resumeId?'멈춘 탐색 이어보기':completed.length===0?'첫 탐색 시작':nextId?'아직 안 본 단서 살펴보기':'다시 보고 싶은 단서 찾기'} →</button>}</div>
     </header>
     <p className="mt-4 text-xs leading-5 text-[#010D6E]/70">선택과 메모는 {authUser?'현재 계정별로 구분해':'게스트 기록으로'} <strong>이 브라우저에만</strong> 먼저 저장돼요. {cloudSyncEnabled&&authUser?'계정 저장은 아래에서 직접 선택할 수 있어요.':'다른 기기와 동기화되지 않아요.'} 사이트 데이터를 지우면 브라우저 기록이 사라져요. 기존 취향·성격 점수에 반영하지 않습니다.</p>
     {cloudSyncEnabled&&authUser&&ready&&<TasteJournalCloudSync key={owner} owner={owner} journal={currentJournal} onReplace={replaceFromCloud} onExport={exportNotes}/>}

@@ -183,3 +183,11 @@ it('does not switch or write another completed record while a deep-linked draft 
  expect(view!.root.findByType('textarea').props.value).toBe('keep light');
  expect(storage.get(journalKey('guest'))).toBe(raw);act(()=>view!.unmount());
 });
+
+it('resumes a started context lesson instead of the first untouched catalogue lesson',()=>{
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{context:{lessonId:'context',version:1,before:'a',memo:'',updatedAt:'2026-11-12'}}}));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ act(()=>button(view!,'멈춘 탐색 이어보기').props.onClick());
+ expect(JSON.stringify(view!.toJSON())).toContain('좋은 것과 흥미로운 것은 다르다');
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light).toBeUndefined();act(()=>view!.unmount());
+});
