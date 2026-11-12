@@ -1,6 +1,6 @@
 # Room Rubato: service-quality completion criteria
 
-Current evidence checkpoint: production dea18d6042954b63bb30180d759721546911dad4, 2026-11-12. This is a progress record, not overall acceptance.
+Latest verified checkpoint: production bb26b14cd434d9ff83380cd59c948bb856daf701, 2026-11-12. Earlier checkpoint counts below are historical. This is a progress record, not overall acceptance.
 
 ## Scope and stop rule
 
@@ -89,3 +89,18 @@ This slice closes demonstrated quality gaps rather than adding question counts:
 - Readiness: public provider explanations, existing email-recovery limitations and ten-route smoke coverage are delivered. Provider metadata/default-retention evidence is tracked separately in SERVICE_PROVIDER_INVENTORY.md, not conflated with verified deletion.
 
 Responsive evidence now includes ordinary-window 485px-wide screenshots and explicitly selected 200% browser zoom. Exact CSS viewport width and physical 375px phone behavior remain unverified. Audible output, two-device/two-real-account isolation, hosted backup/expiry/restore and account withdrawal remain open. The backup login was aborted; no new request or activation is made. Legal operator/audience and transfer/retention policy remain unresolved. These are concrete acceptance limits, not grounds to call the full service complete or to add unrelated features indefinitely.
+
+
+## Trust and return-path checkpoint (bb26b14)
+
+Production commit `bb26b14cd434d9ff83380cd59c948bb856daf701` is READY at the canonical origin; exact-commit CI43205628236 succeeded. The same source tree passed339 tests in51 files, typecheck, CAS/cloud-enabled production build, and ten local and ten public HTTP routes. This is not whole-service acceptance.
+
+- Notebook lesson navigation now agrees with its URL, reload, Back/Forward and list destination; fixed-header focus clearance was independently checked broad and narrow. A sourced Museum SAN bridge connects light and space without adding a duplicate activity.
+- All12 domain introductions describe their actual text/scene-choice task.22 catalogue-copy corrections remove unsupported sensory, suitability and certainty promises; mechanical fingerprints preserve scoring inputs. Both result surfaces label reference curation as preselected examples. Six selected curation entries have seven scoped primary-source links, not an assertion that every catalogue item was independently certified.
+- Missing/invalid saved choices no longer fabricate option A/B. Unknown saved type IDs no longer become the first catalogue type or an unplayed prediction. Available saved evidence remains inspectable without rewriting records. These result edge cases have synthetic component coverage; isolated live fixtures were not created because managed incognito is unavailable and existing guest records must be preserved.
+- Malformed numeric scores no longer crash the summary; unavailable saved durations no longer become zero, NaN, negative time or the new-answer default1.5 seconds. Actual finite numbers and zero remain intact. This is display validation, not data migration. Missing vector keys already defaulted to zero upstream cannot be distinguished from genuine zero.
+- Live read-only intro and navigation checks passed broad and485px screenshots, with no questionnaire writes. The new summary empty state renders normally. Saved daily timing was unavailable in the visible guest state and was not forced by answering; valid/invalid timing regression evidence is synthetic.
+
+Next demonstrated issue: the result modal's custom Tab loop excludes native disclosure controls and can lose containment when a focused questionnaire button disappears. This accessibility correction is pending, not accepted in this checkpoint.
+
+No new launch authorization is inferred. Hosted backup/expiry/restore and withdrawal remain blocked after canceled Backblaze login. Current Google publishing/branding/redirect settings remain unverified because Console is inaccessible. Email signup remains off. Legal operator/audience/retention/transfer decisions, true two-device/two-account isolation, physical375px behavior and audible playback remain open. No personal responses were used for research.
