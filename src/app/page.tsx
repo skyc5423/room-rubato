@@ -1,5 +1,6 @@
 'use client';
 
+import { HomeObservationPreview } from '@/components/HomeObservationPreview';
 import { NotebookReturn } from '@/components/NotebookReturn';
 import { koreanDay } from '@/lib/daily-date';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -250,7 +251,7 @@ export default function HomePage() {
   ]);
 
   const describeResponseTempo = (avgMs?: number) => {
-    if (!avgMs) return '10~12개의 구체적인 장면 선택을 바탕으로 분석한 결과입니다.';
+    if (!avgMs) return '이 분야에서 고른 답을 정리한 결과예요.';
     const sec = (avgMs / 1000).toFixed(1);
     return `문항당 평균 ${sec}초가 기록됐습니다. 읽는 속도나 중단 시간도 포함될 수 있어, 응답 시간만으로 취향의 확신을 판단하지 않습니다.`;
   };
@@ -315,9 +316,9 @@ export default function HomePage() {
   return (
     <div className="w-full">
       <section aria-labelledby="observation-entry" className="border-b border-[#0042AF]/20 bg-[#F6F3E9] px-5 pb-8 pt-32 sm:px-8">
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[1.5fr_1fr] md:items-center">
-          <div><p className="text-xs tracking-widest text-[#0042AF]">직접 보고 듣는 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">취향을 묻기 전에,<br className="sm:hidden"/> 감상할 거리를 먼저.</h1><p className="mt-3 max-w-xl text-sm leading-7 text-[#010D6E]/80">명암을 바꾸고, 간격을 조절하고, 리듬을 들어보세요. 처음의 선택과 설명을 읽은 뒤의 선택을 나란히 남길 수 있어요.</p></div>
-          <NotebookReturn />
+        <div className="mx-auto max-w-6xl">
+          <header className="mb-8 max-w-3xl"><p className="text-sm tracking-wide text-[#0042AF]">ROOM RUBATO · 관찰실</p><h1 id="observation-entry" className="mt-3 text-3xl font-semibold leading-tight text-[#010D6E]">작품을 보고, 좋아하는 이유를 찾아보세요.</h1></header>
+          <div className="grid gap-8 lg:grid-cols-[2fr_1fr] lg:items-start"><HomeObservationPreview embedded/><NotebookReturn withArtworkPreview/></div>
         </div>
       </section>
       <DomainExplorer completedIds={completedDomainIds} ready={isHydrated} onSelect={id=>{if(!isHydrated)return;if(state.completedDomains[id])handleOpenResultNote(id);else handleSelectRoomObject(id);}} />
@@ -1103,7 +1104,7 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-7 border-b border-[#0042AF]/15">
             <div>
               <p className="text-[13px] font-bold text-[#0042AF] mb-1">
-                {DAILY_PULSE_QUESTIONS.length}가지 편집 질문 · 같은 질문도 다른 날 다시 답할 수 있어요
+                {DAILY_PULSE_QUESTIONS.length}개 질문 중 하나를 골라보세요. 같은 질문에도 다음 날 다시 답할 수 있어요.
               </p>
               <h2 className="font-editorial text-[24px] sm:text-[28px] text-[#010D6E]">
                 오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
@@ -1190,7 +1191,7 @@ export default function HomePage() {
                 {currentPulse.socialProofNudge.nudgePrompt}
               </h3>
               <p className="text-[14px] text-[#0042AF]/85 mb-6">
-                처음 고르신 답은 <strong>선택 {phase1Choice}</strong>입니다. 주변 의견과 상관없이 원래 선택을 유지할지, 아니면 바꿀지 골라주세요.
+                처음에는 <strong>{phase1Choice}</strong>를 골랐어요. 가상 상황을 읽고, 답을 유지할지 바꿀지 선택해 주세요.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3.5">
@@ -1199,7 +1200,7 @@ export default function HomePage() {
                   onClick={() => handlePulsePhase2(phase1Choice)}
                   className="btn-cobalt px-6 py-3 text-[14px] justify-center"
                 >
-                  원래 내 선택({phase1Choice}) 그대로 유지하기
+                  처음 고른 {phase1Choice} 유지하기
                 </button>
                 <button
                   type="button"
@@ -1208,7 +1209,7 @@ export default function HomePage() {
                   }
                   className="btn-cream px-6 py-3 text-[14px] justify-center"
                 >
-                  주변 의견을 참고해 반대쪽({phase1Choice === 'A' ? 'B' : 'A'}
+                  다른 쪽({phase1Choice === 'A' ? 'B' : 'A'}
                   )으로 바꾸기
                 </button>
               </div>

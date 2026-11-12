@@ -46,3 +46,10 @@ it('offers review when all lessons are completed',async()=>{
  let journal=emptyJournal();for(const lesson of tasteLessons)journal=updateJournal(journal,lesson.id,1,{before:'a',after:'b',completedAt:'2026-11-12'});
  expect(notebookReturn(journal).kind).toBe('revisit');expect(notebookReturn(journal).completed).toBe(8);
 });
+it('keeps the activity entry without duplicating the integrated artwork comparison CTA',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn withArtworkPreview/>);});
+ const links=view!.root.findAllByType('a');
+ expect(links.some(a=>a.props.href==='/compare')).toBe(false);
+ expect(links.filter(a=>a.props.href==='/notes')).toHaveLength(1);
+ expect(localStorage.setItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+});

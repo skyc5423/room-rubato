@@ -13,7 +13,7 @@ export function ObservationGuide() {
     <p className="mt-4 rounded-xl bg-white/70 p-3 text-sm leading-6">메모 힌트: “나는 ___ 부분의 ___ 때문에 더 머물고 싶다. 전체로 돌아오니 ___도 보였다.” 위 탐색 메모에 남길 수 있어요. 이미 완료한 기록은 ‘현재 기록 편집하기’를 선택해야 수정됩니다.</p>
     <h4 className="mt-5 text-sm font-semibold">학습 개념 참고 · 무엇을 참고했나요?</h4>
     <ul className="mt-2 space-y-3 text-xs leading-6">
-      <li><a className="underline" href="https://www.mmca.go.kr/educations/educationsDetail.do?eduId=202504140000684" target="_blank" rel="noopener noreferrer">국립현대미술관 · 감상 더하기+ ↗</a><p>관심 있는 작품을 고르고 질문에 자기 언어로 응답하는 자기주도 감상 교육. 중·고등학생 대상 프로그램이며, 이 서비스의 성인 학습 효과를 검증한 자료는 아닙니다.</p></li>
+      <li><a className="underline" href="https://www.mmca.go.kr/educations/educationsDetail.do?eduId=202504140000684" target="_blank" rel="noopener noreferrer">국립현대미술관 · 감상 더하기+ ↗</a><p>청소년이 질문을 따라 작품의 주제·맥락·의미를 살펴보는 자기주도 감상 자료. 중·고등학생 대상이며, 이 서비스의 성인 학습 효과를 검증한 자료는 아닙니다.</p></li>
       <li><a className="underline" href="https://www.getty.edu/education/k-12-learning/describe-listen-draw/vocabulary-for-describing-an-artwork/" target="_blank" rel="noopener noreferrer">Getty · 작품을 묘사하는 어휘 ↗</a><p>색상·명도·강도, 크기·대비에 의한 강조, 시선의 흐름과 반복을 구분하는 미술 어휘를 참고했습니다.</p></li>
       <li><a className="underline" href="https://pz.harvard.edu/resources/see-think-wonder" target="_blank" rel="noopener noreferrer">Harvard Project Zero · 감상 사고 루틴 관련 읽기 ↗</a><p>관찰과 해석을 구분하고 해석의 근거를 묻는 교육적 관점을 참고했습니다. 원본 활동지나 질문 순서를 번역·복제한 활동은 아닙니다.</p></li>
     </ul>

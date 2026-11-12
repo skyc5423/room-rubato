@@ -215,3 +215,35 @@ it('keeps saved contrast records read-only through verification and restores nor
  expect(view!.root.findByType('svg').props['aria-label']).not.toContain('확인 보기');
  expect(button(view!,'A 쪽').props.disabled).toBe(true);expect(storage.get(journalKey('guest'))).toBe(raw);act(()=>view!.unmount());
 });
+
+it('opens a focused workspace while keeping storage and export controls reachable',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByType('h1').props.id).toBe('lesson-heading');
+ expect(view!.root.findAllByProps({'aria-label':'노트 보기 방식'})).toHaveLength(0);
+ expect(JSON.stringify(view!.toJSON())).not.toContain('좋아하는 이유를 찾아보는 시간');
+ expect(view!.root.findAllByProps({href:'#notebook-storage'})).toHaveLength(1);
+ expect(view!.root.findAllByProps({id:'notebook-storage'})).toHaveLength(1);
+ expect(button(view!,'기록 내보내기')).toBeDefined();
+ expect(storage.size).toBe(0);
+ act(()=>button(view!,'← 목록으로').props.onClick());
+ expect(view!.root.findByType('h1').props.id).toBe('notebook-heading');
+ expect(view!.root.findAllByProps({'aria-label':'노트 보기 방식'})).toHaveLength(1);
+ expect(view!.root.findAllByType('article')).toHaveLength(8);act(()=>view!.unmount());
+});
+it('keeps a focused draft open when leaving is declined',()=>{
+ const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'original',completedAt:'2026-11-12',updatedAt:'2026-11-12'}}});storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'draft'}}));
+ window.confirm=vi.fn(()=>false);
+ act(()=>button(view!,'← 목록으로').props.onClick());
+ expect(view!.root.findByType('h1').props.id).toBe('lesson-heading');
+ expect(view!.root.findByType('textarea').props.value).toBe('draft');expect(storage.get(journalKey('guest'))).toBe(raw);
+ act(()=>button(view!,'수정 취소').props.onClick());expect(view!.root.findByType('textarea').props.value).toBe('original');act(()=>view!.unmount());
+});
+it('keeps storage errors visible before the focused activity',()=>{
+ vi.stubGlobal('localStorage',{getItem:()=>{throw Error('blocked');}});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByProps({role:'alert'}).children.join('')).toContain('저장소');
+ expect(view!.root.findByType('h1').props.id).toBe('lesson-heading');act(()=>view!.unmount());
+});

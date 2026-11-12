@@ -87,7 +87,7 @@ export default function DailyPulsePage() {
           <h1 className="font-editorial text-[28px] sm:text-[34px] text-[#010D6E]">
             오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
           </h1>
-          <p className="text-[13px] text-[#010D6E]/70 mt-2">현재 {DAILY_PULSE_QUESTIONS.length}가지 편집 질문을 제공해요. 다음 날 같은 질문에 다시 답할 수 있어요.</p>
+          <p className="text-[13px] text-[#010D6E]/70 mt-2">{DAILY_PULSE_QUESTIONS.length}개 질문 중 하나를 골라보세요. 같은 질문에도 다음 날 다시 답할 수 있어요.</p>
         </div>
 
         <div className="flex flex-wrap gap-2" role="group" aria-label="오늘의 질문 선택">
@@ -167,7 +167,7 @@ export default function DailyPulsePage() {
                 onClick={() => handlePhase2Select(phase1Choice!)}
                 className="btn-cobalt px-5 py-3 text-[14px] justify-center"
               >
-                처음 고른 내 생각({phase1Choice})을 그대로 유지할래요
+                처음 고른 {phase1Choice} 유지하기
               </button>
               <button
                 type="button"
@@ -176,8 +176,8 @@ export default function DailyPulsePage() {
                 }
                 className="btn-cream px-5 py-3 text-[14px] justify-center"
               >
-                주변 이야기를 듣고 다른 쪽({phase1Choice === 'A' ? 'B' : 'A'}
-                )으로 바꿀래요
+                다른 쪽({phase1Choice === 'A' ? 'B' : 'A'}
+                )으로 바꾸기
               </button>
             </div>
           </div>
