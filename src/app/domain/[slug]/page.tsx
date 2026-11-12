@@ -1,5 +1,7 @@
 'use client';
 
+import { ResultEvidence } from '@/components/ResultEvidence';
+import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -262,9 +264,7 @@ export default function DomainDetailPage() {
                 <h1 className="font-editorial text-[24px] md:text-[28px] text-[#010D6E] leading-[1.35] mb-3">
                   “{matchedPhenotype.name}”
                 </h1>
-                <p className="text-[15px] text-[#010D6E]/85 leading-[1.7]">
-                  {matchedPhenotype.deepAnalysis}
-                </p>
+                <ResultEvidence domain={domain} scores={existingCompletion?.axisScores}/>
               </div>
             </div>
 
@@ -272,22 +272,21 @@ export default function DomainDetailPage() {
             <div className="mb-7 rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-5 sm:p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
                 <h2 className="font-editorial text-[17px] text-[#010D6E]">
-                  내가 고른 {domain.questions.length}가지 선택에서 드러난 {domain.axes.length}가지 취향 축
+                  응답을 정리한 {domain.axes.length}가지 축
                 </h2>
                 <span className="text-[12px] text-[#0042AF]/75">
-                  구체적인 아이템 선택 패턴을 바탕으로 계산된 성향 비율입니다
+                  설문 점수를 0–100 위치로 표시했어요. 성격 비율이나 예측 확률이 아닙니다
                 </span>
               </div>
               <div className="space-y-4">
                 {domain.axes.map((axis) => {
-                  const rawScore =
-                    existingCompletion?.axisScores?.[axis.axisKey] ??
-                    matchedPhenotype.axisSignature?.[axis.axisKey] ??
-                    0;
+                  const rawScore = recordedAxisScore(existingCompletion?.axisScores, axis.axisKey);
+                  if(rawScore===undefined)return <p key={axis.axisKey} className="text-sm leading-6">{axis.leftLabel} / {axis.rightLabel}: 저장된 점수 없음</p>;
                   const clamped = Math.max(-1, Math.min(1, rawScore));
                   const rightPct = Math.round(((clamped + 1) / 2) * 100);
                   const leftPct = 100 - rightPct;
-                  const isLeftDominant = leftPct >= rightPct;
+                  const isLeftDominant = rawScore < 0;
+                  const isRightDominant = rawScore > 0;
 
                   return (
                     <div key={axis.axisKey} className="space-y-1.5">
@@ -304,7 +303,7 @@ export default function DomainDetailPage() {
                         </span>
                         <span
                           className={
-                            !isLeftDominant
+                            isRightDominant
                               ? 'font-bold text-[#010D6E]'
                               : 'text-[#010D6E]/65'
                           }

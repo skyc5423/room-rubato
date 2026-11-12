@@ -3,6 +3,8 @@
 import { HomeObservationPreview } from '@/components/HomeObservationPreview';
 import { NotebookReturn } from '@/components/NotebookReturn';
 import { koreanDay } from '@/lib/daily-date';
+import { ResultEvidence } from '@/components/ResultEvidence';
+import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_MASTER_DOMAINS,
@@ -605,9 +607,7 @@ export default function HomePage() {
                       <h2 className="font-editorial text-[21px] sm:text-[25px] text-[#010D6E] leading-[1.38] mb-2.5">
                         “{activeMatchedPhenotype.name}”
                       </h2>
-                      <p className="text-[14px] text-[#010D6E]/85 leading-[1.7] mb-3">
-                        {activeMatchedPhenotype.deepAnalysis}
-                      </p>
+                      <ResultEvidence domain={activeDomain} scores={activeCompletedResult?.axisScores}/>
                       <p className="text-[12.5px] text-[#0042AF] bg-[#FEF1D0]/70 rounded-xl px-3.5 py-2 border border-[#0042AF]/20">
                         {describeResponseTempo(
                           activeCompletedResult?.avgResponseTimeMs
@@ -620,24 +620,22 @@ export default function HomePage() {
                   <div className="mb-6 rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-4 sm:p-5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3.5">
                       <h3 className="font-editorial text-[16px] text-[#010D6E]">
-                        선택에서 드러난 {activeDomain.axes.length}가지 취향 축 분석
+                        응답을 정리한 {activeDomain.axes.length}가지 축
                       </h3>
                       <span className="text-[11.5px] text-[#0042AF]/75">
-                        {activeDomain.questions.length}개 실생활 문항 응답 기반
+                        저장된 축 점수 기준
                       </span>
                     </div>
+                    <p className="mb-3 text-xs leading-6">설문 점수를 0–100 위치로 표시했어요. 성격 비율이나 예측 확률이 아닙니다.</p>
                     <div className="space-y-3.5">
                       {activeDomain.axes.map((axis) => {
-                        const rawScore =
-                          activeCompletedResult?.axisScores?.[axis.axisKey] ??
-                          activeMatchedPhenotype.axisSignature?.[
-                            axis.axisKey
-                          ] ??
-                          0;
+                        const rawScore = recordedAxisScore(activeCompletedResult?.axisScores, axis.axisKey);
+                        if(rawScore===undefined)return <p key={axis.axisKey} className="text-sm leading-6">{axis.leftLabel} / {axis.rightLabel}: 저장된 점수 없음</p>;
                         const clamped = Math.max(-1, Math.min(1, rawScore));
                         const rightPct = Math.round(((clamped + 1) / 2) * 100);
                         const leftPct = 100 - rightPct;
-                        const isLeftDominant = leftPct >= rightPct;
+                        const isLeftDominant = rawScore < 0;
+                  const isRightDominant = rawScore > 0;
 
                         return (
                           <div key={axis.axisKey} className="space-y-1">
@@ -656,7 +654,7 @@ export default function HomePage() {
                               </span>
                               <span
                                 className={
-                                  !isLeftDominant
+                                  isRightDominant
                                     ? 'font-bold text-[#010D6E]'
                                     : 'text-[#010D6E]/65'
                                 }

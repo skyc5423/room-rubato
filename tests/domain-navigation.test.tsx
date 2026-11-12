@@ -33,3 +33,30 @@ it('records a complete questionnaire only once after all choices', () => {
  expect(store.recordQuestionChoice.mock.calls[0][0].answers).toHaveLength(10);
  act(() => view.unmount());
 });
+
+it('uses recorded result axes rather than static claims about selected scenes',async()=>{
+ const {ALL_MASTER_DOMAINS}=await import('../src/lib/domains-index');
+ const domain=ALL_MASTER_DOMAINS.find(d=>d.slug==='fashion')!;
+ const phenotype=domain.phenotypes[0];
+ (store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:phenotype.id,axisScores:{[domain.axes[0].axisKey]:-0.8},completedAt:'2026-11-12'};
+ let view:any;
+ try{
+  act(()=>{view=create(<Page/>);});
+  const text=JSON.stringify(view.toJSON());expect(text).toContain(`‘${domain.axes[0].leftLabel}’`);expect(text).not.toContain(phenotype.deepAnalysis);expect(text).toContain('저장된 점수 없음');expect(store.recordQuestionChoice).not.toHaveBeenCalled();
+ }finally{act(()=>view?.unmount());store.state.completedDomains={};}
+});
+
+it('keeps zero axes neutral and highlights small positive scores on the right',async()=>{
+ const {ALL_MASTER_DOMAINS}=await import('../src/lib/domains-index');
+ const domain=ALL_MASTER_DOMAINS.find(d=>d.slug==='fashion')!;const axis=domain.axes[0];
+ for(const score of [0,0.001]){
+  (store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:domain.phenotypes[0].id,axisScores:{[axis.axisKey]:score},completedAt:'2026-11-12'};
+  let view:any;
+  try{act(()=>{view=create(<Page/>);});
+
+   const spans=view.root.findAllByType('span');
+   expect(spans.find((s:any)=>s.children.includes(axis.leftLabel)).props.className).not.toContain('font-bold');
+   expect(spans.find((s:any)=>s.children.includes(axis.rightLabel)).props.className.includes('font-bold')).toBe(score>0);
+  }finally{act(()=>view?.unmount());store.state.completedDomains={};}
+ }
+});

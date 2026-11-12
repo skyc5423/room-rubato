@@ -94,3 +94,29 @@ it('opens the saved result from a completed domain list instead of restarting qu
   expect(JSON.stringify(view.toJSON())).toContain('나의 매칭 결과');
  }finally{act(()=>view?.unmount());store.state.completedDomains={};}
 });
+
+it('uses only saved axes in the room result and never fills missing axes from the type',()=>{
+ const domain=ALL_MASTER_DOMAINS[0];const phenotype=domain.phenotypes[0];
+ (store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:phenotype.id,axisScores:{[domain.axes[0].axisKey]:0.8},avgResponseTimeMs:2000};store.recordQuestionChoice.mockClear();
+ let view:any;
+ try{
+  act(()=>{view=create(<Page/>);});act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));
+  const text=JSON.stringify(view.toJSON());expect(text).toContain(`‘${domain.axes[0].rightLabel}’`);expect(text).not.toContain(phenotype.deepAnalysis);expect(text).toContain('저장된 점수 없음');expect(store.recordQuestionChoice).not.toHaveBeenCalled();
+ }finally{act(()=>view?.unmount());store.state.completedDomains={};}
+});
+
+it('keeps zero axes neutral and highlights small positive scores on the right',async()=>{
+ const {ALL_MASTER_DOMAINS}=await import('../src/lib/domains-index');
+ const domain=ALL_MASTER_DOMAINS.find(d=>d.slug==='fashion')!;const axis=domain.axes[0];
+ for(const score of [0,0.001]){
+  (store.state.completedDomains as any)[domain.id]={domainId:domain.id,matchedPhenotypeId:domain.phenotypes[0].id,axisScores:{[axis.axisKey]:score},completedAt:'2026-11-12'};
+  let view:any;
+  try{act(()=>{view=create(<Page/>);});
+  act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));
+
+   const spans=view.root.findAllByType('span');
+   expect(spans.find((s:any)=>s.children.includes(axis.leftLabel)).props.className).not.toContain('font-bold');
+   expect(spans.find((s:any)=>s.children.includes(axis.rightLabel)).props.className.includes('font-bold')).toBe(score>0);
+  }finally{act(()=>view?.unmount());store.state.completedDomains={};}
+ }
+});
