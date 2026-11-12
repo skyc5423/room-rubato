@@ -110,7 +110,7 @@ export default function DailyPulsePage() {
       </div>
 
       <section className="paper-sheet rounded-3xl p-7 md:p-10">
-        <p className="text-[13px] text-[#D4653B] font-semibold mb-2">
+        <p className="text-[13px] text-terracotta-ink font-semibold mb-2">
           {pulse.dayLabel}
         </p>
         <h2 className="font-editorial text-[22px] md:text-[26px] text-[#010D6E] leading-[1.42] mb-7">
@@ -154,7 +154,7 @@ export default function DailyPulsePage() {
 
         {phase === 'phase2' && (
           <div className="rounded-2xl bg-[#FEF1D0]/70 border border-[#0042AF]/25 p-6">
-            <p className="font-display italic text-[16px] text-[#D4653B] mb-2">
+            <p className="font-display italic text-[16px] text-terracotta-ink mb-2">
               가상 상황입니다 · 실제 참여자 통계가 아닙니다
             </p>
             <p className="font-editorial text-[19px] text-[#010D6E] leading-[1.55] mb-5">

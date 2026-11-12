@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
 import { expect, it } from 'vitest';
+import { contrast, hex, over } from './helpers/contrast';
 import { TasteStudyDiagram } from '../src/components/TasteStudyDiagram';
 import { RHYTHM_PATTERN_STEPS, RHYTHM_PULSE_STEPS, RHYTHM_STEP_COUNT, RHYTHM_STEPS_PER_BEAT, RHYTHM_NO_SOUND_READING } from '../src/lib/rhythm-patterns';
 
@@ -16,6 +17,13 @@ it('labels four real beats per panel while retaining the intermediate subdivisio
   try {
     const lines = view!.root.findAllByType('line');
     expect(lines).toHaveLength(32);
+    expect(view!.root.findByType('svg').props.className).toContain('bg-[#f6f2e8]');
+    for (const line of lines) {
+      expect(contrast(hex(line.props.stroke), hex('#f6f2e8'))).toBeGreaterThanOrEqual(3);
+      expect(contrast(hex(line.props.stroke), over(hex('#000000'), hex('#f6f2e8'), 0.04))).toBeGreaterThanOrEqual(3);
+    }
+    expect(new Set(lines.filter(line => line.props.strokeWidth === 1).map(line => line.props.stroke))).toEqual(new Set(['#77867f']));
+    expect(new Set(lines.filter(line => line.props.strokeWidth === 2).map(line => line.props.stroke))).toEqual(new Set(['#627c77']));
     expect(lines.filter(line => line.props.strokeWidth === 2)).toHaveLength(8);
     const labels = view!.root.findAllByType('text').map(text => text.children.join(''));
     for (const label of ['1박', '2박', '3박', '4박']) expect(labels.filter(text => text === label)).toHaveLength(2);

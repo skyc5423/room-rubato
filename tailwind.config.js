@@ -8,6 +8,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Text and text-bearing controls. Keep brighter terracotta for decoration.
+        'terracotta-ink': '#A84824',
         paper: {
           DEFAULT: '#F7F8FA',
           card: '#FFFFFF',

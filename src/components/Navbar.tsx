@@ -300,7 +300,7 @@ export function Navbar() {
                 <button
                   type="button"
                   onClick={() => { setIsAuthModalOpen(false); profileButtonRef.current?.focus(); }}
-                  className="text-[12px] text-[#0042AF]/70 hover:text-[#010D6E]"
+                  className="text-[12px] text-[#0042AF]/80 hover:text-[#010D6E]"
                 >
                   닫기 ✕
                 </button>
@@ -350,7 +350,7 @@ export function Navbar() {
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(true)}
-                        className="px-3 py-2 rounded-xl border border-[#D4653B]/40 text-[11.5px] text-[#D4653B] hover:bg-[#D4653B]/10"
+                        className="px-3 py-2 rounded-xl border border-[#D4653B]/40 text-[11.5px] text-terracotta-ink hover:bg-[#D4653B]/10"
                       >
                         설문 프로필 초기화
                       </button>
@@ -359,7 +359,7 @@ export function Navbar() {
                         type="button"
                         disabled={isLoading}
                         onClick={handleResetSurvey}
-                        className="px-3 py-2 rounded-xl bg-[#D4653B] text-[#FFFDF7] text-[11.5px] font-semibold"
+                        className="px-3 py-2 rounded-xl bg-terracotta-ink text-[#FFFDF7] text-[11.5px] font-semibold"
                       >
                         설문 응답을 비울까요?
                       </button>
@@ -471,21 +471,25 @@ export function Navbar() {
                           {isEmailSignupEnabled() && <option value="signup">새 계정 가입</option>}
                         </select>
                       </label>
+                      <label htmlFor="account-email" className="block text-xs">이메일 주소</label>
                       <input
+                        id="account-email"
                         type="email"
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
                         placeholder="이메일 주소 입력"
-                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
+                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/65 text-[12.5px] text-[#010D6E] placeholder:text-[#010D6E]/70 focus:outline-none focus:border-[#0042AF]"
                       />
+                      <label htmlFor="account-password" className="block text-xs">비밀번호</label>
                       <input
+                        id="account-password"
                         type="password"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
                         placeholder="비밀번호"
                         aria-label="비밀번호"
                         autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
-                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/30 text-[12.5px] text-[#010D6E] placeholder:text-[#0042AF]/45 focus:outline-none focus:border-[#0042AF]"
+                        className="w-full px-3 py-2 rounded-xl bg-[#FEF1D0]/50 border border-[#0042AF]/65 text-[12.5px] text-[#010D6E] placeholder:text-[#010D6E]/70 focus:outline-none focus:border-[#0042AF]"
                       />
                       <button
                         type="submit"
@@ -506,7 +510,7 @@ export function Navbar() {
                 <p
                   className={`mt-2.5 text-[11.5px] font-medium ${
                     feedbackMsg.type === 'error'
-                      ? 'text-[#D4653B]'
+                      ? 'text-terracotta-ink'
                       : 'text-[#0042AF]'
                   }`}
                 >

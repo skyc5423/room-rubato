@@ -50,7 +50,7 @@ export default function RootLayout({
                   내가 잘 아는 분야의 취향을 단서로 아직 몰랐던 내 취향을 찾습니다
                 </span>
               </div>
-              <div className="text-[12px] text-[#0042AF]/75">
+              <div className="text-[12px] text-[#0042AF]/80">
                 <a href="/privacy" className="inline-flex min-h-11 items-center underline">데이터 저장·삭제 안내</a>
               </div>
             </div>

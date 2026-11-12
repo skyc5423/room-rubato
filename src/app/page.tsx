@@ -373,7 +373,7 @@ export default function HomePage() {
                       className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
                         hoveredContext.isCompleted
                           ? 'bg-[#0042AF] text-[#FEF1D0]'
-                          : 'bg-[#D4653B] text-[#FFFDF7]'
+                          : 'bg-terracotta-ink text-[#FFFDF7]'
                       }`}
                     >
                       {hoveredContext.isCompleted
@@ -511,7 +511,7 @@ export default function HomePage() {
                           }`}
                         >
                           {isStamped && (
-                            <div className="pointer-events-none absolute top-4 right-4 z-20 px-3 py-1 rounded-full bg-[#D4653B] text-[#FFFDF7] text-[12px] font-semibold shadow-md">
+                            <div className="pointer-events-none absolute top-4 right-4 z-20 px-3 py-1 rounded-full bg-terracotta-ink text-[#FFFDF7] text-[12px] font-semibold shadow-md">
                               선택 완료 ✓
                             </div>
                           )}
@@ -590,7 +590,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#D4653B] text-[#FFFDF7] text-[11px] font-semibold">
+                        <span className="px-2.5 py-0.5 rounded-full bg-terracotta-ink text-[#FFFDF7] text-[11px] font-semibold">
                           총 {activeDomain.phenotypes.length}가지 세부 유형 중 나의 매칭 결과
                         </span>
                         <span className="text-[12px] font-semibold text-[#0042AF]">
@@ -652,7 +652,7 @@ export default function HomePage() {
                                     : 'text-[#010D6E]/65'
                                 }
                               >
-                                <strong className="text-[#D4653B]">
+                                <strong className="text-terracotta-ink">
                                   {rightPct}%
                                 </strong>{' '}
                                 {axis.rightLabel}
@@ -694,7 +694,7 @@ export default function HomePage() {
                             <div className="flex items-center justify-between gap-1">
                               <span className="truncate">{p.name}</span>
                               {isMine && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4653B] text-white shrink-0">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-terracotta-ink text-white shrink-0">
                                   MY
                                 </span>
                               )}
@@ -755,7 +755,7 @@ export default function HomePage() {
                         {activeMatchedPhenotype.decisionGuide.map(
                           (guide, i) => (
                             <li key={i} className="flex items-start gap-2">
-                              <span className="font-bold text-[#D4653B]">
+                              <span className="font-bold text-terracotta-ink">
                                 {i + 1}.
                               </span>
                               <span>{guide}</span>
@@ -822,8 +822,8 @@ export default function HomePage() {
                                   }
                                   className={`px-2.5 py-0.5 rounded-full border transition-colors ${
                                     existingReaction === 'not_me'
-                                      ? 'bg-[#D4653B] text-[#FFFDF7] border-[#D4653B]'
-                                      : 'border-[#0042AF]/25 text-[#0042AF]/70 hover:border-[#0042AF]'
+                                      ? 'bg-terracotta-ink text-[#FFFDF7] border-terracotta-ink'
+                                      : 'border-[#0042AF]/25 text-[#0042AF]/80 hover:border-[#0042AF]'
                                   }`}
                                 >
                                   내 취향 아님
@@ -919,7 +919,7 @@ export default function HomePage() {
                 <ul className="space-y-2">
                   {roomCommonTraits.map((line, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-[#D4653B] font-bold">
+                      <span className="text-terracotta-ink font-bold">
                         {idx + 1}.
                       </span>
                       <span className="font-medium text-[#010D6E]">{line}</span>
@@ -986,7 +986,7 @@ export default function HomePage() {
           {/* RIGHT PAGE: PREDICTED UNPLAYED DOMAINS */}
           <div className="lg:col-span-6 p-7 sm:p-10 flex flex-col justify-between bg-[#FFF9EB]">
             <div>
-              <div className="flex items-center justify-between text-[12.5px] font-semibold text-[#D4653B] mb-4">
+              <div className="flex items-center justify-between text-[12.5px] font-semibold text-terracotta-ink mb-4">
                 <span>2. 다음에 살펴볼 분야</span>
                 <span>남은 분야 {unplayedDomains.length}개</span>
               </div>
@@ -1130,7 +1130,7 @@ export default function HomePage() {
           {!isHydrated && <p role="status">저장된 응답을 불러오는 중입니다.</p>}
           {isHydrated && pulsePhase === 'initial' && (
             <div>
-              <p className="text-[13px] text-[#D4653B] font-semibold mb-2">
+              <p className="text-[13px] text-terracotta-ink font-semibold mb-2">
                 {currentPulse.dayLabel}
               </p>
               <h3 className="font-editorial text-[20px] sm:text-[23px] text-[#010D6E] leading-snug mb-6">
@@ -1175,7 +1175,7 @@ export default function HomePage() {
 
           {pulsePhase === 'nudge' && phase1Choice && (
             <div className="max-w-[760px] mx-auto py-4">
-              <p className="text-[13px] font-bold text-[#D4653B] mb-2">
+              <p className="text-[13px] font-bold text-terracotta-ink mb-2">
                 가상 상황에서 다시 골라보기
               </p>
               <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
@@ -1210,7 +1210,7 @@ export default function HomePage() {
           {pulsePhase === 'letter' && (
             <div className="space-y-6">
               <div className="rounded-2xl bg-[#FEF1D0]/70 border border-[#0042AF]/25 p-5 sm:p-6">
-                <p className="text-[13px] text-[#D4653B] font-semibold mb-1">
+                <p className="text-[13px] text-terracotta-ink font-semibold mb-1">
                   나의 선택 결과
                 </p>
                 <p className="font-editorial text-[17px] text-[#010D6E]">

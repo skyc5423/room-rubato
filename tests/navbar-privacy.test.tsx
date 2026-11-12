@@ -62,3 +62,20 @@ it('preserves the logged-in reset boundary without asking for demographics', () 
   expect(text()).toContain('로그인 계정, 동의 기록, 관찰실 기록은 지워지지 않습니다');
   expect(fixture.store.deletePersonaData).not.toHaveBeenCalled();
 });
+
+it('keeps visible associated auth field labels after typing, without sending credentials', () => {
+  openPanel();
+  act(() => view.root.findAllByType('button').find(button => button.children.join('') === '이메일 로그인')!.props.onClick());
+  for (const [id, label, value] of [['account-email', '이메일 주소', 'example@example.com'], ['account-password', '비밀번호', 'synthetic-test-only']]) {
+    const input = view.root.findByProps({ id });
+    const fieldLabel = view.root.findByProps({ htmlFor: id });
+    expect(fieldLabel.children.join('')).toBe(label);
+    act(() => input.props.onChange({ target: { value } }));
+    expect(view.root.findByProps({ htmlFor: id }).children.join('')).toBe(label);
+    expect(view.root.findByProps({ id }).props.value).toBe(value);
+    expect(view.root.findAllByProps({ id })).toHaveLength(1);
+  }
+  expect(view.root.findByProps({ id: 'account-password' }).props.autoComplete).toBe('current-password');
+  expect(fixture.store.loginWithEmail).not.toHaveBeenCalled();
+  expect(fixture.store.loginWithGoogle).not.toHaveBeenCalled();
+});

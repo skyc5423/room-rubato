@@ -254,7 +254,7 @@ export default function DomainDetailPage() {
               )}
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#D4653B] text-[#FFFDF7] text-[11.5px] font-semibold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-terracotta-ink text-[#FFFDF7] text-[11.5px] font-semibold">
                     총 {domain.phenotypes.length}가지 세부 유형 중 나의 매칭 결과
                   </span>
                   <span className="text-[12.5px] font-semibold text-[#0042AF]">
@@ -308,7 +308,7 @@ export default function DomainDetailPage() {
                               : 'text-[#010D6E]/65'
                           }
                         >
-                          <strong className="text-[#D4653B]">{rightPct}%</strong>{' '}
+                          <strong className="text-terracotta-ink">{rightPct}%</strong>{' '}
                           {axis.rightLabel}
                         </span>
                       </div>
@@ -350,7 +350,7 @@ export default function DomainDetailPage() {
                           {p.name}
                         </span>
                         {isMine && (
-                          <span className="px-2 py-0.5 rounded-full bg-[#D4653B] text-[#FFFDF7] text-[10.5px] font-semibold shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-terracotta-ink text-[#FFFDF7] text-[10.5px] font-semibold shrink-0">
                             내 유형
                           </span>
                         )}
@@ -416,7 +416,7 @@ export default function DomainDetailPage() {
                 <ul className="space-y-2 text-[14px] text-[#010D6E]/85">
                   {matchedPhenotype.decisionGuide.map((rule, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="font-bold text-[#D4653B]">
+                      <span className="font-bold text-terracotta-ink">
                         {idx + 1}.
                       </span>
                       <span>{rule}</span>
@@ -481,8 +481,8 @@ export default function DomainDetailPage() {
                             }
                             className={`px-2.5 py-0.5 rounded-full border ${
                               feedback === 'not_me'
-                                ? 'bg-[#D4653B] text-[#FFFDF7] border-[#D4653B]'
-                                : 'border-[#0042AF]/30 text-[#0042AF]/75'
+                                ? 'bg-terracotta-ink text-[#FFFDF7] border-terracotta-ink'
+                                : 'border-[#0042AF]/30 text-[#0042AF]/80'
                             }`}
                           >
                             내 취향 아님
