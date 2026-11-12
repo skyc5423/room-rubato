@@ -75,7 +75,7 @@ describe('taste notebook',()=>{
     expect(rendered).toContain('A와 B를 차례로 들어보세요');
     expect(rendered).toContain('먼저 듣기');
     expect(rendered).not.toContain('먼저 도식을 움직여');
-    expect(rendered).not.toContain('도식 처음 설정으로');
+    expect(rendered).not.toContain('도식 기본 설정으로');
     expect(view!.root.findAllByType('input')).toHaveLength(0);
     act(()=>button(view!,'A 쪽').props.onClick());
     const entry=parseJournal(storage.get(journalKey('guest'))!).entries.syncopation;
@@ -83,4 +83,71 @@ describe('taste notebook',()=>{
     act(()=>view!.unmount());
   });
 
+});
+
+it('revisits completed records without writes and supports draft cancel/save',()=>{
+  const original={lessonId:'light',version:1,before:'a',after:'b',beforeSetting:27,afterSetting:60,memo:'원래 기록',bookmarked:false,completedAt:'2026-11-11T00:00:00.000Z',updatedAt:'2026-11-11T00:00:00.000Z'};
+  storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:original}}));
+  const raw=storage.get(journalKey('guest'));
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'다시 살펴보기').props.onClick());
+  expect(view!.root.findByType('textarea').props.readOnly).toBe(true);
+  expect(button(view!,'A 쪽').props.disabled).toBe(true);
+  act(()=>view!.root.findByType('input').props.onChange({target:{value:'80'}}));
+  expect(storage.get(journalKey('guest'))).toBe(raw);
+  act(()=>button(view!,'첫 선택 당시 설정으로').props.onClick());
+  expect(view!.root.findByType('input').props.value).toBe(27);
+  act(()=>button(view!,'도식 기본 설정으로').props.onClick());
+  expect(view!.root.findByType('input').props.value).toBe(60);
+  expect(view!.root.findByType('input').props['aria-label']).toBe('B 도형의 명암 대비');
+  act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'취소할 수정'}}));
+  expect(storage.get(journalKey('guest'))).toBe(raw);
+  act(()=>button(view!,'수정 취소').props.onClick());
+  expect(view!.root.findByType('textarea').props.value).toBe('원래 기록');
+  expect(storage.get(journalKey('guest'))).toBe(raw);
+  act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'저장할 수정'}}));
+  act(()=>button(view!,'수정한 기록 저장하기').props.onClick());
+  const saved=parseJournal(storage.get(journalKey('guest'))!).entries.light;
+  expect(saved.memo).toBe('저장할 수정');expect(saved.completedAt).toBe(original.completedAt);
+  expect(saved.beforeSetting).toBe(27);expect(saved.after).toBe('b');
+  act(()=>view!.unmount());
+});
+it('moves keyboard focus to lesson headings, stages and back to notebook',()=>{
+  const focus=vi.fn();let view:ReactTestRenderer;
+  act(()=>{view=create(<TasteNotebook/>,{createNodeMock:el=>el.type==='h1'||el.type==='h2'?{focus}:null});});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());expect(focus).toHaveBeenCalledTimes(1);
+  act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());expect(focus).toHaveBeenCalledTimes(2);
+  act(()=>button(view!,'목록으로').props.onClick());expect(focus).toHaveBeenCalledTimes(3);
+  act(()=>view!.unmount());
+});
+it('does not resurrect a deleted record from an editing draft',()=>{
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'old',bookmarked:false,completedAt:'2026-11-11T00:00:00.000Z',updatedAt:'2026-11-11T00:00:00.000Z'}}}));
+ (window as any).confirm=()=>true;let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ act(()=>button(view!,'다시 살펴보기').props.onClick());act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light).toBeUndefined();
+ expect(button(view!,'수정한 기록 저장하기')).toBeUndefined();
+ expect(button(view!,'선택했어요').props.disabled).toBe(true);act(()=>view!.unmount());
+});
+it('refuses a stale draft save after another tab changes the same record',()=>{
+ const original={lessonId:'light',version:1,before:'a',after:'b',memo:'old',bookmarked:false,completedAt:'2026-11-11T00:00:00.000Z',updatedAt:'2026-11-11T00:00:00.000Z'};
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:original}}));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});act(()=>button(view!,'다시 살펴보기').props.onClick());act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'my draft'}}));
+ const newer=JSON.stringify({version:1,entries:{light:{...original,memo:'newer tab',updatedAt:'2026-11-12T00:00:00.000Z'}}});storage.set(journalKey('guest'),newer);
+ act(()=>button(view!,'수정한 기록 저장하기').props.onClick());expect(storage.get(journalKey('guest'))).toBe(newer);
+ expect(view!.root.findByType('textarea').props.value).toBe('my draft');expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 기록이 바뀌었어요');act(()=>view!.unmount());
+});
+it('preserves the prior record if saving an explicit edit fails',()=>{
+ const original={lessonId:'light',version:1,before:'a',after:'b',memo:'old',bookmarked:false,completedAt:'2026-11-11T00:00:00.000Z',updatedAt:'2026-11-11T00:00:00.000Z'};
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:original}}));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});act(()=>button(view!,'다시 살펴보기').props.onClick());act(()=>button(view!,'현재 기록 편집하기').props.onClick());
+ act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'not saved'}}));
+ vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw new Error('quota');}});
+ act(()=>button(view!,'수정한 기록 저장하기').props.onClick());
+ expect(view!.root.findByType('textarea').props.value).toBe('not saved');
+ act(()=>button(view!,'수정 취소').props.onClick());expect(view!.root.findByType('textarea').props.value).toBe('old');
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.memo).toBe('old');act(()=>view!.unmount());
 });

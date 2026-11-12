@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
+import { ObservationGuide } from './ObservationGuide';
 import { artworkStudies, type ArtworkStudyData } from '@/lib/artwork-studies';
 const control = 'min-h-11 rounded-xl border border-[#0042AF]/25 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4';
 
@@ -36,6 +37,7 @@ export function ArtworkStudy({ lessonId }: { lessonId: string }) {
     <p className="text-xs font-semibold tracking-wide text-[#0042AF]">도식에서 작품으로</p>
     <h3 className="mt-2 text-xl font-semibold">실제 작품에서는 어떻게 보일까요?</h3>
     <p className="mt-2 text-sm leading-6">정답을 맞히기보다 눈에 보이는 근거를 하나 찾아보세요. 해설을 읽기 전과 후의 차이를 위의 메모에 함께 남길 수 있어요.</p>
+    <ObservationGuide/>
     <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);}}>{item.titleKo}</button>)}</div>
     <div className="grid gap-6 lg:grid-cols-2">
       <figure>
