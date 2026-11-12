@@ -50,3 +50,23 @@ it('unlocks a completed pulse when an open page crosses Korean midnight', () => 
     vi.useRealTimers();
   }
 });
+
+it('switches to each new question accessibly and keeps completed answers separate', () => {
+  store.state.dailyShiftLog = [{ timestamp: new Date().toISOString(), pulseId: 'daily-pulse-8', phase1Choice: 'B', phase2ChoiceAfterSocialProof: 'A', phase1ResponseTimeMs: 3200 }];
+  let view: any;
+  act(() => { view = create(<Page />); });
+  const selectors = () => view.root.findAllByProps({ 'aria-pressed': false }).concat(view.root.findAllByProps({ 'aria-pressed': true }));
+  expect(selectors()).toHaveLength(8);
+  for (let index = 2; index < 8; index++) {
+    const button = selectors().find((button: any) => JSON.stringify(button.props.children).includes(DAILY_PULSE_QUESTIONS[index].domainTitle));
+    act(() => button.props.onClick());
+    expect(JSON.stringify(view.toJSON())).toContain(DAILY_PULSE_QUESTIONS[index].questionText);
+    expect(view.root.findAllByProps({ 'aria-pressed': true })).toHaveLength(1);
+  }
+  expect(JSON.stringify(view.toJSON())).toContain('3.2');
+  expect(JSON.stringify(view.toJSON())).toContain('가상 상황을 읽고 선택을 바꾸셨네요');
+  const first = selectors().find((button: any) => JSON.stringify(button.props.children).includes(DAILY_PULSE_QUESTIONS[0].domainTitle));
+  act(() => first.props.onClick());
+  expect(JSON.stringify(view.toJSON())).toContain('이 답변 선택하기');
+  act(() => view.unmount());
+});

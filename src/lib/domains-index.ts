@@ -245,4 +245,168 @@ export const DAILY_PULSE_QUESTIONS: DailyPulseQuestion[] = [
         '오늘 외식에서 가장 원하는 것은 무엇인가요? 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다.',
     },
   },
+  ...[
+  {
+    "id": "daily-pulse-3",
+    "dayLabel": "오늘의 질문 · 방의 빈자리",
+    "domainId": 2,
+    "domainTitle": "공간",
+    "questionText": "쉬는 날 방 한쪽을 바꾼다면, 무엇을 먼저 하고 싶나요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "물건을 덜어내고 넓은 여백 만들기",
+      "desc": "시선이 머물 곳을 줄여 편하게 쉬고 싶어요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "사진과 작은 물건으로 이야기 있는 자리 만들기",
+      "desc": "좋아하는 기억을 눈에 보이는 곳에 두고 싶어요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 함께 사는 사람이 B처럼 사진이 있는 방이 더 따뜻하다고 말한다면, 무엇을 선택할까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "편안한 방과 나다운 방은 같은 모습일까요?",
+      "crowdMajorityText": "비어 있는 공간이 휴식에 도움이 되는 날도 있습니다.",
+      "personaDivergenceText": "기억이 담긴 물건이 있어야 편안한 사람도 있습니다.",
+      "keyTakeaway": "다른 사람이 보는 모습과 내가 매일 지내는 감각을 나눠 생각해 보세요. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  },
+  {
+    "id": "daily-pulse-4",
+    "dayLabel": "오늘의 질문 · 익숙한 한 끼",
+    "domainId": 3,
+    "domainTitle": "미식 · 향",
+    "questionText": "오랜만에 혼자 여유롭게 식사한다면 어떤 메뉴를 고를까요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "기억에 남아 있는 익숙한 메뉴",
+      "desc": "맛을 예상할 수 있는 한 끼에서 편안함을 얻고 싶어요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "아직 먹어보지 않은 새로운 메뉴",
+      "desc": "낯선 향과 식감을 천천히 알아보고 싶어요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 친구가 오늘은 새로운 메뉴 B를 꼭 먹어보라고 추천한다면, 어떻게 고를까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "새로운 맛을 찾는 날과 익숙한 맛이 필요한 날",
+      "crowdMajorityText": "낯선 메뉴를 선택하지 않는다고 호기심이 없는 것은 아닙니다.",
+      "personaDivergenceText": "그날의 컨디션과 식사 목적이 같은 사람의 선택도 바꿀 수 있습니다.",
+      "keyTakeaway": "오늘 식사에서 가장 원하는 것이 휴식인지 발견인지 적어 보세요. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  },
+  {
+    "id": "daily-pulse-5",
+    "dayLabel": "오늘의 질문 · 그림 앞의 시간",
+    "domainId": 4,
+    "domainTitle": "미술 · 디자인",
+    "questionText": "전시장에서 남은 시간이 20분이라면 어떻게 보고 싶나요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "마음에 드는 한 작품 앞에서 오래 머물기",
+      "desc": "색과 붓질, 거리를 바꾸며 처음 놓친 것을 찾아요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "여러 작품을 비교하며 전시 전체 둘러보기",
+      "desc": "반복되는 형태와 차이를 따라 전시의 흐름을 살펴요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 함께 온 친구가 전체를 봐야 전시가 이해된다며 B를 권한다면, 어떻게 할까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "작품 한 점의 깊이와 여러 작품 사이의 연결",
+      "crowdMajorityText": "한 점에 오래 머무르면 처음 보이지 않던 세부를 발견할 수 있습니다.",
+      "personaDivergenceText": "여러 점을 비교하면 한 작품만으로 알기 어려운 차이를 볼 수도 있습니다.",
+      "keyTakeaway": "관찰실에서 색·빛·구도를 따로 비교한 뒤 내 관람 방식과 연결해 보세요. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  },
+  {
+    "id": "daily-pulse-6",
+    "dayLabel": "오늘의 질문 · 같은 곡 다른 해석",
+    "domainId": 5,
+    "domainTitle": "음악",
+    "questionText": "좋아하는 곡의 두 연주 중 지금 듣고 싶은 쪽은 무엇인가요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "박자가 안정적이고 흐름을 예상하기 쉬운 연주",
+      "desc": "반복되는 박을 따라 편안하게 듣고 싶어요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "강약과 타이밍 변화가 크게 느껴지는 연주",
+      "desc": "익숙한 곡에서도 새로운 긴장과 풀림을 듣고 싶어요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 음악을 잘 아는 지인이 변화가 많은 B가 더 좋은 해석이라고 말한다면, 무엇을 들을까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "좋은 연주라는 평가와 지금 듣고 싶은 연주",
+      "crowdMajorityText": "전문가의 설명은 놓친 특징을 듣는 데 도움이 될 수 있습니다.",
+      "personaDivergenceText": "그 설명을 이해하는 것과 지금 그 연주를 좋아하는 것은 별개의 선택입니다.",
+      "keyTakeaway": "관찰실 리듬 실험에서 강조만 바꾼 뒤에도 같은 선택을 하는지 들어 보세요. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  },
+  {
+    "id": "daily-pulse-7",
+    "dayLabel": "오늘의 질문 · 이야기의 마지막",
+    "domainId": 7,
+    "domainTitle": "문학",
+    "questionText": "소설의 마지막 장을 덮을 때 어떤 여운을 더 좋아하나요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "인물의 선택과 사건이 분명하게 정리되는 결말",
+      "desc": "이야기가 어디에 도착했는지 알고 차분하게 마무리하고 싶어요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "답을 남겨 두고 여러 해석이 가능한 결말",
+      "desc": "책을 덮은 뒤에도 가능한 이야기를 이어 생각하고 싶어요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 독서 모임 사람들이 열린 결말 B가 더 깊이 있다고 말한다면, 처음 선택을 유지할까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "해석할 여백과 충분한 설명 사이",
+      "crowdMajorityText": "명확한 결말도 인물의 감정을 오래 생각하게 만들 수 있습니다.",
+      "personaDivergenceText": "열린 결말은 흥미로울 수도, 아직 필요한 설명이 빠진 것처럼 느껴질 수도 있습니다.",
+      "keyTakeaway": "결말 형식만으로 작품의 수준이나 독자의 깊이를 판단하지 말고 실제 경험을 떠올려 보세요. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  },
+  {
+    "id": "daily-pulse-8",
+    "dayLabel": "오늘의 질문 · 비어 있는 오후",
+    "domainId": 8,
+    "domainTitle": "여행",
+    "questionText": "여행지에서 오후 세 시간이 비었다면 어떻게 보내고 싶나요?",
+    "contextNote": "일상 속 가상 상황을 비교하는 편집 질문입니다. 성격 검사나 실제 참여자 통계가 아닙니다.",
+    "optionA": {
+      "label": "꼭 보고 싶던 장소의 동선과 시간을 정해 방문하기",
+      "desc": "짧은 시간 안에 놓치고 싶지 않은 경험을 챙겨요.",
+      "layer3Weights": {}
+    },
+    "optionB": {
+      "label": "골목을 걷다가 눈길 가는 곳에 들어가기",
+      "desc": "계획하지 않은 장면을 만날 여지를 남겨요.",
+      "layer3Weights": {}
+    },
+    "socialProofNudge": {
+      "nudgePrompt": "가상의 상황입니다. 동행이 우연히 찾는 재미가 더 좋다며 B를 권한다면, 어떻게 조율할까요?"
+    },
+    "yesterdayInsight": {
+      "questionSummary": "계획과 우연을 함께 담는 방법",
+      "crowdMajorityText": "동선이 정해져 있으면 시간과 체력을 다른 경험에 쓸 수 있습니다.",
+      "personaDivergenceText": "빈 시간이 있으면 그날 발견한 관심사를 따라갈 수 있습니다.",
+      "keyTakeaway": "반드시 할 한 가지와 비워 둘 시간을 나누면 두 선택을 함께 사용할 수도 있습니다. 위 내용은 편집자의 질문이며 참여자 통계가 아닙니다."
+    }
+  }
+],
 ];

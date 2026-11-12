@@ -1102,18 +1102,19 @@ export default function HomePage() {
           <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-7 border-b border-[#0042AF]/15">
             <div>
               <p className="text-[13px] font-bold text-[#0042AF] mb-1">
-                두 가지 질문 · 같은 질문도 다른 날 다시 답할 수 있어요
+                {DAILY_PULSE_QUESTIONS.length}가지 편집 질문 · 같은 질문도 다른 날 다시 답할 수 있어요
               </p>
               <h2 className="font-editorial text-[24px] sm:text-[28px] text-[#010D6E]">
                 오늘의 질문 — 상황이 달라지면 내 선택도 바뀔까?
               </h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="오늘의 질문 선택">
               {DAILY_PULSE_QUESTIONS.map((q, idx) => (
                 <button
                   key={q.id}
                   type="button"
+                  aria-pressed={activePulseIdx === idx}
                   onClick={() => {
                     setActivePulseIdx(idx);
                     setPulsePhase('initial');
