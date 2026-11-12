@@ -1,6 +1,6 @@
 # Room Rubato: service-quality completion criteria
 
-Current evidence checkpoint: production 2e28952392f322a0847cd3de7bc95d20d852d271, 2026-11-12. This is a progress record, not overall acceptance.
+Current evidence checkpoint: production dea18d6042954b63bb30180d759721546911dad4, 2026-11-12. This is a progress record, not overall acceptance.
 
 ## Scope and stop rule
 
@@ -14,7 +14,7 @@ Product completion and public-service operational readiness are separate gates. 
 
 Already delivered: eight source-linked interactive activities; Korean/international institutional references; six CC0 real artworks; two original paired studies; original observation prompts; institutional fact/editorial interpretation separation; reversible contrast verification; explicit safe notebook edit/revisit; owner-scoped return entry; corrected saved-result routing.
 
-Delivered: in-page artwork details with whole-image default, four independently controlled detail targets, keyboard reset, retained sources and honest reproduction limits. Independent browser checks passed at 1168px. Also delivered focused notebook hierarchy, actual artwork previews before the home survey grid, grounded result summaries from recorded axes rather than fabricated generic assertions, and explicit owner-scoped temporary edit recovery. The latest recovery lifecycle browser check remains pending at this checkpoint.
+Delivered: in-page artwork details with whole-image default, four independently controlled detail targets, keyboard reset, retained sources and honest reproduction limits. Independent browser checks passed at 1168px. Also delivered focused notebook hierarchy, actual artwork previews before the home survey grid, grounded result summaries from recorded axes rather than fabricated generic assertions, and explicit owner-scoped temporary edit recovery. Recovery lifecycle browser checks passed: global navigation and reload offer explicit recovery; cancel preserves the original; save/reopen persists edits. Only a marked synthetic fixture was used and individually removed.
 
 Completion criteria: four images inspected; all four detail targets are visually meaningful; whole/detail return works by keyboard; source/caption stays present; comparison-to-notebook destinations remain correct; no records are written by viewing; unit/type/build/CI and browser checks pass or a specific non-blocking device limitation is disclosed.
 
@@ -32,13 +32,13 @@ Acceptance matrix:
 - Survey regression: completed result versus new questions, daily persistence and no daily trait-score inference.
 - Responsive: source-layout checks plus actual available browser viewport. A real375px test is still not performed; do not represent desktop1168px QA as mobile verification. Obtain supported device/viewport coverage before claiming mobile acceptance.
 
-Current automated evidence: 188 tests in 33 files, typecheck, production build, CI43179365429 success, exact deployed tree and canonical alias verified, and eight public HTTP route checks passed after deployment. One initial post-deploy smoke attempt timed out; a full retry passed. HTTP checks do not establish authenticated database writes or real-device behavior.
+Current automated evidence: 201 tests in 34 files, typecheck, production build, CI43180689963 success, exact deployed tree and canonical alias verified, and eight public HTTP route checks passed after deployment. The prior recovery release smoke needed one retry after a timeout; current reset-release smoke passed all routes. HTTP checks do not establish authenticated database writes or real-device behavior.
 
-Independent browser evidence: comparison full/detail controls, sources and deep links; contrast23→neutral→restore23; notebook safe save/cancel/reopen; focused workspace and home links passed at1168px. Music playback controls were exercised, not audible output. New temporary-edit recovery browser QA is in progress.
+Independent browser evidence: comparison full/detail controls, sources and deep links; contrast23→neutral→restore23; notebook safe save/cancel/reopen; focused workspace and home links passed at1168px. Music playback controls were exercised, not audible output. Temporary-edit recovery passed at1168px; no beforeunload dialog appeared, so warning remains best effort.
 
 Explicit acceptance gaps: actual375px viewport unavailable because managed Chromium blocks DevTools; no bypass attempted. Incognito creation is also disabled, so isolated live result-axis/completed-domain tests were not performed. Automated result tests cover mixed/opposite/zero/missing axes. A previously verified real Google two-tab CAS conflict/recovery is not two-device or two-real-account isolation proof. Those remain unverified.
 
-New actionable safety finding: two legacy survey reset buttons bypass the guarded asynchronous reset path during CAS conflict/unknown outcome. The next candidate routes both through the guarded operation, removes the unsafe API and covers failure/owner races with synthetic regressions (201 total tests). Pending/outcome feedback stays mounted during home interactions. No real records are reset by this testing.
+New actionable safety finding: two legacy survey reset buttons bypass the guarded asynchronous reset path during CAS conflict/unknown outcome. The deployed correction routes both through the guarded operation, removes the unsafe API and covers failure/owner races with synthetic regressions. Pending/outcome feedback stays mounted during home interactions. Live read-only checks confirm both controls, persistence through keyboard room focus and accurate privacy scope; no live reset was performed.
 
 ## Milestone 3: operational readiness, coordinated separately
 
