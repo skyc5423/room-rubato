@@ -6,6 +6,9 @@ import PrivacyPage from '../src/app/privacy/page';
 it('separates survey reset, journals, backups and account deletion without claiming a complete policy', () => {
   const html = renderToStaticMarkup(<PrivacyPage />);
   expect(html).toContain('현재 앱에는 회원 탈퇴 기능이 없습니다');
+  expect(html).toContain('현재 탭에 보관');
+  expect(html).toContain('탭을 닫은 뒤의 복구는 보장하지 않습니다');
+  expect(html).toContain('로그아웃은 다른 계정의 임시 수정을 숨길 뿐');
   expect(html).toContain('백업까지 즉시 삭제한다는 의미는 아닙니다');
   expect(html).toContain('정식 개인정보 처리방침은 아직 확정되지 않았습니다');
   expect(html).toContain('계정에도 저장했다면');
