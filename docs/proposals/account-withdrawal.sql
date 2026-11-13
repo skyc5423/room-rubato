@@ -112,6 +112,32 @@ begin
     raise exception using errcode='P0001', message='WITHDRAWAL_STORAGE_REVIEW_REQUIRED';
   end if;
 
+  -- Refresh-token cleanup relies on this precise provider cascade. Missing,
+  -- unvalidated, or SET NULL/NO ACTION replacement constraints must block.
+  if not exists (select 1 from pg_catalog.pg_constraint c
+    where c.contype='f' and c.conrelid='auth.refresh_tokens'::regclass
+      and c.confrelid='auth.sessions'::regclass and c.confdeltype='c' and c.convalidated
+      and c.conkey=array[(select attnum from pg_catalog.pg_attribute
+        where attrelid='auth.refresh_tokens'::regclass and attname='session_id')]
+      and c.confkey=array[(select attnum from pg_catalog.pg_attribute
+        where attrelid='auth.sessions'::regclass and attname='id')]) then
+    raise exception using errcode='P0001', message='WITHDRAWAL_SCHEMA_UNVERIFIED';
+  end if;
+
+  -- Provider artifacts outside the verified session/user cascade cannot be
+  -- silently orphaned. Never read token values or edit provider-owned records.
+  -- Flow linking can refer to this account through either identity field.
+  if exists (select 1 from auth.scim_users where user_id=v_uid)
+    or exists (select 1 from auth.flow_state where user_id=v_uid or linking_target_id=v_uid)
+    or exists (select 1 from auth.refresh_tokens r where r.user_id=v_uid::text
+      and not exists (select 1 from auth.sessions s where s.id=r.session_id and s.user_id=v_uid))
+    or exists (select 1 from auth.refresh_tokens r join auth.sessions s on s.id=r.session_id
+      where s.user_id=v_uid and r.user_id is distinct from v_uid::text) then
+    raise exception using errcode='P0001', message='WITHDRAWAL_AUTH_REVIEW_REQUIRED';
+  end if;
+  -- JSON audit payloads and provider logs require separate retention review;
+  -- absence from these relational guards is not proof of complete erasure.
+
   delete from auth.sessions where user_id=v_uid;
   delete from auth.users where id=v_uid;
   if not found then raise exception using errcode='42501', message='Authentication required'; end if;
