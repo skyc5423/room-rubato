@@ -21,6 +21,9 @@ await db.exec(`create role anon; create role authenticated;
 for(const file of ['supabase/schema.sql','docs/proposals/persona-cas.sql','docs/proposals/taste-journal-cas.sql','docs/proposals/account-withdrawal.sql']) await db.exec(fs.readFileSync(new URL(file,root),'utf8'));
 const a='11111111-1111-4111-8111-111111111111', b='22222222-2222-4222-8222-222222222222', sa='33333333-3333-4333-8333-333333333333', sb='44444444-4444-4444-8444-444444444444', wid='55555555-5555-4555-8555-555555555555';
 let checks=0;
+const preflight=(await db.query(fs.readFileSync(new URL('docs/proposals/withdrawal-readonly-preflight.sql',root),'utf8'))).rows[0];
+assert.deepEqual(preflight, { withdrawal_rpc_installed:true,readiness_gate_installed:true,fixture_allowlist_installed:true,known_retention_snapshot_present:false,refresh_session_cascade_verified:true,reviewed_ownership_columns_present:true });checks++;
+
 const admin=()=>db.exec('reset role');
 const claims=async(uid,session)=>{await admin();await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claims',$2,false)",[uid,JSON.stringify({session_id:session})]);await db.exec('set role authenticated');};
 const withdraw=(confirmation='DELETE MY ACCOUNT',owner=a,session=sa)=>db.query('select public.withdraw_own_account($1,$2,$3) as deleted',[confirmation,owner,session]);
