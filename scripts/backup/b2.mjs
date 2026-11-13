@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {ensure,MAX_BYTES,sha256} from './core.mjs';
+import {ensure,MAX_BYTES,sha256,validateSnapshot,canonical} from './core.mjs';
 function trustedUrl(value) {
   const url=new URL(value);
   ensure(url.protocol==='https:' && !url.username && !url.password && !url.port && (url.hostname==='api.backblazeb2.com' || url.hostname.endsWith('.backblazeb2.com')), 'Untrusted B2 destination');
@@ -22,10 +22,23 @@ export async function authorizeB2(keyId,key,transport=fetch) {
   return {apiUrl:storage.apiUrl,token:data.authorizationToken,allowed:storage};
 }
 /** No delete API, no retries on uncertain upload, encrypted bytes only. */
-export async function uploadB2(archive,{keyId,key,bucketId,fileName},transport=fetch) {
-  ensure(Buffer.isBuffer(archive) && archive.length>0 && archive.length<MAX_BYTES*1.5,'Invalid archive size');
+export async function uploadB2(archive,config,transport=fetch) {
   const envelope=JSON.parse(archive.toString()); ensure(envelope.header?.cipher==='AES-256-GCM' && typeof envelope.ciphertext==='string','Encrypted archive required');
-  ensure(bucketId==='a593f42c829bd620a011031b' && /^snapshots\/\d{4}-\d{2}-\d{2}\/[a-f0-9-]{36}\.rrb$/.test(fileName),'Invalid backup destination');
+  return uploadBytes(archive,config,transport,false);
+}
+/** SSE-B2 mode: data is sent over TLS to private B2, where the provider manages encryption. */
+export async function uploadManagedB2(snapshot,config,transport=fetch) {
+  const archive=Buffer.from(canonical(validateSnapshot(snapshot)));
+  return uploadBytes(archive,config,transport,true);
+}
+export async function uploadManagedReceipt(receipt,config,transport=fetch) {
+  ensure(receipt?.format==='room-rubato-managed-receipt-v1' && typeof receipt.signature==='string','Signed receipt required');
+  const bytes=Buffer.from(canonical(receipt));ensure(bytes.length<16384,'Receipt too large');
+  return uploadBytes(bytes,config,transport,true,true);
+}
+async function uploadBytes(archive,{keyId,key,bucketId,fileName},transport,managed,isReceipt=false) {
+  ensure(Buffer.isBuffer(archive) && archive.length>0 && archive.length<MAX_BYTES*1.5,'Invalid archive size');
+  ensure(bucketId==='a593f42c829bd620a011031b' && (isReceipt?/^snapshots\/\d{4}-\d{2}-\d{2}\/[a-f0-9-]{36}\.managed\.json\.receipt\.json$/:managed?/^snapshots\/\d{4}-\d{2}-\d{2}\/[a-f0-9-]{36}\.managed\.json$/:/^snapshots\/\d{4}-\d{2}-\d{2}\/[a-f0-9-]{36}\.rrb$/).test(fileName),'Invalid backup destination');
   const session=await authorizeB2(keyId,key,transport);
   const allowed=session.allowed;
   // A bucket-scoped key is required: broad account keys are rejected.
@@ -37,7 +50,8 @@ export async function uploadB2(archive,{keyId,key,bucketId,fileName},transport=f
   const target=await responseJson(await transport(`${trustedUrl(session.apiUrl).replace(/\/$/,'')}/b2api/v3/b2_get_upload_url`,{method:'POST',headers:{Authorization:session.token,'Content-Type':'application/json'},body:JSON.stringify({bucketId}),redirect:'error',signal:AbortSignal.timeout(30000)}));
   ensure(target.bucketId===bucketId && typeof target.authorizationToken==='string','Upload bucket mismatch');
   const digest=createHash('sha1').update(archive).digest('hex');
-  const result=await responseJson(await transport(trustedUrl(target.uploadUrl),{method:'POST',headers:{Authorization:target.authorizationToken,'X-Bz-File-Name':encodeURIComponent(fileName),'Content-Type':'application/octet-stream','X-Bz-Content-Sha1':digest,'X-Bz-Info-archive-sha256':sha256(archive)},body:archive,redirect:'error',signal:AbortSignal.timeout(120000)}));
+  const result=await responseJson(await transport(trustedUrl(target.uploadUrl),{method:'POST',headers:{Authorization:target.authorizationToken,'X-Bz-File-Name':encodeURIComponent(fileName),'Content-Type':'application/octet-stream','X-Bz-Content-Sha1':digest,'X-Bz-Info-archive-sha256':sha256(archive),...(managed?{'X-Bz-Server-Side-Encryption':'AES256'}:{})},body:archive,redirect:'error',signal:AbortSignal.timeout(120000)}));
   ensure(result.bucketId===bucketId && result.fileName===fileName && result.contentLength===archive.length && result.contentSha1===digest && typeof result.fileId==='string','Upload acknowledgment mismatch; outcome unknown');
-  return {fileId:result.fileId,fileName,bucketId,bytes:archive.length,sha256:sha256(archive),acknowledgedAt:new Date().toISOString(),readbackVerified:false};
+  if(managed) ensure(result.serverSideEncryption?.mode==='SSE-B2' && result.serverSideEncryption?.algorithm==='AES256','SSE-B2 acknowledgment mismatch; outcome unknown');
+  return {encryptionMode:managed?'SSE-B2':'client-envelope',fileId:result.fileId,fileName,bucketId,bytes:archive.length,sha256:sha256(archive),acknowledgedAt:new Date().toISOString(),readbackVerified:false};
 }

@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
+import {PROJECT} from '../core.mjs';import {planRetention} from '../retention-plan.mjs';
+const now=Date.parse('2026-11-13T18:00:00Z');
+function receipts(n,spacing=1){return Array.from({length:n},(_,i)=>{const capturedAt=new Date(now-i*spacing*86400000).toISOString();return {project:PROJECT,bucketId:'a593f42c829bd620a011031b',fileId:randomUUID(),fileName:`snapshots/${capturedAt.slice(0,10)}/${randomUUID()}.rrb`,capturedAt,sha256:'a'.repeat(64),readbackVerified:true,restoreVerified:true};});}
+test('retention proposes exact versions only beyond 30 verified daily copies',()=>{const all=receipts(31);const plan=planRetention(all,{inventoryComplete:true,now});assert.equal(plan.keepFileIds.length,30);assert.equal(plan.proposedPermanentDeletions.length,1);assert.equal(plan.proposedPermanentDeletions[0].fileId,all[30].fileId);assert.equal(plan.deletionAuthorized,false);});
+test('failed daily runs do not shrink recovery set to fewer than 30 dates',()=>{const all=receipts(29,2);assert.equal(planRetention(all,{inventoryComplete:true,now}).proposedPermanentDeletions.length,0);});
+test('incomplete inventory or unverified or stale backup refuses expiry planning',()=>{assert.throws(()=>planRetention(receipts(31),{now}));const all=receipts(31);all[0].restoreVerified=false;assert.throws(()=>planRetention(all,{inventoryComplete:true,now}));assert.throws(()=>planRetention(receipts(31),{inventoryComplete:true,now:now+48*3600000}));});
