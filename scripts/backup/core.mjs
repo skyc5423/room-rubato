@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, createHash, createPublicKey, constant
 export const PROJECT = 'nhusocbyuxzjsfwitkhe';
 export const FORMAT = 'room-rubato-app-backup-v1';
 export const MAX_BYTES = 32 * 1024 * 1024;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PROFILE = ['user_id','gender','age_group','occupation','completed_count','state','consent_agreed_at','consent_version','updated_at','revision','last_write_id'];
 const JOURNAL = ['user_id','state','revision','last_write_id','updated_at'];
 export const SCHEMA = { persona_profiles: PROFILE, taste_journals: JOURNAL };
