@@ -1,5 +1,6 @@
 -- REVIEW CANDIDATE ONLY. Not a migration and never applied to hosted data.
 -- Requires the persona/journal CAS cutover. Defaults to disabled on installation.
+-- Fixture-only candidate: no unrestricted production activation path.
 begin;
 create table room_internal.account_withdrawal_gate (
   singleton boolean primary key default true check (singleton),
@@ -11,6 +12,19 @@ alter table room_internal.account_withdrawal_gate enable row level security;
 revoke all on room_internal.account_withdrawal_gate from public, anon, authenticated;
 insert into room_internal.account_withdrawal_gate(singleton) values(true);
 
+-- At most two exact fixture sessions, configured only by the reviewed admin
+-- migration. No FK: deleting a fixture must not silently erase test evidence.
+create table room_internal.withdrawal_test_allowlist (
+  slot smallint primary key check (slot between 1 and 2),
+  owner_id uuid not null unique,
+  session_id uuid not null unique,
+  authorized_at timestamptz not null,
+  expires_at timestamptz not null,
+  check (expires_at > authorized_at and expires_at <= authorized_at + interval '30 minutes')
+);
+alter table room_internal.withdrawal_test_allowlist enable row level security;
+revoke all on room_internal.withdrawal_test_allowlist from public, anon, authenticated;
+
 create function room_internal.withdraw_own_account(p_confirmation text, p_expected_owner uuid, p_expected_session uuid)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare
@@ -19,8 +33,9 @@ declare
   v_table regclass;
 begin
   -- Browser flags are UX only. This private database gate is authoritative.
-  if not exists (select 1 from room_internal.account_withdrawal_gate
-    where singleton and enabled and retention_verified and hosted_tests_verified) then
+  perform 1 from room_internal.account_withdrawal_gate
+    where singleton and enabled and retention_verified and hosted_tests_verified for share;
+  if not found then
     raise exception using errcode='P0001', message='WITHDRAWAL_DISABLED';
   end if;
   if v_uid is null or p_expected_owner is distinct from v_uid then
@@ -38,6 +53,15 @@ begin
   end;
   if v_session is null or p_expected_session is distinct from v_session then
     raise exception using errcode='42501', message='Fresh sign-in required';
+  end if;
+  -- This candidate is restricted to exact, time-bounded synthetic sessions.
+  -- Real hosted identities are never embedded in source or inferred from email.
+  perform 1 from room_internal.withdrawal_test_allowlist t
+    where t.owner_id=v_uid and t.session_id=v_session
+      and t.authorized_at <= clock_timestamp() and t.expires_at > clock_timestamp()
+    for share;
+  if not found then
+    raise exception using errcode='P0001', message='WITHDRAWAL_FIXTURE_ONLY';
   end if;
   if not exists (select 1 from auth.sessions s where s.id=v_session
       and s.user_id=v_uid and s.created_at <= clock_timestamp()
@@ -138,9 +162,23 @@ begin
   -- JSON audit payloads and provider logs require separate retention review;
   -- absence from these relational guards is not proof of complete erasure.
 
+  -- Wall clock, not transaction start: revalidate after preceding lock waits.
+  if not exists (select 1 from room_internal.withdrawal_test_allowlist t
+    where t.owner_id=v_uid and t.session_id=v_session
+      and t.authorized_at <= clock_timestamp() and t.expires_at > clock_timestamp()) then
+    raise exception using errcode='P0001', message='WITHDRAWAL_FIXTURE_ONLY';
+  end if;
   delete from auth.sessions where user_id=v_uid;
   delete from auth.users where id=v_uid;
   if not found then raise exception using errcode='42501', message='Authentication required'; end if;
+  -- Deleting other sessions/descendants may itself wait. Expiry observed here
+  -- rolls back every deletion. This is not a hard deadline on commit/network
+  -- delivery, and an admin revocation cannot interrupt locks already held.
+  if not exists (select 1 from room_internal.withdrawal_test_allowlist t
+    where t.owner_id=v_uid and t.session_id=v_session
+      and t.authorized_at <= clock_timestamp() and t.expires_at > clock_timestamp()) then
+    raise exception using errcode='P0001', message='WITHDRAWAL_FIXTURE_ONLY';
+  end if;
   return true;
 end;
 $$;
