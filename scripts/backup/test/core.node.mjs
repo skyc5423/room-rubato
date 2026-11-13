@@ -39,3 +39,9 @@ test('plaintext is rejected before any request',async()=>{const t=transport();aw
 test('untrusted archive digest fails before decrypt',()=>{const data=seal(snapshot(),rsa.publicKey,fp);assert.throws(()=>unseal(data,rsa.privateKey,fp,'0'.repeat(64)));assert.throws(()=>unseal(data,rsa.privateKey,fp,undefined));});
 
 test('stale/unsigned owner inventory refuses planning',()=>{const l=ledger();assert.throws(()=>restorePlan(snapshot(),l,signer.publicKey,checkpoint(l),inventory([b],now-400000),now));assert.throws(()=>restorePlan(snapshot(),l,signer.publicKey,checkpoint(l),[b],now));});
+
+test('noncanonical UUID case refused across snapshot, ledger, and owner inventory',()=>{
+ const s=snapshot();s.tables.persona_profiles[0].user_id=s.tables.persona_profiles[0].user_id.toUpperCase();assert.throws(()=>validateSnapshot(s));
+ const l=ledger([a.toUpperCase()]);assert.throws(()=>checkedLedger(l,signer.publicKey,checkpoint(l),now));
+ const empty=ledger([]);assert.throws(()=>restorePlan(snapshot(),empty,signer.publicKey,checkpoint(empty),inventory([b.toUpperCase()]),now));
+});
