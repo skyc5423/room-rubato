@@ -25,3 +25,23 @@ The published backup suite has 53 passing tests. New cases cover pending deletio
 No production journal store, signing credential, heartbeat schedule, restore importer or deletion integration was installed. The module accepts a trusted authority's resolution; it cannot itself prove that a provider deleted an account. A checkpoint taken solely from the same archive is not independent trust.
 
 The general design is published separately because the earlier infrastructure-specific document was not changed by this work.
+
+## Independent authority and generation-fence candidates
+
+Additional isolated implementation brings the backup suite to **58 tests** (the earlier 53-test checkpoint above is historical). The separate authority candidate keeps append-only signed versions and atomically advances a compare-and-swap head. Ordinary users get no access; publisher and reader privileges are separately grantable function capabilities, not direct table writes. The database preserves history and comparison semantics but does not verify Ed25519 itself. The trusted publisher and every reader must validate signatures, exact canonical bytes, schema, freshness and checkpoint identity.
+
+An authority-response verifier now enforces those reader checks and exact generation comparison without rounding large integers. It rejects an extra inner signature field that could otherwise change which bytes were authenticated. The SQL and helper are executable candidates with synthetic tests, not a deployed service.
+
+The application-side candidate issues monotonically increasing generations while holding a transaction advisory lock. The independent authority accepts only increasing generation activation and refuses a publication from an older generation. Generations are not reused on transaction rollback. This prevents a delayed older request from publishing after a successor has activated a newer generation, within the stated app-table-only recovery model.
+
+### Integration ordering and limits
+
+- Acquire the app transaction lock before issuing a generation; activate that generation at the independent authority before reading trust state or publishing journal events. Never reverse the lock order.
+- Publish a deletion prepare before attempting deletion. Commit the app deletion before confirming it externally. If commit acknowledgment is lost, leave the intent pending until its outcome is independently verified. Pending intent blocks restoration.
+- Restore only after current, uncached primary-authority reads under the app fence; cached or archive-derived checkpoints do not satisfy this contract. All deletion/import entry points must participate. Existing user-facing withdrawal remains disabled and unconnected.
+- Keep the sequence and control schema out of app-table restoration. Whole-database rollback is explicitly unsupported: reseeding merely above the authority's active generation can reuse an old issued-but-not-activated number. Stop old workers, revoke their authority credentials and reconcile in-flight outcomes before a separately reviewed namespace/allocator recovery procedure. Do not automatically restart this candidate after whole-database restoration.
+- These tests do not prove real simultaneous connections, network partitions, production credential isolation, primary-read behavior or durable disaster recovery.
+
+### Resource check
+
+Read-only discovery found the existing application database and the related application/backup worker projects. No installed integration or connector was returned for the inspected backup workers, and no suitable independent durable authority was verified. This is not a claim that every possible account storage resource was enumerated. No new database, storage subscription, role, signing credential, provider connection or production migration was created. Placing the authority inside the same restored app database would not make it independent.
