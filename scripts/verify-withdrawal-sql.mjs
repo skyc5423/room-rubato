@@ -7,8 +7,11 @@ const root = new URL('../', import.meta.url);
 await db.exec(`create role anon; create role authenticated;
  create schema auth; create schema storage;
  create table auth.users(id uuid primary key);
- create table auth.sessions(id uuid primary key,user_id uuid references auth.users on delete cascade,created_at timestamptz not null,not_after timestamptz);
+ create table auth.sessions(id uuid primary key,user_id uuid references auth.users on delete cascade,created_at timestamptz,not_after timestamptz);
  create table storage.objects(id uuid primary key,owner_id text,owner uuid);
+ create table storage.buckets(id text primary key,owner_id text,owner uuid);
+ create table storage.s3_multipart_uploads(id text primary key,owner_id text);
+ create table storage.s3_multipart_uploads_parts(id uuid primary key,owner_id text);
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
  grant usage on schema auth to authenticated,anon; grant execute on function auth.uid(),auth.jwt() to authenticated,anon;`);
@@ -41,10 +44,36 @@ await admin();await db.query("update auth.sessions set created_at=now()-interval
 await claims(a,sa);await denied(withdraw,'42501');
 await admin();await db.query("update auth.sessions set created_at=now(),not_after=now()-interval '1 second' where id=$1",[sa]);
 await claims(a,sa);await denied(withdraw,'42501');
-await admin();await db.query('update auth.sessions set not_after=null where id=$1',[sa]);
+await admin();await db.query('update auth.sessions set not_after=null,created_at=null where id=$1',[sa]);
+await claims(a,sa);await denied(withdraw,'42501','Fresh sign-in required');
+await admin();await db.query("update auth.sessions set created_at=clock_timestamp()+interval '1 minute' where id=$1",[sa]);
+await claims(a,sa);await denied(withdraw,'42501','Fresh sign-in required');
+await admin();await db.query('update auth.sessions set created_at=clock_timestamp() where id=$1',[sa]);
+// Every known Storage ownership surface blocks, including legacy UUID owner.
+for (const [table,column] of [ ['objects','owner'], ['buckets','owner'], ['buckets','owner_id'], ['s3_multipart_uploads','owner_id'], ['s3_multipart_uploads_parts','owner_id'] ]) {
+  await db.query(`insert into storage.${table}(id,${column}) values($1,$2)`,[wid,a]);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_STORAGE_REVIEW_REQUIRED');
+  await admin();
+  for (const t of ['auth.users','auth.sessions','public.persona_profiles','public.taste_journals']) {
+    assert.equal((await db.query(`select count(*)::int n from ${t}`)).rows[0].n,2);checks++;
+  }
+  assert.equal((await db.query(`select count(*)::int n from storage.${table}`)).rows[0].n,1);checks++;
+  await db.exec(`delete from storage.${table}`);
+}
+// A provider schema change must fail closed rather than skip the check.
+await db.exec('alter table storage.s3_multipart_uploads_parts rename column owner_id to unexpected_owner');
+await claims(a,sa);await denied(withdraw,'42703');
+await admin();await db.exec('alter table storage.s3_multipart_uploads_parts rename column unexpected_owner to owner_id');
+await db.exec('alter table storage.s3_multipart_uploads_parts rename to missing_parts_fixture');
+await claims(a,sa);await denied(withdraw,'42P01');
+await admin();await db.exec('alter table storage.missing_parts_fixture rename to s3_multipart_uploads_parts');
+// Other-account resources must neither block nor be removed by A withdrawal.
+for (const table of ['objects','buckets','s3_multipart_uploads','s3_multipart_uploads_parts']) {
+  await db.query(`insert into storage.${table}(id,owner_id) values($1,$2)`,[b,b]);
+}
 await db.query('insert into storage.objects values($1,$2,null)',[wid,a]);
 await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_STORAGE_REVIEW_REQUIRED');
-await admin();await db.exec('delete from storage.objects; create table room_internal.persona_pre_cas_20261111(user_id uuid)');
+await admin();await db.query('delete from storage.objects where id=$1',[wid]);await db.exec('create table room_internal.persona_pre_cas_20261111(user_id uuid)');
 await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_RETENTION_UNVERIFIED');
 await admin();await db.exec('drop table room_internal.persona_pre_cas_20261111; create table public.new_data(user_id uuid references auth.users on delete cascade)');
 await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_SCHEMA_UNVERIFIED');
@@ -71,6 +100,9 @@ await denied(withdraw,'42501');
 await denied(()=>db.query('select public.save_persona_cas($1,null,$2,$3,now(),$4)',[a,wid,{},'test']),'23503');
 await denied(()=>db.query('select public.save_taste_journal($1,null,$2,$3)',[a,wid,{version:1,entries:{}}]),'23503');
 await admin();for(const table of ['auth.users','auth.sessions','public.persona_profiles','public.taste_journals']) { const owner=table==='auth.users'?'id':'user_id';assert.equal((await db.query(`select count(*)::int n from ${table} where ${owner}=$1`,[a])).rows[0].n,0);assert.equal((await db.query(`select count(*)::int n from ${table} where ${owner}=$1`,[b])).rows[0].n,1);checks+=2; }
+for (const table of ['objects','buckets','s3_multipart_uploads','s3_multipart_uploads_parts']) {
+  assert.deepEqual((await db.query(`select owner_id from storage.${table}`)).rows,[{owner_id:b}]);checks++;
+}
 await db.exec('set role anon');await denied(withdraw,'42501');
 console.log(`${checks} isolated SQL checks passed. Hosted Auth/PostgREST/Storage, concurrent connections and backup retention remain unverified.`);
 await db.close();
