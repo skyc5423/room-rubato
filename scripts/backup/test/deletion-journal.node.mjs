@@ -4,7 +4,7 @@ import {generateKeyPairSync,randomUUID,sign} from 'node:crypto';
 import {PROJECT,FORMAT,canonical,ledgerDigest,sha256} from '../core.mjs';
 import {initialDeletionJournal,journalCheckpoint,inspectDeletionJournal,advanceDeletionJournal,refreshDeletionJournal,reconcileDeletionForRestore,reconciledRestorePlan} from '../deletion-journal.mjs';
 const signer=generateKeyPairSync('ed25519',{publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}});
-const now=Date.now(),a=randomUUID(),b=randomUUID(),requestId=randomUUID();
+const now=Date.now(),a='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',b='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',requestId='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const initial=()=>initialDeletionJournal(randomUUID(),signer.privateKey,now);
 const step=(j,action,userId=a,id=requestId,at=now)=>advanceDeletionJournal(j,signer.publicKey,journalCheckpoint(j),{requestId:id,userId,action},signer.privateKey,at).journal;
 function ledger(ids=[]) {let previous='0'.repeat(64);const events=ids.map((userId,i)=>{const event={sequence:i+1,userId,deletedAt:new Date(now).toISOString(),previous};previous=sha256(canonical(event));return event;});const body={project:PROJECT,epoch:randomUUID(),sequence:events.length,observedAt:new Date(now).toISOString(),events};return {...body,signature:sign(null,Buffer.from(canonical(body)),signer.privateKey).toString('base64')};}
