@@ -8,6 +8,9 @@ await db.exec(`create role anon; create role authenticated;
  create schema auth; create schema storage;
  create table auth.users(id uuid primary key);
  create table auth.sessions(id uuid primary key,user_id uuid references auth.users on delete cascade,created_at timestamptz,not_after timestamptz);
+ create table auth.scim_users(id uuid primary key,user_id uuid references auth.users on delete set null);
+ create table auth.flow_state(id uuid primary key,user_id uuid,linking_target_id uuid);
+ create table auth.refresh_tokens(id bigint primary key,user_id varchar,session_id uuid references auth.sessions on delete cascade);
  create table storage.objects(id uuid primary key,owner_id text,owner uuid);
  create table storage.buckets(id text primary key,owner_id text,owner uuid);
  create table storage.s3_multipart_uploads(id text primary key,owner_id text);
@@ -89,6 +92,47 @@ await admin();await db.exec('alter table taste_journals drop constraint taste_jo
 await admin();await db.exec(`create function public.fixture_trigger() returns trigger language plpgsql as $$ begin return old; end $$; create trigger unexpected before delete on public.taste_journals for each row execute function public.fixture_trigger();`);
 await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_SCHEMA_UNVERIFIED');
 await admin();await db.exec('drop trigger unexpected on public.taste_journals; drop function public.fixture_trigger()');
+// Non-cascading Auth references block without modifying either account.
+for (const [table,column] of [['scim_users','user_id'],['flow_state','user_id'],['flow_state','linking_target_id']]) {
+  await db.query(`insert into auth.${table}(id,${column}) values($1,$2)`,[wid,a]);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_AUTH_REVIEW_REQUIRED');
+  await admin();assert.equal((await db.query(`select count(*)::int n from auth.${table}`)).rows[0].n,1);checks++;
+  assert.equal((await db.query('select count(*)::int n from auth.users')).rows[0].n,2);checks++;
+  await db.exec(`delete from auth.${table}`);
+}
+// Both legacy sessionless tokens and inconsistent cross-owner sessions block.
+for (const session of [null,sb]) {
+  await db.query('insert into auth.refresh_tokens values(1,$1,$2)',[a,session]);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_AUTH_REVIEW_REQUIRED');
+  await admin();assert.equal((await db.query('select count(*)::int n from auth.refresh_tokens')).rows[0].n,1);checks++;
+  await db.exec('delete from auth.refresh_tokens');
+}
+// Inverse inconsistency must not cascade another owner's token with A's session.
+for (const owner of [b,null]) {
+  await db.query('insert into auth.refresh_tokens values(1,$1,$2)',[owner,sa]);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_AUTH_REVIEW_REQUIRED');
+  await admin();assert.equal((await db.query('select count(*)::int n from auth.refresh_tokens')).rows[0].n,1);checks++;
+  await db.exec('delete from auth.refresh_tokens');
+}
+await db.exec('alter table auth.flow_state rename column linking_target_id to changed_link_target');
+await claims(a,sa);await denied(withdraw,'42703');
+await admin();await db.exec('alter table auth.flow_state rename column changed_link_target to linking_target_id');
+// A provider cascade drift must not report deletion while leaving token rows.
+for (const action of ['set null','no action']) {
+  await db.exec(`alter table auth.refresh_tokens drop constraint refresh_tokens_session_id_fkey;
+    alter table auth.refresh_tokens add constraint refresh_tokens_session_id_fkey foreign key(session_id) references auth.sessions(id) on delete ${action}`);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_SCHEMA_UNVERIFIED');
+  await admin();
+}
+await db.exec('alter table auth.refresh_tokens drop constraint refresh_tokens_session_id_fkey');
+await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_SCHEMA_UNVERIFIED');
+await admin();await db.exec('alter table auth.refresh_tokens add constraint refresh_tokens_session_id_fkey foreign key(session_id) references auth.sessions(id) on delete cascade not valid');
+await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_SCHEMA_UNVERIFIED');
+await admin();await db.exec('alter table auth.refresh_tokens validate constraint refresh_tokens_session_id_fkey');
+// Other-owner references survive; valid session-linked A tokens cascade.
+await db.query('insert into auth.scim_users values($1,$2)',[b,b]);
+await db.query('insert into auth.flow_state values($1,$2,$2)',[b,b]);
+await db.query('insert into auth.refresh_tokens values(1,$1,$2),(2,$3,$4)',[a,sa,b,sb]);
 // Force a downstream deletion failure and verify session/data transaction rollback.
 await db.exec(`create function auth.reject_delete() returns trigger language plpgsql as $$ begin raise exception 'fixture failure'; end $$; create trigger reject_delete before delete on auth.users for each row execute function auth.reject_delete();`);
 await claims(a,sa);await denied(withdraw,'P0001','fixture failure');
@@ -103,6 +147,9 @@ await admin();for(const table of ['auth.users','auth.sessions','public.persona_p
 for (const table of ['objects','buckets','s3_multipart_uploads','s3_multipart_uploads_parts']) {
   assert.deepEqual((await db.query(`select owner_id from storage.${table}`)).rows,[{owner_id:b}]);checks++;
 }
+assert.deepEqual((await db.query('select user_id from auth.scim_users')).rows,[{user_id:b}]);checks++;
+assert.deepEqual((await db.query('select user_id,linking_target_id from auth.flow_state')).rows,[{user_id:b,linking_target_id:b}]);checks++;
+assert.deepEqual((await db.query('select user_id,session_id from auth.refresh_tokens')).rows,[{user_id:b,session_id:sb}]);checks++;
 await db.exec('set role anon');await denied(withdraw,'42501');
 console.log(`${checks} isolated SQL checks passed. Hosted Auth/PostgREST/Storage, concurrent connections and backup retention remain unverified.`);
 await db.close();
