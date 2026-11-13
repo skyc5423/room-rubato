@@ -4,10 +4,11 @@ import {writeFile} from 'node:fs/promises';
 import {readBounded} from './files.mjs';
 import {verifyReceipt} from './receipts.mjs';
 import {readManagedSnapshot} from './managed.mjs';
-import {unseal,restorePlan,ensure,MAX_BYTES} from './core.mjs';
+import {unseal,ensure,MAX_BYTES} from './core.mjs';
+import {reconciledRestorePlan} from './deletion-journal.mjs';
 const env=process.env;
 async function main() {
-  for(const name of ['RESTORE_ARCHIVE_FILE','RESTORE_LEDGER_FILE','RESTORE_LEDGER_PUBLIC_KEY_FILE','RESTORE_CHECKPOINT_FILE','RESTORE_LIVE_OWNERS_FILE','RESTORE_PLAN_FILE']) ensure(env[name],`Missing ${name}`);
+  for(const name of ['RESTORE_ARCHIVE_FILE','RESTORE_LEDGER_FILE','RESTORE_LEDGER_PUBLIC_KEY_FILE','RESTORE_CHECKPOINT_FILE','RESTORE_LIVE_OWNERS_FILE','RESTORE_PLAN_FILE','RESTORE_DELETION_JOURNAL_FILE','RESTORE_JOURNAL_CHECKPOINT_FILE']) ensure(env[name],`Missing ${name}`);
   let snapshot;
   if(env.RESTORE_ENCRYPTION_MODE==='SSE-B2') {
     ensure(env.RESTORE_SIGNED_RECEIPT_FILE,'Signed service receipt required');
@@ -22,8 +23,8 @@ async function main() {
     snapshot=unseal(await readBounded(env.RESTORE_ARCHIVE_FILE,MAX_BYTES*1.5),privatePem,env.RESTORE_KEY_FINGERPRINT,env.RESTORE_ARCHIVE_SHA256);
   }
   const readJson=async name=>JSON.parse((await readBounded(env[name],MAX_BYTES,true)).toString());
-  const plan=restorePlan(snapshot,await readJson('RESTORE_LEDGER_FILE'),(await readBounded(env.RESTORE_LEDGER_PUBLIC_KEY_FILE,16384)).toString(),await readJson('RESTORE_CHECKPOINT_FILE'),await readJson('RESTORE_LIVE_OWNERS_FILE'));
+  const plan=reconciledRestorePlan(snapshot,await readJson('RESTORE_DELETION_JOURNAL_FILE'),(await readBounded(env.RESTORE_LEDGER_PUBLIC_KEY_FILE,16384)).toString(),await readJson('RESTORE_JOURNAL_CHECKPOINT_FILE'),await readJson('RESTORE_LEDGER_FILE'),await readJson('RESTORE_CHECKPOINT_FILE'),await readJson('RESTORE_LIVE_OWNERS_FILE'));
   await writeFile(env.RESTORE_PLAN_FILE,JSON.stringify(plan),{flag:'wx',mode:0o600});
   console.log('Offline restore plan created; nothing restored. Keep this plaintext plan private.');
 }
-main().catch(()=>{console.error('Restore planning refused. Verify keys, fresh independent ledger and live-owner inventory privately.');process.exitCode=1;});
+main().catch(()=>{console.error('Restore planning refused. Verify keys, fresh independent journal/ledger checkpoints and live-owner inventory privately.');process.exitCode=1;});
