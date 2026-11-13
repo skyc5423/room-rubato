@@ -58,3 +58,18 @@ Retention is **not active**. `retention-plan.mjs` produces a review-only exact-v
 `npm run test:backup` runs synthetic-only tests; `npm test`, typecheck and build protect the existing app. PostgreSQL/PGlite rehearsals cover export, encryption compatibility, deleted-owner filtering, isolated insertion and stale-CAS rejection. Managed-mode tests cover SSE-B2 acknowledgments, signature tampering, role/activation gates and retention refusal. Synthetic tests are not evidence that live credentials, live backups, cron delivery or actual-data recovery work.
 
 The managed CLI `run-managed.mjs` is an optional dedicated-host alternative using `psql` and a private receipt directory; it requires the same independent bucket-privacy confirmation. Current cloud direction is the separate Vercel worker. Never use the dot's transient workspace as the sole scheduler or credential custodian.
+
+## Lifecycle semantics and deletion reconciliation review (2026-11-13)
+
+[Backblaze lifecycle documentation](https://www.backblaze.com/docs/en/cloud-storage-lifecycle-rules) distinguishes prior-version expiry from upload-age hiding. The prior-version preset preserves each filename's latest version; Room Rubato's date/UUID archive names are distinct filenames. Upload-age rules can hide even the latest version, but hidden versions remain retrievable by file ID until permanent deletion. Rules run daily after the configured interval, not at an exact elapsed deadline. Overlapping prefixes use the smallest applicable values; Object Lock can prevent deletion.
+
+The current implementation uses review-only exact-version retention planning, not an activated lifecycle rule. This review finds a configuration hazard to avoid, **not evidence of an applied faulty rule**. Do not replace the current disabled state with a “prior versions: 30 days” preset and call it 30-day archive expiry. Do not publish a strict physical-erasure deadline from a hide setting.
+
+Before retention activation:
+- Resolve the policy distinction: keeping at least 30 verified daily recovery points can retain older-than-30-day copies when runs are missed. A strict maximum age and that minimum point count cannot both be guaranteed then. No automatic preference or deletion follows from this review.
+- Reconcile a complete all-version inventory, including hidden versions, archive/receipt pairs, interrupted or orphan uploads, and any replicas. A current-visible-files list is insufficient. Keep exact bucket/file IDs and approval scope; missing receipts or incomplete inventory must block deletion.
+- Verify the newest remaining archive/receipt pairs can restore before proposing irreversible expiry. A provider rule does not inspect readback or restore success.
+- Continue enforcing the independent deletion ledger and current-owner checks for every retained archive, including hidden ones. Hiding or restoring an old archive cannot justify resurrecting a deleted owner. Ledger/checkpoint retention must cover the oldest still-recoverable copy, including legacy database/local copies and any recovery exports, not merely a nominal lifecycle interval.
+- Obtain concrete action-time approval for irreversible deletion settings or exact versions, then verify actual removal and reconcile unknown outcomes before reporting completion. Do not give the unattended writer delete privileges.
+
+No lifecycle, expiry, backup upload, restore import or deletion was performed in this review.
