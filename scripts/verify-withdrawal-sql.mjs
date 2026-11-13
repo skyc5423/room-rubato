@@ -33,12 +33,40 @@ await claims(a,sa);
 await denied(withdraw,'P0001','WITHDRAWAL_DISABLED');
 await denied(()=>db.exec('update room_internal.account_withdrawal_gate set enabled=true'),'42501');
 await admin();await db.exec('update room_internal.account_withdrawal_gate set enabled=true,retention_verified=true,hosted_tests_verified=true');
+await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_FIXTURE_ONLY');
+await denied(()=>db.exec('select * from room_internal.withdrawal_test_allowlist'),'42501');
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(1,$1,$2,now(),now()+interval '5 minutes')",[a,sa]),'42501');
+await admin();
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(3,$1,$2,now(),now()+interval '5 minutes')",[a,sa]),'23514');
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(1,$1,$2,now(),now()+interval '31 minutes')",[a,sa]),'23514');
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(1,$1,$2,now(),now())",[a,sa]),'23514');
+await db.query("insert into room_internal.withdrawal_test_allowlist values(1,$1,$2,clock_timestamp(),clock_timestamp()+interval '5 minutes')",[a,sa]);
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(2,$1,$2,now(),now()+interval '5 minutes')",[a,sb]),'23505');
+await denied(()=>db.query("insert into room_internal.withdrawal_test_allowlist values(2,$1,$2,now(),now()+interval '5 minutes')",[b,sa]),'23505');
+await denied(()=>db.exec("update room_internal.withdrawal_test_allowlist set expires_at=authorized_at-interval '1 second'"),'23514');
+await db.exec("update room_internal.withdrawal_test_allowlist set expires_at=authorized_at+interval '30 minutes'");checks++;
+await claims(a,sa);
+await denied(()=>db.exec('update room_internal.withdrawal_test_allowlist set slot=2'),'42501');
+await denied(()=>db.exec('delete from room_internal.withdrawal_test_allowlist'),'42501');
+await claims(b,sb);await denied(()=>withdraw('DELETE MY ACCOUNT',b,sb),'P0001','WITHDRAWAL_FIXTURE_ONLY');
+for (const times of ["clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '5 minutes'", "clock_timestamp()+interval '5 minutes',clock_timestamp()+interval '10 minutes'"]) {
+  await admin();await db.exec(`update room_internal.withdrawal_test_allowlist set (authorized_at,expires_at)=(${times})`);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_FIXTURE_ONLY');
+}
+await admin();await db.exec("update room_internal.withdrawal_test_allowlist set authorized_at=clock_timestamp(),expires_at=clock_timestamp()+interval '5 minutes'");
+// Fixture enrollment never bypasses retention or hosted-verification gates.
+for (const flag of ['enabled','retention_verified','hosted_tests_verified']) {
+  await db.exec(`update room_internal.account_withdrawal_gate set ${flag}=false`);
+  await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_DISABLED');
+  await admin();await db.exec(`update room_internal.account_withdrawal_gate set ${flag}=true`);
+}
 await claims(a,sa);await denied(()=>withdraw('wrong'),'22023');
 await denied(()=>withdraw('DELETE MY ACCOUNT',b),'42501');
 await denied(()=>withdraw('DELETE MY ACCOUNT',a,sb),'42501');
 // Same-owner replacement sign-in must not reuse confirmation for the old session.
 await admin();await db.query('insert into auth.sessions values($1,$2,clock_timestamp(),null)',[wid,a]);
 await claims(a,wid);await denied(withdraw,'42501');
+await denied(()=>withdraw('DELETE MY ACCOUNT',a,wid),'P0001','WITHDRAWAL_FIXTURE_ONLY');
 await admin();await db.query('delete from auth.sessions where id=$1',[wid]);await claims(a,sa);
 await claims(a,sb);await denied(withdraw,'42501');
 await claims(a,'malformed');await denied(withdraw,'42501');
@@ -138,6 +166,18 @@ await db.exec(`create function auth.reject_delete() returns trigger language plp
 await claims(a,sa);await denied(withdraw,'P0001','fixture failure');
 await admin();assert.equal((await db.query('select count(*)::int n from auth.sessions where user_id=$1',[a])).rows[0].n,1);checks++;
 await db.exec('drop trigger reject_delete on auth.users');
+// Expiry during the mutation phase must roll back all fixture deletion.
+await db.exec(`create function auth.delay_delete() returns trigger language plpgsql as $$ begin perform pg_sleep(1); return old; end $$;
+  create trigger delay_delete before delete on auth.users for each row execute function auth.delay_delete();`);
+await db.exec("update room_internal.withdrawal_test_allowlist set authorized_at=clock_timestamp(),expires_at=clock_timestamp()+interval '500 milliseconds'");
+await claims(a,sa);await denied(withdraw,'P0001','WITHDRAWAL_FIXTURE_ONLY');
+await admin();
+for (const table of ['auth.users','auth.sessions','public.persona_profiles','public.taste_journals']) {
+  assert.equal((await db.query(`select count(*)::int n from ${table}`)).rows[0].n,2);checks++;
+}
+assert.equal((await db.query('select count(*)::int n from auth.refresh_tokens')).rows[0].n,2);checks++;
+await db.exec('drop trigger delay_delete on auth.users; drop function auth.delay_delete()');
+await db.exec("update room_internal.withdrawal_test_allowlist set authorized_at=clock_timestamp(),expires_at=clock_timestamp()+interval '5 minutes'");
 await claims(a,sa);assert.equal((await withdraw()).rows[0].deleted,true);checks++;
 // Replaying the old token cannot return success or resurrect account-owned data.
 await denied(withdraw,'42501');
