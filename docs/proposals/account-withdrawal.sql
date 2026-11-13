@@ -100,9 +100,15 @@ begin
     ('persona_pre_cas_20261111','persona_cas_cutover_20261111') and relkind in ('r','p','m')) then
     raise exception using errcode='P0001', message='WITHDRAWAL_RETENTION_UNVERIFIED';
   end if;
-  -- Storage objects require Storage API cleanup, not SQL row deletion. Current
-  -- product has no uploads. A new upload feature MUST redesign this gate.
-  if exists (select 1 from storage.objects where owner_id=v_uid::text or owner=v_uid) then
+  -- Storage resources require provider API cleanup, not SQL metadata deletion.
+  -- Check both legacy UUID and current text ownership, including unfinished
+  -- multipart uploads/parts. Missing tables/columns must error, never skip.
+  -- Current product has no uploads; any future upload feature must redesign
+  -- this gate and coordinate concurrent uploads before enabling withdrawal.
+  if exists (select 1 from storage.objects where owner_id=v_uid::text or owner=v_uid)
+    or exists (select 1 from storage.buckets where owner_id=v_uid::text or owner=v_uid)
+    or exists (select 1 from storage.s3_multipart_uploads where owner_id=v_uid::text)
+    or exists (select 1 from storage.s3_multipart_uploads_parts where owner_id=v_uid::text) then
     raise exception using errcode='P0001', message='WITHDRAWAL_STORAGE_REVIEW_REQUIRED';
   end if;
 
