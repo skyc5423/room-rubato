@@ -1,9 +1,10 @@
 export interface ArtworkStudyData {
- id:string;title:string;titleKo:string;artist:string;date:string;medium:string;credit:string;sourceUrl:string;image:string;license:string;licenseUrl:string;verifiedAt:string;alt:string;concept:string;lessonIds:string[];question:string;prompts:string[];context:string;interpretation:string;bridge:string;detail:string;position:string;
+ id:string;title:string;titleKo:string;artist:string;date:string;medium:string;dimensions:string;credit:string;sourceUrl:string;image:string;license:string;licenseUrl:string;verifiedAt:string;alt:string;concept:string;lessonIds:string[];question:string;prompts:string[];context:string;interpretation:string;bridge:string;detail:string;position:string;
 }
 export const artworkStudies: ArtworkStudyData[] = [
   {
     "id": "436535",
+    "dimensions": "73.2 × 93.4 cm",
     "title": "Wheat Field with Cypresses",
     "artist": "Vincent van Gogh",
     "date": "1889",
@@ -13,7 +14,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-436535.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "사이프러스가 있는 밀밭",
     "alt": "노란 밀밭 뒤로 푸른 산과 짙은 사이프러스 나무가 서 있고 구름과 풀의 붓질이 굽이친다.",
     "concept": "붓질과 리듬",
@@ -35,6 +36,7 @@ export const artworkStudies: ArtworkStudyData[] = [
   },
   {
     "id": "436105",
+    "dimensions": "129.5 × 196.2 cm",
     "title": "The Death of Socrates",
     "artist": "Jacques Louis David",
     "date": "1787",
@@ -44,7 +46,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-436105.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "소크라테스의 죽음",
     "alt": "침대 위 소크라테스가 한 손을 위로 들고 다른 손을 잔 쪽으로 뻗는다. 주변 인물들은 서로 다른 몸짓을 하고 있다.",
     "concept": "몸짓과 시선의 연결",
@@ -65,6 +67,7 @@ export const artworkStudies: ArtworkStudyData[] = [
   },
   {
     "id": "436121",
+    "dimensions": "73.7 × 92.7 cm",
     "title": "A Woman Seated beside a Vase of Flowers (Madame Paul Valpinçon?)",
     "artist": "Edgar Degas",
     "date": "1865",
@@ -74,7 +77,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-436121.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "꽃병 옆에 앉은 여인",
     "alt": "큰 꽃다발이 화면 가운데를 차지하고 여인은 오른쪽 가장자리에 앉아 화면 밖을 바라본다.",
     "concept": "비대칭과 시각적 무게",
@@ -96,6 +99,7 @@ export const artworkStudies: ArtworkStudyData[] = [
   },
   {
     "id": "437853",
+    "dimensions": "91.4 × 122.2 cm",
     "title": "Venice, from the Porch of Madonna della Salute",
     "artist": "Joseph Mallord William Turner",
     "date": "ca. 1835",
@@ -105,7 +109,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-437853.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "마돈나 델라 살루테 현관에서 본 베네치아",
     "alt": "운하 양쪽 건물이 멀리 모여들고 가까운 배와 건물이 물에 반사되어 있다. 하늘과 먼 건물은 옅다.",
     "concept": "윤곽과 반사",
@@ -127,6 +131,7 @@ export const artworkStudies: ArtworkStudyData[] = [
   },
   {
     "id": "437881",
+    "dimensions": "45.7 × 40.6 cm",
     "title": "Young Woman with a Water Pitcher",
     "artist": "Johannes Vermeer",
     "date": "ca. 1662",
@@ -136,7 +141,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-437881.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "물주전자를 든 여인",
     "alt": "여인이 한 손으로 창을 잡고 다른 손으로 금속 주전자를 잡고 있다. 흰 머리 덮개와 주전자에 빛이 닿는다.",
     "concept": "빛의 경로",
@@ -157,6 +162,7 @@ export const artworkStudies: ArtworkStudyData[] = [
   },
   {
     "id": "45434",
+    "dimensions": "25.7 × 37.9 cm",
     "title": "Under the Wave off Kanagawa (Kanagawa oki nami ura), also known as The Great Wave, from the series Thirty-six Views of Mount Fuji (Fugaku sanjūrokkei)",
     "artist": "Katsushika Hokusai",
     "date": "ca. 1830–32",
@@ -166,7 +172,7 @@ export const artworkStudies: ArtworkStudyData[] = [
     "image": "/artworks/met-45434.jpg",
     "license": "CC0",
     "licenseUrl": "https://www.metmuseum.org/hubs/open-access",
-    "verifiedAt": "2026-11-11",
+    "verifiedAt": "2026-11-16",
     "titleKo": "가나가와 해변의 높은 파도 아래",
     "alt": "크게 휘어진 파도 아래 긴 배 세 척이 있고 멀리 후지산이 작은 삼각형으로 보인다.",
     "concept": "크기 대비와 반복",

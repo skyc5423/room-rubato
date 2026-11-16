@@ -51,3 +51,10 @@ describe('curated artwork and learning paths',()=>{
   expect(html).toContain('빛에서 공간으로');expect(html).toContain('disabled');
  });
 });
+
+it('shows source dimensions without claiming display color matches the original',()=>{
+ const expected:Record<string,string>={'436535':'73.2 × 93.4 cm','436105':'129.5 × 196.2 cm','436121':'73.7 × 92.7 cm','437853':'91.4 × 122.2 cm','437881':'45.7 × 40.6 cm','45434':'25.7 × 37.9 cm'};
+ for(const work of artworkStudies)expect(work.dimensions).toBe(expected[work.id]);
+ let view:any;act(()=>{view=create(<ArtworkStudy lessonId="light"/>);});
+ const text=JSON.stringify(view.toJSON());expect(text).toContain('미술관 기재 크기');expect(text).toContain('실제 작품과 다를 수');expect(text).not.toContain('원본 색·비율 유지');act(()=>view.unmount());
+});
