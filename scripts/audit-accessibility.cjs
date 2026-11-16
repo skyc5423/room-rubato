@@ -66,5 +66,27 @@ page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:
 await daily.locator('button.paper-postcard').first().waitFor();
 if(await page.evaluate(()=>JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')||'{}').dailyShiftLog?.length||0)!==0)throw Error('Daily records survived explicit synthetic reset');
 console.log('PASS daily completion and immediate restart after explicit synthetic reset');
+
+// Reflow and result content vary by domain: exercise every public questionnaire at 320 CSS pixels.
+await page.setViewportSize({width:320,height:800});
+const domainSlugs=['fashion','space-interior','gastronomy-scent','visual-art','music','cinema','literature','travel','tech-cosmos','economy','work-social','philosophy'];
+async function assertReflow(label){
+ const layout=await page.evaluate(()=>({width:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,overflowing:[...document.querySelectorAll('main *')].filter(el=>el.getBoundingClientRect().right>document.documentElement.clientWidth+1).slice(0,8).map(el=>({tag:el.tagName,classes:el.className}))}));
+ if(layout.scrollWidth>layout.width+1)throw Error(`Horizontal page overflow at ${label}: ${JSON.stringify(layout)}`);
+}
+for(const slug of domainSlugs){
+ await page.goto('http://127.0.0.1:3000/domain/'+slug);
+ await page.locator('[data-survey-step-heading=question]').waitFor();
+ await assertReflow(slug+' question');
+ for(let step=0;step<20;step++){
+  const heading=page.locator('[data-survey-step-heading]');
+  if(await heading.getAttribute('data-survey-step-heading')==='result')break;
+  const previous=await heading.textContent();await page.locator('button.paper-postcard').nth(step%2).click();
+  await page.waitForFunction(old=>document.querySelector('[data-survey-step-heading]')?.textContent!==old,previous);
+ }
+ await page.locator('[data-survey-step-heading=result]').waitFor();
+ await assertReflow(slug+' result');await audit('320px '+slug+' result');
+ console.log('PASS 320px questionnaire completion and result reflow: '+slug);
+}
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
