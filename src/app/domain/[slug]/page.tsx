@@ -354,7 +354,7 @@ export default function DomainDetailPage() {
                       className={`rounded-xl p-3 border transition-all ${
                         isMine
                           ? 'bg-[#0042AF] text-[#FEF1D0] border-[#0042AF] shadow-sm'
-                          : 'bg-[#FFFDF7] text-[#010D6E] border-[#0042AF]/15 opacity-80'
+                          : 'bg-[#FFFDF7] text-[#010D6E] border-[#0042AF]/15'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1 mb-1">
