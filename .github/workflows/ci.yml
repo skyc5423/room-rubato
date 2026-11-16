@@ -52,6 +52,7 @@ jobs:
           done
           test "$READY" = 1
           node scripts/smoke.mjs http://127.0.0.1:3000
+          node scripts/capture-design-review.cjs
           node scripts/verify-explore-browser.cjs
           BROWSER_ENGINE=firefox node scripts/verify-explore-browser.cjs
           BROWSER_ENGINE=webkit node scripts/verify-explore-browser.cjs
@@ -63,3 +64,11 @@ jobs:
           BROWSER_ENGINE=firefox node scripts/verify-flavor-browser.cjs
           BROWSER_ENGINE=webkit node scripts/verify-flavor-browser.cjs
           node scripts/audit-accessibility.cjs
+      - name: Preserve public-only design review screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-design-review
+          path: design-review/
+          retention-days: 7
+          if-no-files-found: error
