@@ -9,6 +9,11 @@ await context.route('**/artwork/options/fas-q1-A.jpg*',route=>{failedChoiceReque
 const page=await context.newPage();
 async function audit(label){await page.evaluate(axe.source);const result=await page.evaluate(async()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));console.log(JSON.stringify({label,violations:result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))}));if(result.violations.length)throw Error(`Accessibility violations at ${label}`);}
 for(const path of ['/','/notes','/notes?lesson=light','/daily','/compare','/compare/light-and-edges','/privacy','/research']){await page.goto('http://127.0.0.1:3000'+path);await page.waitForTimeout(600);await audit(path);
+if(path==='/research'){
+ await page.getByRole('heading',{name:'상황별 선택의 가중치',exact:true}).waitFor();
+ await page.getByText('다른 이용자의 응답이나 속도와 비교한 값이 아닙니다.',{exact:false}).waitFor();
+ if(await page.getByText('남들의 속도와 나의 속도',{exact:true}).count())throw Error('Summary still implies comparison with other users');
+}
 if(path==='/notes?lesson=light'){
 const beforeRevisit=await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
 await page.getByRole('button',{name:'같은 작품 다시 살펴보기',exact:true}).click();
@@ -177,6 +182,13 @@ for(const mode of ['malformed','temporarily-unreadable']){
  await blockedPage.getByText('게스트 설문 기록을 안전하게 읽지 못했어요.',{exact:false}).waitFor();
  if(await blockedPage.getByRole('button',{name:'현재 기록 내려받기',exact:true}).count())throw Error('Unread guest profile offered a blank recovery export');
  if(!await blockedPage.evaluate(()=>window.__readGuestOriginal()===window.__guestOriginal&&window.__guestWriteCount===0))throw Error('Initial guest read failure overwrote original bytes');
+ await blockedPage.goto('http://127.0.0.1:3000/research');
+ await blockedPage.getByText('기록을 아직 불러오지 못했어요.',{exact:false}).waitFor();
+ if(await blockedPage.getByRole('button',{name:'JSON 기록 펼치기',exact:true}).count())throw Error('Unread summary exposed fallback as loaded records');
+ if(await blockedPage.getByText('아직 완료한 분야가 없습니다.',{exact:false}).count())throw Error('Unread summary falsely reported empty answers');
+ if(!await blockedPage.evaluate(()=>window.__readGuestOriginal()===window.__guestOriginal&&window.__guestWriteCount===0))throw Error('Unread summary changed guest original');
+ await blockedPage.goto('http://127.0.0.1:3000/daily');
+ await blockedPage.getByText('게스트 설문 기록을 안전하게 읽지 못했어요.',{exact:false}).waitFor();
  if(mode==='malformed'){
   await blockedPage.locator('summary').filter({hasText:'읽지 못한 게스트 원본 직접 복사'}).click();
   if(await blockedPage.getByRole('textbox',{name:'읽지 못한 게스트 원본',exact:true}).inputValue()!=='{synthetic damaged guest')throw Error('Raw guest recovery copy changed');
@@ -191,6 +203,7 @@ for(const mode of ['malformed','temporarily-unreadable']){
  await blockedGuestContext.close();
 }
 console.log('PASS initial guest read failures preserve raw bytes, suppress blank exports and safely retry');
+console.log('PASS unread summary does not report empty answers or expose fallback records');
 // Guest storage failure and file-download failure must still leave a copyable recovery record.
 const recoveryContext=await browser.newContext();
 await recoveryContext.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='room_rubato_guest_state_v4')throw new DOMException('synthetic quota','QuotaExceededError');return set.call(this,key,value);};URL.createObjectURL=()=>{throw Error('synthetic download unavailable');};});

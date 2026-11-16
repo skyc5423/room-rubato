@@ -10,7 +10,11 @@ import { ALL_MASTER_DOMAINS } from '@/lib/domains-index';
 import { getRoomObjectByDomainId } from '@/lib/room-objects';
 
 export default function ResearchPage() {
-  const { state, authUser } = usePersonaStore();
+  const { state, authUser, isHydrated, syncError } = usePersonaStore();
+  if (!isHydrated) return <div className="mx-auto max-w-[980px] px-6 pt-6 sm:pt-28 pb-20">
+    <h1 className="font-editorial text-[26px] text-[#010D6E]">내가 고른 취향</h1>
+    <p className="mt-4" role="status">{syncError ? '기록을 아직 불러오지 못했어요. 저장 상태 안내에서 다시 시도해 주세요. 불러오기 전에는 완료 여부와 점수를 표시하지 않습니다.' : '저장된 기록을 불러오는 중입니다.'}</p>
+  </div>;
   const completedList = Object.values(state.completedDomains);
 
   return (
@@ -91,14 +95,16 @@ export default function ResearchPage() {
           )}
         </section>
 
+        <p className="text-sm leading-7 text-[#010D6E]/80">아래 숫자는 완료한 설문의 선택지에 정해 둔 가중치를 문항 수에 맞춰 조정해 합산한 뒤 -1~+1 범위로 제한한 요약입니다. 다른 이용자의 응답이나 속도와 비교한 값이 아닙니다. 0이라고 중립적인 성격이나 취향이라는 뜻은 아닙니다. 서로 다른 선택의 가중치가 상쇄되거나 해당 항목의 가중치가 없을 수도 있어요.</p>
+
         {/* Personal experimental summary; not a research dataset. */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <section className="paper-sheet rounded-3xl p-6">
             <div className="font-display italic text-[15px] text-[#0042AF] mb-1">
-              Layer 01 · Experimental Scores
+              Layer 01 · Answer Weights
             </div>
             <h2 className="font-editorial text-[18px] text-[#010D6E] mb-4">
-              문항 가중치 요약 · 실험 중
+              문항 가중치 요약
             </h2>
             <div className="space-y-2 text-[13.5px]">
               {[
@@ -126,10 +132,10 @@ export default function ResearchPage() {
 
           <section className="paper-sheet rounded-3xl p-6">
             <div className="font-display italic text-[15px] text-[#0042AF] mb-1">
-              Layer 02 · Rubato Tempo
+              Layer 02 · Choices in Context
             </div>
             <h2 className="font-editorial text-[18px] text-[#010D6E] mb-4">
-              남들의 속도와 나의 속도
+              상황별 선택의 가중치
             </h2>
             <div className="space-y-2 text-[13.5px]">
               {[
@@ -165,10 +171,10 @@ export default function ResearchPage() {
 
           <section className="paper-sheet rounded-3xl p-6">
             <div className="font-display italic text-[15px] text-[#0042AF] mb-1">
-              Layer 03 · Common Traits
+              Layer 03 · Across Domains
             </div>
             <h2 className="font-editorial text-[18px] text-[#010D6E] mb-4">
-              공통 취향 특징 5가지
+              여러 분야에서 고른 방향
             </h2>
             <div className="space-y-2 text-[13.5px]">
               {[
