@@ -182,5 +182,17 @@ await pendingPage.evaluate(()=>{window.__allowNotebookSave=true;});
 await pendingPage.locator('#observation-memo').fill('synthetic recovered and explicitly saved memo');
 if(await pendingPage.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.light.memo)!=='synthetic recovered and explicitly saved memo')throw Error('Explicit retry did not save restored input');
 console.log('PASS failed ordinary memo survives client navigation and reload without automatic overwrite');await pendingContext.close();
+const beforeMissingPage=await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+for(const missing of ['/missing-rubato-page','/compare/missing-study']){
+ const response=await page.goto('http://127.0.0.1:3000'+missing);
+ await page.getByRole('heading',{name:'다른 문으로 들어가 볼까요?',exact:true}).waitFor();
+ if(![200,404].includes(response.status()))throw Error('Unexpected missing-route response');
+ if(response.status()===200&&!await page.locator('meta[name="robots"][content*="noindex"]').count())throw Error('Streamed missing page is indexable');
+ await audit('Korean missing-page recovery '+missing);
+ await page.getByRole('navigation',{name:'다시 시작할 곳'}).getByRole('link',{name:'작품 비교 목록',exact:true}).click();
+ await page.waitForURL('http://127.0.0.1:3000/compare');
+}
+if(await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeMissingPage)throw Error('Missing-page recovery changed journal');
+console.log('PASS Korean unknown-route recovery, correct noindex/status and unchanged records');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
