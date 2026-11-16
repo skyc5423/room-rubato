@@ -248,3 +248,19 @@ it('does not open a previous account survey after switching accounts', () => {
     expect(view.root.findAllByType('button').some((b:any) => b.children.includes('방으로 돌아가기 ✕'))).toBe(false);
   } finally { act(() => view?.unmount()); store.currentUserId = originalOwner; vi.useRealTimers(); vi.unstubAllGlobals(); }
 });
+
+// Stored records are untrusted display input, not permission to repair or re-answer them.
+it('survives malformed daily log members without rewriting saved records', () => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [null, false, 42, {}, {timestamp: {}, pulseId: DAILY_PULSE_QUESTIONS[0].id}, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'B' }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); expect(JSON.stringify(view.toJSON())).not.toContain('저장된 선택을 확인할 수 없어요'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});
+it.each([[null, 'B'], ['A', undefined], ['C', 'B'], [{}, 'A'], ['B', 'b']])('does not invent a daily result for invalid choices %s / %s', (first, second) => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [{ timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'A' }, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: first, phase2ChoiceAfterSocialProof: second }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); const text=JSON.stringify(view.toJSON()); expect(text).toContain('저장된 선택을 확인할 수 없어요'); expect(text).not.toContain('유지하셨'); expect(text).not.toContain('바꾸셨'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});

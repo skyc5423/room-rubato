@@ -3,6 +3,7 @@
 import { HomeObservationPreview } from '@/components/HomeObservationPreview';
 import { NotebookReturn } from '@/components/NotebookReturn';
 import { koreanDay } from '@/lib/daily-date';
+import { latestDailyRecord } from '@/lib/daily-record';
 import { recordedChoice } from '@/lib/recorded-choice';
 import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
@@ -296,9 +297,7 @@ export default function HomePage() {
     window.addEventListener('focus', refreshDay);
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
   }, []);
-  const savedPulse = state.dailyShiftLog.filter(
-    (entry) => entry.pulseId === currentPulse.id && koreanDay(entry.timestamp) === today
-  ).at(-1);
+  const savedPulse = latestDailyRecord(state.dailyShiftLog, currentPulse.id, today);
   useEffect(() => {
     submittedPulseRef.current=false;
     setPulsePhase('initial');
@@ -307,9 +306,9 @@ export default function HomePage() {
     pulseStartRef.current = Date.now();
   }, [currentUserId, today, activePulseIdx, savedPulse?.timestamp]);
   const pulsePhase = savedPulse ? 'letter' : draftPulsePhase;
-  const phase1Choice = savedPulse?.phase1Choice ?? draftPhase1Choice;
-  const phase2Choice = savedPulse?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
-  const phase1Rt = savedPulse?.phase1ResponseTimeMs ?? draftPhase1Rt;
+  const phase1Choice = savedPulse ? savedPulse.phase1Choice : draftPhase1Choice;
+  const phase2Choice = savedPulse ? savedPulse.phase2ChoiceAfterSocialProof : draftPhase2Choice;
+  const phase1Rt = draftPhase1Rt;
 
   const handlePulsePhase1 = (choice: 'A' | 'B') => {
     if (!isHydrated || savedPulse) return;
@@ -1231,7 +1230,9 @@ export default function HomePage() {
                   나의 선택 결과
                 </p>
                 <p className="font-editorial text-[17px] text-[#010D6E]">
-                  {phase1Choice === phase2Choice
+                  {!phase1Choice || !phase2Choice
+                    ? '저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.'
+                    : phase1Choice === phase2Choice
                     ? `가상 상황을 읽은 뒤에도 처음 고른 선택 ${phase2Choice}를 그대로 유지하셨습니다.`
                     : `처음에는 선택 ${phase1Choice}를 고르셨다가, 가상 상황을 읽고 선택 ${phase2Choice}로 바꾸셨습니다.`}
                 </p>

@@ -131,6 +131,53 @@ for(const lesson of ['syncopation','complexity']){
  await audit('expanded evidence notes '+lesson);await assertReflow('evidence notes '+lesson);
 }
 console.log('PASS sourced music and aesthetic-evidence notes expand at 320px');
+// A malformed persisted daily member must not take down the home or invent a result.
+const invalidDailyContext=await browser.newContext();
+const invalidDailyPage=await invalidDailyContext.newPage();
+await invalidDailyPage.goto('http://127.0.0.1:3000/daily');
+await invalidDailyPage.locator('button.paper-postcard').first().click();
+await invalidDailyPage.getByRole('button',{name:/유지하기/}).click();
+const invalidDailyLog=await invalidDailyPage.evaluate(()=>{
+ const key='room_rubato_guest_state_v4';const state=JSON.parse(localStorage.getItem(key));
+ state.dailyShiftLog.push(null,{...state.dailyShiftLog[0],phase1Choice:'invalid'});
+ localStorage.setItem(key,JSON.stringify(state));return JSON.stringify(state.dailyShiftLog);
+});
+for(const path of ['/daily','/']){
+ await invalidDailyPage.goto('http://127.0.0.1:3000'+path);
+ await invalidDailyPage.getByText('저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.',{exact:true}).waitFor();
+ if(await invalidDailyPage.evaluate(()=>JSON.stringify(JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')).dailyShiftLog))!==invalidDailyLog)throw Error('Malformed daily log was rewritten');
+}
+console.log('PASS malformed daily log opens safely on home and daily without invented results or record repair');
+await invalidDailyContext.close();
+// Initial guest read failure is not permission to autosave an empty profile.
+for(const mode of ['malformed','temporarily-unreadable']){
+ const blockedGuestContext=await browser.newContext();
+ await blockedGuestContext.addInitScript(mode=>{
+  const key='room_rubato_guest_state_v4';const get=Storage.prototype.getItem;const set=Storage.prototype.setItem;
+  const raw=mode==='malformed'?'{synthetic damaged guest':JSON.stringify({demographics:{occupation:'research_edu'},dailyShiftLog:[]});
+  set.call(localStorage,key,raw);window.__guestOriginal=raw;window.__guestReadBlocked=mode!=='malformed';window.__guestWriteCount=0;
+  window.__readGuestOriginal=()=>get.call(localStorage,key);
+  Storage.prototype.getItem=function(k){if(k===key&&window.__guestReadBlocked)throw Error('synthetic initial read failure');return get.call(this,k);};
+  Storage.prototype.setItem=function(k,v){if(k===key)window.__guestWriteCount++;return set.call(this,k,v);};
+ },mode);
+ const blockedPage=await blockedGuestContext.newPage();await blockedPage.goto('http://127.0.0.1:3000/daily');
+ await blockedPage.getByText('게스트 설문 기록을 안전하게 읽지 못했어요.',{exact:false}).waitFor();
+ if(await blockedPage.getByRole('button',{name:'현재 기록 내려받기',exact:true}).count())throw Error('Unread guest profile offered a blank recovery export');
+ if(!await blockedPage.evaluate(()=>window.__readGuestOriginal()===window.__guestOriginal&&window.__guestWriteCount===0))throw Error('Initial guest read failure overwrote original bytes');
+ if(mode==='malformed'){
+  await blockedPage.locator('summary').filter({hasText:'읽지 못한 게스트 원본 직접 복사'}).click();
+  if(await blockedPage.getByRole('textbox',{name:'읽지 못한 게스트 원본',exact:true}).inputValue()!=='{synthetic damaged guest')throw Error('Raw guest recovery copy changed');
+  await blockedPage.getByRole('button',{name:'다시 시도',exact:true}).click();
+  if(!await blockedPage.evaluate(()=>window.__readGuestOriginal()===window.__guestOriginal&&window.__guestWriteCount===0))throw Error('Retry destroyed malformed guest bytes');
+ }else{
+  await blockedPage.evaluate(()=>{window.__guestReadBlocked=false;});
+  await blockedPage.getByRole('button',{name:'다시 시도',exact:true}).click();
+  await blockedPage.locator('button.paper-postcard').first().waitFor();
+  if(await blockedPage.evaluate(()=>JSON.parse(window.__readGuestOriginal()).demographics.occupation)!=='research_edu')throw Error('Read retry failed to restore original guest state');
+ }
+ await blockedGuestContext.close();
+}
+console.log('PASS initial guest read failures preserve raw bytes, suppress blank exports and safely retry');
 // Guest storage failure and file-download failure must still leave a copyable recovery record.
 const recoveryContext=await browser.newContext();
 await recoveryContext.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='room_rubato_guest_state_v4')throw new DOMException('synthetic quota','QuotaExceededError');return set.call(this,key,value);};URL.createObjectURL=()=>{throw Error('synthetic download unavailable');};});

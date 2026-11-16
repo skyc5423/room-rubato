@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {storedSeconds} from '@/lib/result-display';
 import { koreanDay } from '@/lib/daily-date';
+import { latestDailyRecord } from '@/lib/daily-record';
 import { ALL_MASTER_DOMAINS, DAILY_PULSE_QUESTIONS } from '@/lib/domains-index';
 import { usePersonaStore } from '@/lib/persona-store';
 import { SpecimenPlate } from '@/components/SpecimenPlate';
@@ -31,10 +32,10 @@ export default function DailyPulsePage() {
     };
   }, []);
   // A completed pulse is persisted in the account/guest store, not component state.
-  const saved = state.dailyShiftLog.filter((entry) => entry.pulseId === pulse.id && koreanDay(entry.timestamp) === today).at(-1);
+  const saved = latestDailyRecord(state.dailyShiftLog, pulse.id, today);
   const phase = saved ? 'done' : draftPhase;
-  const phase1Choice = saved?.phase1Choice ?? draftPhase1Choice;
-  const phase2Choice = saved?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
+  const phase1Choice = saved ? saved.phase1Choice : draftPhase1Choice;
+  const phase2Choice = saved ? saved.phase2ChoiceAfterSocialProof : draftPhase2Choice;
   const phase1TimeMs = saved ? saved.phase1ResponseTimeMs : draftPhase1TimeMs;
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function DailyPulsePage() {
     recordDailyPulseShift({
       pulseId: pulse.id,
       phase1Choice,
-      phase1ResponseTimeMs: phase1TimeMs,
+      phase1ResponseTimeMs: draftPhase1TimeMs,
       phase2ChoiceAfterSocialProof: finalChoice,
     });
     setPhase('done');
@@ -190,7 +191,9 @@ export default function DailyPulsePage() {
         {phase === 'done' && (
           <div className="rounded-2xl bg-[#FEF1D0]/75 border border-[#0042AF]/25 p-6">
             <h3 className="font-editorial text-[19px] text-[#010D6E] mb-2">
-              {didShift
+              {!phase1Choice || !phase2Choice
+                ? '저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.'
+                : didShift
                 ? '가상 상황을 읽고 선택을 바꾸셨네요'
                 : '가상 상황을 읽은 뒤에도 처음 선택을 유지하셨네요'}
             </h3>
