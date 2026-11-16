@@ -33,6 +33,32 @@ const result=page.locator('[data-survey-step-heading=result]');await result.wait
 await page.keyboard.press('Escape');await page.reload();await page.getByRole('button',{name:/내 결과 다시 보기 →/}).first().click();
 if(await page.locator('[data-survey-step-heading=result]').textContent()!==resultText)throw Error('Saved survey result did not survive reload');
 console.log('PASS full survey, step/result focus, persistence and result revisit');
+// The standalone route is a separate implementation from the home dialog.
+await page.goto('http://127.0.0.1:3000/domain/fashion');
+await page.locator('[data-survey-step-heading=result]').waitFor();
+const savedBeforeRechoose=await page.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'));
+await page.getByRole('button',{name:'질문 다시 선택하기',exact:true}).click();
+await page.locator('button.paper-postcard').last().click();
+await page.getByRole('button',{name:'이전 결과 보기 →',exact:true}).click();
+await page.locator('[data-survey-step-heading=result]').waitFor();
+if(await page.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))!==savedBeforeRechoose)throw Error('Incomplete rechoose replaced saved results');
+await page.getByRole('button',{name:'질문 다시 선택하기',exact:true}).click();
+for(let step=0;step<20;step++){
+ const heading=page.locator('[data-survey-step-heading]');
+ if(await heading.getAttribute('data-survey-step-heading')==='result')break;
+ const previous=await heading.textContent();
+ await page.locator('button.paper-postcard').last().click();
+ await page.waitForFunction(old=>document.querySelector('[data-survey-step-heading]')?.textContent!==old,previous);
+ await page.waitForFunction(()=>document.querySelector('[data-survey-step-heading]')===document.activeElement);
+}
+await page.locator('[data-survey-step-heading=result]').waitFor();await audit('standalone-survey-result');
+if(await page.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))===savedBeforeRechoose)throw Error('Completed rechoose was not saved');
+const replacementResult=await page.locator('[data-survey-step-heading=result]').textContent();
+await page.reload();await page.locator('[data-survey-step-heading=result]').waitFor();
+if(await page.locator('[data-survey-step-heading=result]').textContent()!==replacementResult)throw Error('Standalone result did not survive reload');
+console.log('PASS standalone rechoose, cancel without overwrite, complete replacement, focus and reload');
+await page.goto('http://127.0.0.1:3000/');
+
 await page.keyboard.press('Escape');
 const daily=page.locator('#yesterday-letter');await daily.locator('button.paper-postcard').first().click();await daily.getByRole('button',{name:/유지하기/}).click();
 if(await page.evaluate(()=>JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')).dailyShiftLog.length)!==1)throw Error('Daily reflection was not stored exactly once');
