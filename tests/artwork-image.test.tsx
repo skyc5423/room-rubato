@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { ArtworkStudy } from '../src/components/ArtworkStudy';
+import { ArtworkImage, ArtworkStudy } from '../src/components/ArtworkStudy';
 import { artworkStudies } from '../src/lib/artwork-studies';
 
 const works = artworkStudies.filter(work => work.lessonIds.includes('light'));
@@ -86,5 +86,37 @@ describe('artwork image transitions', () => {
     act(() => renderer.update(<ArtworkStudy lessonId="rhythm"/>));
     expect(image()).not.toBe(loadedImage);
     expect(image().props.style.visibility).toBe('hidden');
+  });
+});
+
+
+describe('unavailable artwork text alternative',()=>{
+  const fallback=()=>renderer.root.findAllByProps({'data-artwork-text-fallback':''});
+  it('exposes the existing description only on failure, outside the clipped image frame',()=>{
+    mount();expect(fallback()).toHaveLength(0);
+    act(()=>image().props.onError());expect(fallback()).toHaveLength(1);
+    expect(fallback()[0].findAllByType('p')[1].children.join('')).toBe(works[0].alt);
+    expect(renderer.root.findByProps({'aria-busy':false}).findAllByProps({'data-artwork-text-fallback':''})).toHaveLength(0);
+    expect(image().props['aria-hidden']).toBe(true);
+    expect(fallback()[0].props.className).not.toContain('overflow-hidden');
+    expect(fallback()[0].props.className).not.toContain('absolute');
+    expect(fallback()[0].findAllByType('p')[2].children.join('')).toContain('제한된 설명');
+    act(()=>image().props.onLoad());expect(fallback()).toHaveLength(0);
+    expect(image().props['aria-hidden']).toBe(false);
+  });
+  it('uses the detail description when provided and returns to the full description',()=>{
+    const detailView={label:'검증용 부분',prompt:'합성 질문',alt:'확대된 부분의 합성 설명',crop:{x:0,y:0,width:300,height:225,sourceWidth:600,sourceHeight:450}};
+    act(()=>{renderer=create(<ArtworkImage work={works[0]} detail detailView={detailView}/>);});
+    act(()=>image().props.onError());
+    expect(fallback()[0].findAllByType('p')[1].children.join('')).toBe(detailView.alt);
+    act(()=>renderer.update(<ArtworkImage work={works[0]} detail={false} detailView={detailView}/>));
+    expect(fallback()[0].findAllByType('p')[1].children.join('')).toBe(works[0].alt);
+    act(()=>renderer.update(<ArtworkImage work={works[0]} detail/>));
+    expect(fallback()[0].findAllByType('p')[2].children.join('')).toContain('작품 전체에 대한 설명');
+  });
+  it('removes the old description when changing to another work',()=>{
+    mount();act(()=>image().props.onError());select(works[1].titleKo);
+    expect(fallback()).toHaveLength(0);act(()=>image().props.onError());
+    expect(fallback()[0].findAllByType('p')[1].children.join('')).toBe(works[1].alt);
   });
 });

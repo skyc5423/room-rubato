@@ -16,7 +16,8 @@ export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyD
     if (image?.complete) setStatus(image.naturalWidth > 0 ? 'loaded' : 'error');
   }, []);
 
-  return <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-[#eae6dc]" aria-busy={status === 'loading'}>
+  const description=detail&&detailView?detailView.alt:work.alt;
+  return <><div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-[#eae6dc]" aria-busy={status === 'loading'}>
     <img ref={imageRef} src={work.image} alt={detail&&detailView?detailView.alt:`${work.alt}${detail ? ' · 부분 확대 보기' : ''}`} width="600" height="450" loading="lazy"
       onLoad={() => setStatus('loaded')} onError={() => setStatus('error')} aria-hidden={status !== 'loaded'}
       className={`h-full w-full ${detail ? 'object-cover' : 'object-contain'}`}
@@ -24,7 +25,13 @@ export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyD
     {status !== 'loaded' && <p role="status" className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm leading-6">
       {status === 'loading' ? '작품 이미지를 불러오는 중이에요.' : '이미지를 불러오지 못했어요. 아래 ‘이미지 크게 열기’에서 다시 확인해 주세요.'}
     </p>}
-  </div>;
+  </div>
+  {status==='error'&&<section aria-label="이미지 대신 읽는 작품 설명" data-artwork-text-fallback="" className="mt-3 rounded-xl border border-[#0042AF]/20 bg-white/70 p-4 text-sm leading-7 break-words">
+    <p className="font-semibold">이미지 대신 읽는 설명</p>
+    <p className="mt-2">{description}</p>
+    <p className="mt-2 text-xs leading-6">{detail&&!detailView?'작품 전체에 대한 설명이며 확대된 부분만을 묘사하지는 않아요. ':''}관찰을 돕는 제한된 설명입니다. 실제 이미지의 모든 색·구도·세부를 대신하지는 못해요.</p>
+  </section>}
+  </>;
 }
 
 /** Institutional facts and editorial interpretation deliberately remain separate. */
