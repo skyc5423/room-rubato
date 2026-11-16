@@ -77,7 +77,10 @@ console.log('PASS standalone rechoose, cancel without overwrite, complete replac
 await page.goto('http://127.0.0.1:3000/');
 
 await page.keyboard.press('Escape');
-const daily=page.locator('#yesterday-letter');await daily.locator('button.paper-postcard').first().click();await daily.getByRole('button',{name:/유지하기/}).click();
+const daily=page.locator('#yesterday-letter');await daily.locator('button.paper-postcard').first().focus();await page.keyboard.press('Enter');
+if(!await daily.locator('[data-daily-step-heading=situation]').evaluate(el=>el===document.activeElement))throw Error('Home daily situation lost keyboard focus');
+await daily.getByRole('button',{name:/유지하기/}).focus();await page.keyboard.press('Enter');
+if(!await daily.locator('[data-daily-step-heading=result]').evaluate(el=>el===document.activeElement))throw Error('Home daily result lost keyboard focus');
 if(await page.evaluate(()=>JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')).dailyShiftLog.length)!==1)throw Error('Daily reflection was not stored exactly once');
 page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'설문 응답 초기화',exact:true}).click();
 await daily.locator('button.paper-postcard').first().waitFor();
@@ -131,6 +134,16 @@ for(const lesson of ['syncopation','complexity']){
  await audit('expanded evidence notes '+lesson);await assertReflow('evidence notes '+lesson);
 }
 console.log('PASS sourced music and aesthetic-evidence notes expand at 320px');
+// Standalone daily explicit transitions preserve keyboard orientation without focusing reloads.
+const focusDailyContext=await browser.newContext();const focusDailyPage=await focusDailyContext.newPage();
+await focusDailyPage.goto('http://127.0.0.1:3000/daily');
+await focusDailyPage.locator('button.paper-postcard').first().focus();await focusDailyPage.keyboard.press('Enter');
+if(!await focusDailyPage.locator('[data-daily-step-heading=situation]').evaluate(el=>el===document.activeElement))throw Error('Daily situation lost keyboard focus');
+await focusDailyPage.getByRole('button',{name:/유지하기/}).focus();await focusDailyPage.keyboard.press('Enter');
+if(!await focusDailyPage.locator('[data-daily-step-heading=result]').evaluate(el=>el===document.activeElement))throw Error('Daily result lost keyboard focus');
+await focusDailyPage.reload();await focusDailyPage.locator('[data-daily-step-heading=result]').waitFor();
+if(await focusDailyPage.locator('[data-daily-step-heading=result]').evaluate(el=>el===document.activeElement))throw Error('Saved daily result unexpectedly stole initial focus');
+console.log('PASS home and standalone daily keyboard step focus without reload focus stealing');await focusDailyContext.close();
 // A malformed persisted daily member must not take down the home or invent a result.
 const invalidDailyContext=await browser.newContext();
 const invalidDailyPage=await invalidDailyContext.newPage();

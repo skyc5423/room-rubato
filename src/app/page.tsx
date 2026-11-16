@@ -310,9 +310,20 @@ export default function HomePage() {
   const phase2Choice = savedPulse ? savedPulse.phase2ChoiceAfterSocialProof : draftPhase2Choice;
   const phase1Rt = draftPhase1Rt;
 
+  const dailyStepHeading = useRef<HTMLHeadingElement>(null);
+  const dailyFocusIntent = useRef<{ owner: string | null; day: string; pulse: string; phase: string } | null>(null);
+  useEffect(() => {
+    const intent = dailyFocusIntent.current;
+    dailyFocusIntent.current = null;
+    if (!intent || !isHydrated || intent.owner !== currentUserId || intent.day !== today || intent.pulse !== currentPulse.id || intent.phase !== pulsePhase) return;
+    dailyStepHeading.current?.focus({ preventScroll: true });
+    dailyStepHeading.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [pulsePhase, currentUserId, today, currentPulse.id, isHydrated]);
+
   const handlePulsePhase1 = (choice: 'A' | 'B') => {
     if (!isHydrated || savedPulse) return;
     const rt = Math.max(300, Date.now() - pulseStartRef.current);
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: currentPulse.id, phase: 'nudge' };
     setPhase1Choice(choice);
     setPhase1Rt(rt);
     setPulsePhase('nudge');
@@ -321,6 +332,7 @@ export default function HomePage() {
   const handlePulsePhase2 = (finalChoice: 'A' | 'B') => {
     if (!isHydrated || savedPulse || !phase1Choice || submittedPulseRef.current) return;
     submittedPulseRef.current=true;
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: currentPulse.id, phase: 'letter' };
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: currentPulse.id,
@@ -1194,7 +1206,7 @@ export default function HomePage() {
               <p className="text-[13px] font-bold text-terracotta-ink mb-2">
                 가상 상황에서 다시 골라보기
               </p>
-              <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
+              <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="situation" className="scroll-mt-36 font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
                 {currentPulse.socialProofNudge.nudgePrompt}
               </h3>
               <p className="text-[14px] text-[#0042AF]/85 mb-6">
@@ -1229,13 +1241,13 @@ export default function HomePage() {
                 <p className="text-[13px] text-terracotta-ink font-semibold mb-1">
                   나의 선택 결과
                 </p>
-                <p className="font-editorial text-[17px] text-[#010D6E]">
+                <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="result" className="scroll-mt-36 font-editorial text-[17px] text-[#010D6E]">
                   {!phase1Choice || !phase2Choice
                     ? '저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.'
                     : phase1Choice === phase2Choice
                     ? `가상 상황을 읽은 뒤에도 처음 고른 선택 ${phase2Choice}를 그대로 유지하셨습니다.`
                     : `처음에는 선택 ${phase1Choice}를 고르셨다가, 가상 상황을 읽고 선택 ${phase2Choice}로 바꾸셨습니다.`}
-                </p>
+                </h3>
               </div>
 
               <div className="rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-6 sm:p-8 space-y-3.5">

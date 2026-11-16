@@ -264,3 +264,37 @@ it.each([[null, 'B'], ['A', undefined], ['C', 'B'], [{}, 'A'], ['B', 'b']])('doe
   try { act(() => { view=create(<Page/>); }); const text=JSON.stringify(view.toJSON()); expect(text).toContain('저장된 선택을 확인할 수 없어요'); expect(text).not.toContain('유지하셨'); expect(text).not.toContain('바꾸셨'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
   finally { act(() => view?.unmount()); }
 });
+
+it('moves focus to the situation and result after explicit daily choices only',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];store.recordDailyPulseShift.mockClear();
+ try{
+  act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+  expect(focus).not.toHaveBeenCalled();
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(1);
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(2);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
+});
+it('does not steal focus when a completed daily response loads',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B'}];
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});expect(focus).not.toHaveBeenCalled();}
+ finally{act(()=>view?.unmount());}
+});
+
+it('keeps result focus when persistence immediately supplies the saved daily entry',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];
+ store.recordDailyPulseShift.mockImplementation((payload:any)=>{store.state.dailyShiftLog=[{...payload,timestamp:new Date().toISOString()}];});
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());focus.mockClear();
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+ expect(focus).toHaveBeenCalledTimes(1);expect(view.root.findByProps({'data-daily-step-heading':'result'}).props.tabIndex).toBe(-1);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockReset();}
+});
+it('does not focus a previous owner daily step after an account change',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];const original=store.currentUserId;
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>{view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick();store.currentUserId='new-owner';view.update(<Page/>);});
+ expect(focus).not.toHaveBeenCalled();
+ }finally{act(()=>view?.unmount());store.currentUserId=original;}
+});

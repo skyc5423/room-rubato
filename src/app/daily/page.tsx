@@ -46,21 +46,34 @@ export default function DailyPulsePage() {
     startRef.current = Date.now();
   }, [currentUserId, today, questionIdx, saved?.timestamp]);
 
+  const dailyStepHeading = useRef<HTMLHeadingElement>(null);
+  const dailyFocusIntent = useRef<{ owner: string | null; day: string; pulse: string; phase: string } | null>(null);
+  useEffect(() => {
+    const intent = dailyFocusIntent.current;
+    dailyFocusIntent.current = null;
+    if (!intent || !isHydrated || intent.owner !== currentUserId || intent.day !== today || intent.pulse !== pulse.id || intent.phase !== phase) return;
+    dailyStepHeading.current?.focus({ preventScroll: true });
+    dailyStepHeading.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [phase, currentUserId, today, pulse.id, isHydrated]);
+
   if (!isHydrated) {
     return <div className="px-6 pt-6 sm:pt-28" role="status">저장된 응답을 불러오는 중입니다.</div>;
   }
 
 
   const handlePhase1Select = (choice: 'A' | 'B') => {
+    if (!isHydrated || saved) return;
     const elapsed = Math.max(250, Date.now() - startRef.current);
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: pulse.id, phase: 'phase2' };
     setPhase1Choice(choice);
     setPhase1TimeMs(elapsed);
     setPhase('phase2');
   };
 
   const handlePhase2Select = (finalChoice: 'A' | 'B') => {
-    if (!phase1Choice || saved || submittedRef.current) return;
+    if (!isHydrated || !phase1Choice || saved || submittedRef.current) return;
     submittedRef.current=true;
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: pulse.id, phase: 'done' };
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: pulse.id,
@@ -162,9 +175,9 @@ export default function DailyPulsePage() {
             <p className="font-display italic text-[16px] text-terracotta-ink mb-2">
               가상 상황입니다 · 실제 참여자 통계가 아닙니다
             </p>
-            <p className="font-editorial text-[19px] text-[#010D6E] leading-[1.55] mb-5">
+            <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="situation" className="scroll-mt-36 font-editorial text-[19px] text-[#010D6E] leading-[1.55] mb-5">
               {pulse.socialProofNudge.nudgePrompt}
-            </p>
+            </h3>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -190,7 +203,7 @@ export default function DailyPulsePage() {
 
         {phase === 'done' && (
           <div className="rounded-2xl bg-[#FEF1D0]/75 border border-[#0042AF]/25 p-6">
-            <h3 className="font-editorial text-[19px] text-[#010D6E] mb-2">
+            <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="result" className="scroll-mt-36 font-editorial text-[19px] text-[#010D6E] mb-2">
               {!phase1Choice || !phase2Choice
                 ? '저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.'
                 : didShift
