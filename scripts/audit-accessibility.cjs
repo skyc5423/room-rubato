@@ -140,5 +140,17 @@ const copied=JSON.parse(await recoveryPage.getByRole('textbox',{name:'복구용 
 if(copied.dailyShiftLog.length!==1)throw Error('Manual recovery omitted unsaved daily answer');
 if(await recoveryPage.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))!==null)throw Error('Failure fixture unexpectedly wrote journal');
 console.log('PASS unsaved survey recovery remains copyable when storage and download fail');await recoveryContext.close();
+await page.setViewportSize({width:320,height:844});
+await page.goto('http://127.0.0.1:3000/notes?lesson=rhythm');
+const lineSection=page.locator('section[aria-labelledby="literature-line-title"]');
+await lineSection.getByRole('heading',{name:'같은 말, 다른 행 끝',exact:true}).waitFor();
+const beforeLines=await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+await lineSection.getByRole('button',{name:'행 끝 표시 켜기',exact:true}).click();
+if(await lineSection.getByRole('button',{name:'행 끝 표시 끄기',exact:true}).getAttribute('aria-pressed')!=='true')throw Error('Line ending indicator did not toggle');
+await lineSection.getByText('문학 용어와 출처 읽기',{exact:true}).click();
+await audit('320px literature line comparison and sources');
+if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Literature comparison overflows narrow screen');
+if(await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeLines)throw Error('Literature display interaction changed journal');
+console.log('PASS original literature line comparison, narrow reflow and no journal mutation');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
