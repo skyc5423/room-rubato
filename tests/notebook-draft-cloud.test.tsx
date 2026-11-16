@@ -5,7 +5,7 @@ import {journalKey} from '../src/lib/taste-journal';
 vi.mock('next/link',()=>({default:({children,...props}:any)=><a {...props}>{children}</a>}));
 vi.hoisted(()=>{process.env.NEXT_PUBLIC_TASTE_CLOUD_SYNC='true';});
 vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:{userUuid:'synthetic'},isHydrated:true})}));
-vi.mock('../src/components/TasteJournalCloudSync',()=>({TasteJournalCloudSync:(props:any)=><button onClick={()=>props.onReplace({version:1,entries:{}})}>synthetic restore</button>}));
+vi.mock('../src/components/TasteJournalCloudSync',()=>({TasteJournalCloudSync:(props:any)=><button data-pending-local={props.hasPendingLocalWrites} onClick={()=>props.onReplace({version:1,entries:{}})}>synthetic restore</button>}));
 import {TasteNotebook} from '../src/components/TasteNotebook';
 afterEach(()=>vi.unstubAllGlobals());
 it.each(['backup','journal'])('preserves unsaved edit and recovery copy if cloud %s write fails',failure=>{
@@ -30,4 +30,19 @@ it.each([false,true])('backs up the latest stored bytes and stops on read failur
  act(()=>view!.root.findAllByType('button').find(b=>JSON.stringify(b.children).includes('synthetic restore'))!.props.onClick());
  if(failRead){expect(local.get(key)).toBe(latest);expect(local.has(`${key}:before-cloud-restore`)).toBe(false);}else{expect(local.get(`${key}:before-cloud-restore`)).toBe(latest);expect(local.get(key)).toBe(JSON.stringify({version:1,entries:{}}));}
  act(()=>view!.unmount());
+});
+
+it('marks failed ordinary inputs as ineligible for new account uploads until explicitly saved',()=>{
+ const local=new Map<string,string>(),tab=new Map<string,string>();let fail=false;
+ vi.stubGlobal('localStorage',{getItem:(k:string)=>local.get(k)||null,setItem:(k:string,v:string)=>{if(fail)throw Error('quota');local.set(k,v);}});
+ vi.stubGlobal('sessionStorage',{getItem:(k:string)=>tab.get(k)||null,setItem:(k:string,v:string)=>tab.set(k,v),removeItem:(k:string)=>tab.delete(k)});
+ vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn(),confirm:()=>true});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ const cloud=()=>view!.root.findAllByType('button').find(b=>b.children.join('')==='synthetic restore')!;
+ const choose=(name:string)=>act(()=>view!.root.findAllByType('button').find(b=>b.children.join('')===name)!.props.onClick());
+ expect(cloud().props['data-pending-local']).toBe(false);fail=true;choose('A 쪽');
+ expect(cloud().props['data-pending-local']).toBe(true);expect(local.has(journalKey('synthetic'))).toBe(false);
+ act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(cloud().props['data-pending-local']).toBe(true);fail=false;choose('＋ 다시 볼 단서에 저장');
+ expect(cloud().props['data-pending-local']).toBe(false);act(()=>view!.unmount());
 });

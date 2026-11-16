@@ -343,7 +343,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     <section id="notebook-storage" aria-labelledby="notebook-storage-heading" className="mt-10 scroll-mt-28 border-t border-[#0042AF]/20 pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="notebook-storage-heading" className="text-lg font-semibold">저장·기록 관리</h2>{lesson&&<a href="#lesson-heading" className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">활동으로 돌아가기 ↑</a>}</div>
     <p className="mt-4 text-xs leading-5 text-[#010D6E]/70">선택과 메모는 {authUser?'현재 계정별로 구분해':'게스트 기록으로'} <strong>이 브라우저에만</strong> 먼저 저장돼요. {cloudSyncEnabled&&authUser?'계정 저장은 아래에서 직접 선택할 수 있어요.':'다른 기기와 동기화되지 않아요.'} 사이트 데이터를 지우면 브라우저 기록이 사라져요. 기존 취향·성격 점수에 반영하지 않습니다.</p>
-    {cloudSyncEnabled&&authUser&&ready&&<TasteJournalCloudSync key={owner} owner={owner} journal={currentJournal} onReplace={replaceFromCloud} onExport={exportNotes}/>}
+    {cloudSyncEnabled&&authUser&&ready&&<TasteJournalCloudSync key={owner} owner={owner} journal={currentJournal} hasPendingLocalWrites={Object.keys(pendingWrites.current).length>0} onReplace={replaceFromCloud} onExport={exportNotes}/>}
     {ready&&hasRestoreBackup&&<div className="mt-3 rounded-xl bg-white/70 p-3 text-sm"><p>서버 기록을 불러오기 전 브라우저 사본을 이 기기에 보관 중이에요. 다음 불러오기 때 교체돼요.</p><div className="mt-2 flex flex-wrap gap-2"><button className={button} onClick={exportRestoreBackup}>이전 브라우저 사본 내보내기</button><button className={button} onClick={clearRestoreBackup}>이전 브라우저 사본 지우기</button></div></div>}
       {lesson&&<button className={`${button} mt-4`} disabled={!ready||!Object.keys(currentJournal.entries).length} onClick={exportNotes}>기록 내보내기</button>}
     </section>

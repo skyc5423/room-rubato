@@ -25,9 +25,9 @@ const defaultClient: JournalCloudClient = {
 const button = 'min-h-11 rounded-xl border border-[#0042AF]/25 px-4 py-2 text-sm disabled:opacity-40';
 
 /** Manual, opt-in synchronization. No browser journal is uploaded on mount/login. */
-export function TasteJournalCloudSync({ owner, journal, onReplace, onExport, client = defaultClient }: {
+export function TasteJournalCloudSync({ owner, journal, onReplace, onExport, client = defaultClient, hasPendingLocalWrites = false }: {
   owner: string; journal: TasteJournal; onReplace: (value: TasteJournal) => boolean;
-  onExport: () => void; client?: JournalCloudClient;
+  onExport: () => void; client?: JournalCloudClient; hasPendingLocalWrites?: boolean;
 }) {
   const currentOwner = useRef(owner); currentOwner.current = owner;
   const alive = useRef(true);
@@ -65,7 +65,7 @@ export function TasteJournalCloudSync({ owner, journal, onReplace, onExport, cli
     } finally { if (isCurrent(id, uid)) { busyRef.current = false; setBusy(false); } }
   }
   async function save(retry = false) {
-    if (busyRef.current || !loaded || conflict) return;
+    if (busyRef.current || !loaded || conflict || (!retry && hasPendingLocalWrites)) return;
     if (!retry && !window.confirm('이 브라우저의 관찰실 선택·메모·저장 표시를 현재 계정의 서버 기록으로 저장할까요? 서버 기록은 이 내용으로 교체됩니다. 기존 설문 응답은 변경하지 않습니다.')) return;
     const request = retry ? pending : { ownerId: owner, expectedRevision: revision, writeId: crypto.randomUUID(), state: journalRef.current };
     if (!request) return;
@@ -100,11 +100,12 @@ export function TasteJournalCloudSync({ owner, journal, onReplace, onExport, cli
     <p className="mt-2 text-sm leading-6">자동 동기화가 아닙니다. 서버 기록을 확인한 뒤 직접 저장하거나 불러와 주세요. 선택·메모는 저장 버튼을 누를 때만 계정에 전송하며, 기존 설문 점수에는 반영하지 않아요.</p>
     <div className="mt-3 flex flex-wrap gap-2">
       <button type="button" className={button} disabled={busy || !!pending} onClick={load}>서버 기록 확인</button>
-      <button type="button" className={button} disabled={!loaded || busy || conflict || !!pending} onClick={() => save()}>이 브라우저 기록 계정에 저장</button>
+      <button type="button" className={button} disabled={!loaded || busy || conflict || !!pending || hasPendingLocalWrites} onClick={() => save()}>이 브라우저 기록 계정에 저장</button>
       <button type="button" className={button} disabled={!remote || busy || !!pending} onClick={restore}>확인한 서버 기록 불러오기</button>
       <button type="button" className={button} onClick={onExport}>브라우저 기록 내보내기</button>
       {pending && <button type="button" className={button} disabled={busy} onClick={() => save(true)}>같은 저장 요청 재확인</button>}
     </div>
+    {hasPendingLocalWrites && <p role="status" className="mt-3 text-sm leading-6">저장 실패 입력이 남아 있어 새 계정 저장을 잠시 막았어요. 먼저 내용을 내보내기로 보관한 뒤 브라우저에 다시 저장하거나 ‘저장 실패 입력 버리기’로 정리해 주세요. 이미 보낸 요청은 같은 내용으로 재확인할 수 있습니다.</p>}
     {busy && <p className="mt-2 text-sm" role="status">계정 기록을 확인하고 있어요.</p>}
     {message && <p className="mt-2 text-sm leading-6" role={conflict || pending ? 'alert' : 'status'}>{message}</p>}
     {savedSnapshot !== null && savedSnapshot !== JSON.stringify(journal) && <p className="mt-2 text-sm">계정에 아직 저장하지 않은 브라우저 변경이 있어요.</p>}
