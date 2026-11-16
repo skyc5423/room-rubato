@@ -26,7 +26,11 @@ it('has no autoplay, media, persistence or input and preserves source/interpreta
  for(const tag of ['img','video','audio','input','textarea'] as const)expect(view!.root.findAllByType(tag)).toHaveLength(0);
  act(()=>view!.root.findAllByType('button')[1].props.onClick());expect(storage.setItem).not.toHaveBeenCalled();expect(storage.removeItem).not.toHaveBeenCalled();expect(vi.getTimerCount()).toBe(0);
  const text=JSON.stringify(view!.toJSON());for(const phrase of ['반복 하나의 효과만','시간은 직접 정하므로','조작은 기록되지','특정 영상의 분석을 요약','공동 개발·추천을 뜻하지'])expect(text).toContain(phrase);
- expect(view!.root.findAllByType('a').map(a=>a.props.href)).toEqual(['https://www.bfi.org.uk/sight-and-sound/interviews/wong-kar-wai-mood-love-25','https://vimeo.com/channels/everyframeapainting/']);
+ expect(view!.root.findAllByType('a').map(a=>a.props.href)).toEqual(['https://www.bfi.org.uk/sight-and-sound/interviews/wong-kar-wai-mood-love-25','https://vimeo.com/channels/everyframeapainting/','https://medium.com/@tonyszhou/postmortem-1b338537fabc','https://brunch.co.kr/@hogeunyum/181']);
  const source=readFileSync('src/components/CinemaSequenceStudy.tsx','utf8');expect(source).not.toMatch(/autoFocus|\.focus\(|setTimeout|setInterval|animate-|transition-/);
  expect(readFileSync('src/components/TasteNotebook.tsx','utf8')).toContain("lesson.id==='context'&&<CinemaSequenceStudy");act(()=>view!.unmount());vi.useRealTimers();vi.unstubAllGlobals();
 });
+
+it('credits both makers from their dated original account without claiming current channel status',()=>{const text=renderToStaticMarkup(<CinemaSequenceStudy/>);expect(text).toContain('Taylor Ramos와 Tony Zhou');expect(text).toContain('2017년 회고');expect(text).toContain('실제로 달라진 컷의 자리');expect(text).not.toContain('Tony Zhou의 영상');expect(text).not.toContain('채널이 종료');});
+
+it('separates authored visible evidence from an inferred story and bounds the domestic reading',()=>{const text=renderToStaticMarkup(<CinemaSequenceStudy/>);expect(text).toContain('우리가 붙인 이야기');expect(text).toContain('그림에서 직접 확인할 수 있는 단서');expect(text).toContain('필자의 해석');expect(text).toContain('도식의 정답이나 실험 결과는 아닙니다');});

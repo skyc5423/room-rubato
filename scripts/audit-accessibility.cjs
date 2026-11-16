@@ -38,6 +38,17 @@ console.log('PASS artwork revisit memo focus, no implicit save and completed rea
 await audit('completed-notebook');console.log('PASS complete observation journey and read-only review');
 }}
 
+await page.goto('http://127.0.0.1:3000/notes?lesson=context');
+await page.getByRole('heading',{name:'마지막에 무엇을 보았나요?',exact:true}).waitFor();
+await page.getByText('Taylor Ramos와 Tony Zhou가 함께 만든',{exact:false}).waitFor();
+await page.getByText('우리가 붙인 이야기예요.',{exact:false}).waitFor();
+await page.locator('a[href="https://brunch.co.kr/@hogeunyum/181"]').waitFor();
+await page.getByRole('link',{name:'두 제작자의 제작 회고 · 2017 ↗ 새 탭',exact:true}).waitFor();
+await page.setViewportSize({width:320,height:844});
+if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Creator credit/source overflows at 320px');
+await audit('cinema source credit at 320px');
+console.log('PASS both cinema creators credited with dated primary source and narrow accessible layout');
+await page.setViewportSize({width:390,height:844});
 await page.goto('http://127.0.0.1:3000/');const start=page.getByRole('button',{name:/문항 · 시작하기/}).first();await start.click();await page.getByRole('dialog').waitFor();try{await page.getByRole('dialog').getByText('선택지 A 이미지를 불러오지 못했어요.',{exact:false}).waitFor();}catch(error){console.error('IMAGE FAILURE DIAGNOSTIC',{failedChoiceRequests,dialog:await page.getByRole('dialog').innerText(),images:await page.getByRole('dialog').locator('img').evaluateAll(imgs=>imgs.map(img=>({src:img.src,complete:img.complete,naturalWidth:img.naturalWidth})))});throw error;}if(!failedChoiceRequests)throw Error('Image failure was not actually injected');if(await page.locator('[role=dialog] button.paper-postcard').first().locator('img').count())throw Error('Unrelated image substituted after failure');console.log('PASS failed choice image disclosed without misleading replacement');await audit('survey-dialog');
 for(const key of ['Tab','Shift+Tab'])for(let i=0;i<25;i++){await page.keyboard.press(key);if(!await page.evaluate(()=>document.querySelector('[role=dialog]')?.contains(document.activeElement)))throw Error('Keyboard focus escaped dialog');}
 await page.keyboard.press('Escape');if(await page.getByRole('dialog').count())throw Error('Escape did not dismiss dialog');
