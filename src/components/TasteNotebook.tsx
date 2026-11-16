@@ -41,6 +41,14 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [draftOwner,setDraftOwner] = useState<string|null>(null);
   const [recovery,setRecovery]=useState<{owner:string;value:NotebookDraft}|null>(null);
   const [draftStorageError,setDraftStorageError]=useState('');
+  const pendingWrites = useRef<Record<string,{base:JournalEntry|undefined;patch:Partial<JournalEntry>}>>({});
+  function withPending(value:TasteJournal):TasteJournal {
+    const entries={...value.entries};
+    for(const [id,pending] of Object.entries(pendingWrites.current)) {
+      entries[id]={memo:'',bookmarked:false,...pending.base,...pending.patch,lessonId:id,version:tasteLessons.find(n=>n.id===id)!.version,updatedAt:pending.patch.updatedAt!};
+    }
+    return {...value,entries};
+  }
   const draftBase = useRef<JournalEntry|null>(null);
   const lessonHeading = useRef<HTMLHeadingElement>(null);
   const notebookHeading = useRef<HTMLHeadingElement>(null);
@@ -48,6 +56,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   useEffect(() => { if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus({preventScroll:true});notebookHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=false;} }, [selected,stage]);
   useEffect(()=>{
     if (!isHydrated) return;
+    pendingWrites.current={};
     try { setJournal(parseJournal(localStorage.getItem(journalKey(owner))));setStorageError(''); }
     catch { setJournal(emptyJournal());setStorageError('브라우저 저장소를 사용할 수 없어요. 이번 탐색은 가능하지만 창을 닫으면 기록이 사라질 수 있어요.'); }
     try { setHasRestoreBackup(!!localStorage.getItem(`${journalKey(owner)}:before-cloud-restore`)); } catch { setHasRestoreBackup(false); }
@@ -57,8 +66,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       // A clear event uses key=null. Do not keep deleted records visible until reload.
       // Session storage events (e.g. an iframe) must not clear this local journal.
       try { if(event.storageArea && event.storageArea!==localStorage)return; } catch { return; }
-      if(event.key===null){setJournal(emptyJournal());setHasRestoreBackup(false);return;}
-      if(event.key===journalKey(owner))setJournal(parseJournal(event.newValue));
+      if(event.key===null){setJournal(withPending(emptyJournal()));setHasRestoreBackup(false);return;}
+      if(event.key===journalKey(owner))setJournal(withPending(parseJournal(event.newValue)));
       if(event.key===`${journalKey(owner)}:before-cloud-restore`)setHasRestoreBackup(!!event.newValue);
     };
     window.addEventListener('storage',sync);return ()=>window.removeEventListener('storage',sync);
@@ -103,10 +112,10 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     catch{setDraftStorageError('임시 수정 보관에 실패했어요. 이동하거나 새로고침하기 전에 메모를 복사해 주세요. 기존 기록은 유지됩니다.');}
   },[draftEntry,owner,stage,variation]);
   useEffect(()=>{
-    if(!draftEntry)return;
+    if(!draftEntry&&!Object.keys(pendingWrites.current).length)return;
     const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
     window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);
-  },[!!draftEntry]);
+  },[!!draftEntry,journal]);
   useEffect(()=>{
     if(!ready)return;
     const onPop=()=>{
@@ -159,19 +168,35 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     if(pendingRecovery?.entry.lessonId===id&&!draftEntry){setDraftStorageError('먼저 남아 있는 임시 수정을 이어가거나 버려주세요.');return false;}
     if(draftEntry?.lessonId===id&&!commitDraft){setDraftEntry({...draftEntry,...patch,updatedAt:new Date().toISOString()});return true;}
     const version = tasteLessons.find(n=>n.id===id)!.version;
-    let base=journal;
-    if(commitDraft&&draftEntry){
-      try{
-        base=parseJournal(localStorage.getItem(journalKey(owner)));
-        if(JSON.stringify(base.entries[id])!==JSON.stringify(draftBase.current)){setJournal(base);setNotice('다른 탭에서 기록이 바뀌었어요. 현재 수정은 저장하지 않았습니다. 메모를 따로 보관한 뒤 수정을 취소하고 최신 기록을 확인해 주세요.');return false;}
-      }catch{setNotice('기존 기록을 확인할 수 없어 수정을 저장하지 않았어요. 메모를 따로 보관해 주세요.');return false;}
+    let base:TasteJournal;
+    try { base=parseJournal(localStorage.getItem(journalKey(owner))); }
+    catch {
+      if(!commitDraft){
+        const pending=pendingWrites.current[id];
+        pendingWrites.current[id]={base:pending?pending.base:journal.entries[id],patch:{...pending?.patch,...patch,updatedAt:new Date().toISOString()}};
+        setJournal(withPending(journal));
+      }
+      setStorageError('기존 기록을 확인할 수 없어 저장하지 않았어요. 입력 내용은 화면에 남아 있어요. 창을 닫기 전에 내보내기로 보관해 주세요.');return false;
     }
-    try { if(!storageError) base=parseJournal(localStorage.getItem(journalKey(owner))); } catch { /* in-memory fallback */ }
-    const updated=updateJournal(base,id,version,patch);
-    if(!commitDraft)setJournal(updated);
-    try {localStorage.setItem(journalKey(owner),JSON.stringify(updated));setJournal(updated);setStorageError('');return true;}
-    catch {setStorageError(commitDraft?'수정을 저장하지 못했어요. 수정 중인 메모를 복사해 보관해 주세요. 기존 기록은 유지됩니다.':'기록을 브라우저에 저장하지 못했어요. 창을 닫기 전에 내보내기로 보관해 주세요.');return false;}
+    if(commitDraft&&draftEntry&&JSON.stringify(base.entries[id])!==JSON.stringify(draftBase.current)){
+      setJournal(withPending(base));setNotice('다른 탭에서 기록이 바뀌었어요. 현재 수정은 저장하지 않았습니다. 메모를 따로 보관한 뒤 수정을 취소하고 최신 기록을 확인해 주세요.');return false;
+    }
+    const pending=pendingWrites.current[id];
+    if(pending&&JSON.stringify(base.entries[id])!==JSON.stringify(pending.base)){
+      if(!commitDraft)pending.patch={...pending.patch,...patch,updatedAt:new Date().toISOString()};
+      setJournal(withPending(base));setStorageError('다른 탭에서 기록이 바뀌었거나 삭제되어 저장하지 않았어요. 화면의 입력 내용을 내보내기로 보관한 뒤 새로고침해 최신 기록을 확인해 주세요.');return false;
+    }
+    const merged={...pending?.patch,...patch};
+    const updated=updateJournal(base,id,version,merged);
+    try {
+      localStorage.setItem(journalKey(owner),JSON.stringify(updated));delete pendingWrites.current[id];
+      setJournal(withPending(updated));setStorageError(Object.keys(pendingWrites.current).length?'아직 저장하지 못한 다른 탐색의 입력이 있어요. 창을 닫기 전에 내보내기로 보관해 주세요.':'');return true;
+    } catch {
+      if(!commitDraft){pendingWrites.current[id]={base:pending?pending.base:base.entries[id],patch:{...merged,updatedAt:updated.entries[id].updatedAt}};setJournal(withPending(base));}
+      setStorageError(commitDraft?'수정을 저장하지 못했어요. 수정 중인 메모를 복사해 보관해 주세요. 기존 기록은 유지됩니다.':'기록을 브라우저에 저장하지 못했어요. 창을 닫기 전에 내보내기로 보관해 주세요.');return false;
+    }
   }
+
   function open(n:TasteLesson) {
     if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 다른 탐색을 열까요? 기존 기록은 유지돼요.'))return;
     const saved = currentJournal.entries[n.id];
@@ -191,11 +216,12 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     const updated:TasteJournal={version:1,entries};
     try {
       localStorage.setItem(journalKey(owner),JSON.stringify(updated));
-      setJournal(updated);if(draftEntry||pendingRecovery?.entry.lessonId===id)clearTabDraft();setDraftEntry(null);draftBase.current=null;setStorageError('');setStage(0);setVariation(60);setNotice('이 탐색 기록을 지웠어요.');
+      delete pendingWrites.current[id];setJournal(withPending(updated));if(draftEntry||pendingRecovery?.entry.lessonId===id)clearTabDraft();setDraftEntry(null);draftBase.current=null;setStorageError(Object.keys(pendingWrites.current).length?'아직 저장하지 못한 다른 탐색의 입력이 있어요. 창을 닫기 전에 내보내기로 보관해 주세요.':'');setStage(0);setVariation(60);setNotice('이 탐색 기록을 지웠어요.');
     } catch {setStorageError('기록을 지우지 못했어요. 브라우저 저장소 설정을 확인해 주세요.');}
   }
   function replaceFromCloud(value: TasteJournal): boolean {
     if (!ready) return false;
+    if(Object.keys(pendingWrites.current).length&&!window.confirm('저장하지 못한 입력이 있어요. 먼저 내보내기로 보관해 주세요. 이 입력을 버리고 서버 기록을 불러올까요?'))return false;
     if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 서버 기록을 불러올까요? 저장된 브라우저 기록만 복구용 사본에 보관됩니다.'))return false;
     if(pendingRecovery&&!draftEntry&&!window.confirm('이 탭의 임시 수정을 버리고 서버 기록을 불러올까요?'))return false;
     try {
@@ -204,7 +230,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       localStorage.setItem(`${journalKey(owner)}:before-cloud-restore`, JSON.stringify(currentJournal));
       setHasRestoreBackup(true);
       localStorage.setItem(journalKey(owner), JSON.stringify(value));
-      setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
+      pendingWrites.current={};setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
       return true;
     } catch { setStorageError('브라우저 기록을 보관할 수 없어 서버 기록 불러오기를 중단했어요.'); return false; }
   }

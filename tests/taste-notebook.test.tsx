@@ -480,3 +480,41 @@ it('does not overwrite other records when deletion cannot read the latest journa
   expect(remaining.entries.space.memo).toBe('다른 탭의 새 기록');
   act(()=>view!.unmount());
 });
+
+it('never writes a stale journal when a normal save cannot read storage',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());
+  const latest=JSON.stringify({version:1,entries:{space:{lessonId:'space',version:1,memo:'다른 탭',bookmarked:false,updatedAt:'now'}}});
+  storage.set(journalKey('guest'),latest);
+  const write=vi.fn();vi.stubGlobal('localStorage',{getItem:()=>{throw Error('unavailable');},setItem:write});
+  act(()=>button(view!,'A 쪽').props.onClick());
+  expect(write).not.toHaveBeenCalled();expect(storage.get(journalKey('guest'))).toBe(latest);
+  act(()=>view!.unmount());
+});
+it('retries failed writes without dropping the pending memo or another tab record',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'저장 실패 메모'}}));
+  const latest=parseJournal(storage.get(journalKey('guest'))!);latest.entries.space={lessonId:'space',version:1,memo:'다른 탭',bookmarked:false,updatedAt:'now'};storage.set(journalKey('guest'),JSON.stringify(latest));
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:(k:string,v:string)=>storage.set(k,v)});
+  act(()=>button(view!,'B 쪽').props.onClick());
+  const saved=parseJournal(storage.get(journalKey('guest'))!);
+  expect(saved.entries.space.memo).toBe('다른 탭');expect(saved.entries.light.memo).toBe('저장 실패 메모');expect(saved.entries.light.after).toBe('b');
+  act(()=>view!.unmount());
+});
+it.each(['changed','deleted'])('does not resurrect or overwrite a %s entry when retrying failed input',mode=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'보존할 미저장 메모'}}));
+  const latest=parseJournal(storage.get(journalKey('guest'))!);
+  if(mode==='changed')latest.entries.light.memo='다른 탭의 수정';else delete latest.entries.light;
+  const raw=JSON.stringify(latest);storage.set(journalKey('guest'),raw);
+  const write=vi.fn((k:string,v:string)=>storage.set(k,v));vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:write});
+  act(()=>button(view!,'B 쪽').props.onClick());
+  expect(write).not.toHaveBeenCalled();expect(storage.get(journalKey('guest'))).toBe(raw);
+  expect(view!.root.findByType('textarea').props.value).toBe('보존할 미저장 메모');
+  expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 기록이 바뀌었거나 삭제되어');
+  act(()=>view!.unmount());
+});
