@@ -1,6 +1,7 @@
 import React from 'react';
 import {act,create,ReactTestRenderer} from 'react-test-renderer';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {retainPending,pendingKey} from '../src/lib/notebook-pending';
 import {NotebookReturn} from '../src/components/NotebookReturn';
 import {notebookReturn} from '../src/lib/notebook-return';
 import {emptyJournal,updateJournal,journalKey} from '../src/lib/taste-journal';
@@ -9,7 +10,7 @@ let hydrated=true;
 let storage:Map<string,string>;
 vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:owner?{userUuid:owner}:null,isHydrated:hydrated})}));
 vi.mock('next/link',()=>({default:({children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=><a {...props}>{children}</a>}));
-beforeEach(()=>{owner=null;hydrated=true;storage=new Map();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});});
+beforeEach(()=>{owner=null;hydrated=true;storage=new Map();vi.stubGlobal('sessionStorage',{getItem:()=>null,setItem:vi.fn(),removeItem:vi.fn()});vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});});
 afterEach(()=>vi.unstubAllGlobals());
 it('prioritizes latest unfinished, then bookmark, then completed without using response content',()=>{
  let journal=updateJournal(emptyJournal(),'light',1,{before:'a'},'2026-11-10');
@@ -61,4 +62,26 @@ it('resumes memo-only and after-only observations without treating bookmarks as 
  expect(notebookReturn(after).kind).toBe('continue');
  const bookmark=updateJournal(emptyJournal(),'light',1,{memo:'   ',bookmarked:true});
  expect(notebookReturn(bookmark).kind).toBe('bookmark');
+});
+
+it('prioritizes same-owner failed input without displaying its text or claiming it was saved',()=>{
+ storage.set(journalKey('guest'),JSON.stringify(updateJournal(emptyJournal(),'context',1,{before:'a'})));
+ retainPending('guest',{light:{base:undefined,patch:{memo:'PRIVATE FAILED MEMO',updatedAt:'2026-11-16'}}});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ const text=JSON.stringify(view!.toJSON());
+ expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);
+ expect(text).toContain('아직 원본에 저장되지');expect(text).not.toContain('PRIVATE FAILED MEMO');
+ owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력 확인하기');
+ expect(localStorage.setItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+});
+it('finds memory-only pending input and never overwrites unreadable temporary storage',()=>{
+ const raw='{malformed-pending';
+ vi.stubGlobal('sessionStorage',{getItem:()=>raw,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ expect(JSON.stringify(view!.toJSON())).toContain('임시 입력을 확인하지 못했어요');
+ expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+ retainPending('guest',{context:{base:undefined,patch:{memo:'PRIVATE MEMORY',updatedAt:'2026-11-16'}}});
+ act(()=>{view=create(<NotebookReturn/>);});
+ expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=context')).toBe(true);
+ expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE MEMORY');act(()=>view!.unmount());
 });

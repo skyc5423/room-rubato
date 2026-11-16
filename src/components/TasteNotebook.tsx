@@ -33,10 +33,14 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [journal,setJournal] = useState<TasteJournal>(emptyJournal);
   const [storageError,setStorageError] = useState('');
   const [rawRecovery,setRawRecovery]=useState<{owner:string;raw:string}|null>(null);
+  const [trustedLocalSnapshot,setTrustedLocalSnapshot] = useState(false);
+  function acceptStoredSnapshot(raw:string|null){
+    try{const parsed=parseJournalForWrite(raw);setJournal(withPending(parsed));setRawRecovery(null);setTrustedLocalSnapshot(true);return parsed;}
+    catch(error){setTrustedLocalSnapshot(false);if(raw!==null)setRawRecovery({owner,raw});throw error;}
+  }
   function readStoredForWrite(){
-    const raw=localStorage.getItem(journalKey(owner));
-    try{const parsed=parseJournalForWrite(raw);setRawRecovery(null);return parsed;}
-    catch(error){if(raw!==null)setRawRecovery({owner,raw});throw error;}
+    try{return acceptStoredSnapshot(localStorage.getItem(journalKey(owner)));}
+    catch(error){setTrustedLocalSnapshot(false);throw error;}
   }
   const [hasRestoreBackup,setHasRestoreBackup] = useState(false);
   const [selected,setSelected] = useState<string|null>(null);
@@ -69,7 +73,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   useEffect(() => { if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus({preventScroll:true});notebookHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=false;} }, [selected,stage]);
   useEffect(()=>{
     if (!isHydrated) return;
-    pendingWrites.current={};pendingHadData.current=false;setRawRecovery(null);setPendingError('');
+    pendingWrites.current={};pendingHadData.current=false;setTrustedLocalSnapshot(false);setRawRecovery(null);setPendingError('');
     try{pendingWrites.current=readPending(owner);}catch{setPendingError('이전 실패 입력의 임시 사본을 읽지 못했어요. 기존 기록은 바꾸지 않았습니다.');}
     try { setJournal(withPending(readStoredForWrite()));setStorageError(Object.keys(pendingWrites.current).length?'이전에 저장하지 못한 입력을 이 탭에서 되살렸어요. 아직 원본에 저장된 것은 아닙니다. 내용을 확인하고 다시 저장하거나 내보내기로 보관해 주세요.':''); }
     catch { setJournal(withPending(emptyJournal()));setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
@@ -80,8 +84,11 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       // A clear event uses key=null. Do not keep deleted records visible until reload.
       // Session storage events (e.g. an iframe) must not clear this local journal.
       try { if(event.storageArea && event.storageArea!==localStorage)return; } catch { return; }
-      if(event.key===null){setJournal(withPending(emptyJournal()));setHasRestoreBackup(false);return;}
-      if(event.key===journalKey(owner))setJournal(withPending(parseJournal(event.newValue)));
+      if(event.key===null){setJournal(withPending(acceptStoredSnapshot(null)));setHasRestoreBackup(false);return;}
+      if(event.key===journalKey(owner)){
+        try{setJournal(withPending(acceptStoredSnapshot(event.newValue)));}
+        catch{setJournal(withPending(parseJournal(event.newValue)));setStorageError('다른 탭의 브라우저 원본을 안전하게 읽지 못했어요. 새 계정 저장을 막고 원본을 보존했습니다.');}
+      }
       if(event.key===`${journalKey(owner)}:before-cloud-restore`)setHasRestoreBackup(!!event.newValue);
     };
     window.addEventListener('storage',sync);return ()=>window.removeEventListener('storage',sync);
@@ -170,8 +177,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   function recoverDraft(){
     if(!pendingRecovery)return;
     try{
-      const current=parseJournal(localStorage.getItem(journalKey(owner)));
-      if(!sameDraftBase(current.entries[pendingRecovery.entry.lessonId],pendingRecovery.base)){setJournal(current);setDraftStorageError('원래 기록이 바뀌었거나 삭제되어 임시 수정을 이어갈 수 없어요. 아래 메모를 복사해 보관한 뒤 임시 수정을 버려주세요.');return;}
+      const current=readStoredForWrite();
+      if(!sameDraftBase(current.entries[pendingRecovery.entry.lessonId],pendingRecovery.base)){setJournal(withPending(current));setDraftStorageError('원래 기록이 바뀌었거나 삭제되어 임시 수정을 이어갈 수 없어요. 아래 메모를 복사해 보관한 뒤 임시 수정을 버려주세요.');return;}
       draftBase.current=pendingRecovery.base;setDraftOwner(owner);setDraftEntry(pendingRecovery.entry);setSelected(pendingRecovery.entry.lessonId);writeLessonUrl(pendingRecovery.entry.lessonId);setStage(pendingRecovery.stage);setVariation(pendingRecovery.variation);setRecovery(null);setNotice('임시 수정을 불러왔어요. 저장하기 전까지 기존 기록은 바뀌지 않습니다.');
     }catch{setDraftStorageError('기존 기록을 확인할 수 없어 임시 수정을 불러오지 않았어요. 메모를 복사해 보관해 주세요.');}
   }
@@ -264,7 +271,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       setHasRestoreBackup(true);
       for(const item of tasteLessons){const key=artworkSelectionKey(owner,item.id);if(localStorage.getItem(key)!==null)localStorage.removeItem(key);}
       localStorage.setItem(journalKey(owner), JSON.stringify(value));
-      pendingWrites.current={};setRawRecovery(null);setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
+      pendingWrites.current={};setRawRecovery(null);setTrustedLocalSnapshot(true);setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
       return true;
     } catch { setStorageError('브라우저 기록을 보관할 수 없어 서버 기록 불러오기를 중단했어요.'); return false; }
   }
@@ -343,7 +350,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     <section id="notebook-storage" aria-labelledby="notebook-storage-heading" className="mt-10 scroll-mt-28 border-t border-[#0042AF]/20 pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="notebook-storage-heading" className="text-lg font-semibold">저장·기록 관리</h2>{lesson&&<a href="#lesson-heading" className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">활동으로 돌아가기 ↑</a>}</div>
     <p className="mt-4 text-xs leading-5 text-[#010D6E]/70">선택과 메모는 {authUser?'현재 계정별로 구분해':'게스트 기록으로'} <strong>이 브라우저에만</strong> 먼저 저장돼요. {cloudSyncEnabled&&authUser?'계정 저장은 아래에서 직접 선택할 수 있어요.':'다른 기기와 동기화되지 않아요.'} 사이트 데이터를 지우면 브라우저 기록이 사라져요. 기존 취향·성격 점수에 반영하지 않습니다.</p>
-    {cloudSyncEnabled&&authUser&&ready&&<TasteJournalCloudSync key={owner} owner={owner} journal={currentJournal} hasPendingLocalWrites={Object.keys(pendingWrites.current).length>0} onReplace={replaceFromCloud} onExport={exportNotes}/>}
+    {cloudSyncEnabled&&authUser&&ready&&<TasteJournalCloudSync key={owner} owner={owner} journal={currentJournal} hasPendingLocalWrites={Object.keys(pendingWrites.current).length>0} hasUnverifiedLocalSnapshot={!trustedLocalSnapshot} onReplace={replaceFromCloud} onExport={exportNotes}/>}
     {ready&&hasRestoreBackup&&<div className="mt-3 rounded-xl bg-white/70 p-3 text-sm"><p>서버 기록을 불러오기 전 브라우저 사본을 이 기기에 보관 중이에요. 다음 불러오기 때 교체돼요.</p><div className="mt-2 flex flex-wrap gap-2"><button className={button} onClick={exportRestoreBackup}>이전 브라우저 사본 내보내기</button><button className={button} onClick={clearRestoreBackup}>이전 브라우저 사본 지우기</button></div></div>}
       {lesson&&<button className={`${button} mt-4`} disabled={!ready||!Object.keys(currentJournal.entries).length} onClick={exportNotes}>기록 내보내기</button>}
     </section>

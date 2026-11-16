@@ -175,7 +175,10 @@ await pendingPage.getByRole('button',{name:'선택했어요 · 관찰할 단서 
 await pendingPage.getByRole('button',{name:'이제 다시 보고 기록하기 →',exact:true}).click();
 await pendingPage.locator('#observation-memo').fill('synthetic unsaved client-navigation memo');
 await pendingPage.locator('a[href="/"]').first().click();await pendingPage.waitForURL('http://127.0.0.1:3000/');
-await pendingPage.goto('http://127.0.0.1:3000/notes?lesson=light');
+await pendingPage.getByRole('link',{name:'저장 실패 입력 확인하기 →',exact:true}).click();
+await pendingPage.waitForURL('http://127.0.0.1:3000/notes?lesson=light');
+await pendingPage.locator('#observation-memo').waitFor();
+await pendingPage.reload();
 if(await pendingPage.locator('#observation-memo').inputValue()!=='synthetic unsaved client-navigation memo')throw Error('Client navigation lost unsaved ordinary memo');
 if(await pendingPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==null)throw Error('Recovery unexpectedly committed journal');
 await pendingPage.evaluate(()=>{window.__allowNotebookSave=true;});

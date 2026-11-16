@@ -52,7 +52,7 @@ describe('manual observation cloud sync candidate', ()=>{
     await act(async()=>find(view!,'서버 기록 확인').props.onClick());
     await act(async()=>find(view!,'이 브라우저 기록 계정에 저장').props.onClick());
     const newer=updateJournal(local,'light',1,{memo:'new unsaved edit'});
-    act(()=>view!.update(<TasteJournalCloudSync {...props} journal={newer} hasPendingLocalWrites/>));
+    act(()=>view!.update(<TasteJournalCloudSync {...props} journal={newer} hasPendingLocalWrites hasUnverifiedLocalSnapshot/>));
     await act(async()=>find(view!,'같은 저장 요청 재확인').props.onClick());
     expect(save.mock.calls[0][0]).toBe(save.mock.calls[1][0]);
     expect(JSON.stringify(view!.toJSON())).toContain('아직 저장하지 않은');
@@ -124,3 +124,16 @@ describe('manual observation cloud sync candidate', ()=>{
   await act(async()=>find(view!,'이 브라우저 기록 계정에 저장').props.onClick());
   expect(save).toHaveBeenCalledTimes(1);act(()=>view!.unmount());
  });
+
+it('blocks a new upload of an unverified local snapshot but keeps explicit server restore available',async()=>{
+ const save=vi.fn(),replace=vi.fn(()=>true);const client:JournalCloudClient={load:async()=>({state:server,revision:'r1'}),save};
+ const props={owner:'u1',client,onReplace:replace,onExport:()=>{}};let view:ReactTestRenderer;
+ await act(async()=>{view=create(<TasteJournalCloudSync {...props} journal={emptyJournal()} hasUnverifiedLocalSnapshot/>);});
+ await act(async()=>find(view!,'서버 기록 확인').props.onClick());
+ expect(find(view!,'이 브라우저 기록 계정에 저장').props.disabled).toBe(true);
+ await act(async()=>find(view!,'이 브라우저 기록 계정에 저장').props.onClick());
+ expect(save).not.toHaveBeenCalled();expect(window.confirm).not.toHaveBeenCalled();
+ expect(JSON.stringify(view!.toJSON())).toContain('브라우저 원본');
+ expect(find(view!,'확인한 서버 기록 불러오기').props.disabled).toBe(false);
+ await act(async()=>find(view!,'확인한 서버 기록 불러오기').props.onClick());expect(replace).toHaveBeenCalledWith(server);act(()=>view!.unmount());
+});
