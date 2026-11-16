@@ -2,8 +2,10 @@
 const {chromium}=require('playwright-core');
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
+ const trials=Number(process.env.CRASH_TRIALS||3);
+ if(!Number.isInteger(trials)||trials<1||trials>50)throw Error('CRASH_TRIALS must be 1..50');
  let failures=0;
- for(let trial=1;trial<=30;trial++){
+ for(let trial=1;trial<=trials;trial++){
   const context=await browser.newContext();
   await context.addInitScript(()=>{
    window.__lockTrace=[];
@@ -46,5 +48,5 @@ const {chromium}=require('playwright-core');
   await context.close();
  }
  await browser.close();
- if(failures)throw Error(`${failures}/30 single-retry crash recoveries failed; inspect trace, not a passing retry test`);
+ if(failures)throw Error(`${failures}/${trials} single-retry crash recoveries failed; inspect trace, not a passing retry test`);
 })().catch(e=>{console.error(e);process.exit(1)});

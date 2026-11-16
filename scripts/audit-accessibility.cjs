@@ -2,7 +2,11 @@ const {chromium}=require('playwright-core');
 const axe=require('axe-core');
 (async()=>{
 const browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
-const context=await browser.newContext({viewport:{width:390,height:844}});const page=await context.newPage();
+const context=await browser.newContext({viewport:{width:390,height:844}});
+// Install failure injection before any navigation/cache population.
+let failedChoiceRequests=0;
+await context.route('**/artwork/options/fas-q1-A.jpg*',route=>{failedChoiceRequests++;return route.abort();});
+const page=await context.newPage();
 async function audit(label){await page.evaluate(axe.source);const result=await page.evaluate(async()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));console.log(JSON.stringify({label,violations:result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))}));if(result.violations.length)throw Error(`Accessibility violations at ${label}`);}
 for(const path of ['/','/notes','/notes?lesson=light','/daily','/compare','/compare/light-and-edges','/privacy','/research']){await page.goto('http://127.0.0.1:3000'+path);await page.waitForTimeout(600);await audit(path);
 if(path==='/notes?lesson=light'){
@@ -29,7 +33,7 @@ console.log('PASS artwork revisit memo focus, no implicit save and completed rea
 await audit('completed-notebook');console.log('PASS complete observation journey and read-only review');
 }}
 
-await page.goto('http://127.0.0.1:3000/');await page.route('**/artwork/options/fas-q1-A.jpg*',route=>route.abort());const start=page.getByRole('button',{name:/문항 · 시작하기/}).first();await start.click();await page.getByRole('dialog').waitFor();await page.getByRole('dialog').getByText('선택지 A 이미지를 불러오지 못했어요.',{exact:false}).waitFor();if(await page.locator('[role=dialog] button.paper-postcard').first().locator('img').count())throw Error('Unrelated image substituted after failure');console.log('PASS failed choice image disclosed without misleading replacement');await audit('survey-dialog');
+await page.goto('http://127.0.0.1:3000/');const start=page.getByRole('button',{name:/문항 · 시작하기/}).first();await start.click();await page.getByRole('dialog').waitFor();try{await page.getByRole('dialog').getByText('선택지 A 이미지를 불러오지 못했어요.',{exact:false}).waitFor();}catch(error){console.error('IMAGE FAILURE DIAGNOSTIC',{failedChoiceRequests,dialog:await page.getByRole('dialog').innerText(),images:await page.getByRole('dialog').locator('img').evaluateAll(imgs=>imgs.map(img=>({src:img.src,complete:img.complete,naturalWidth:img.naturalWidth})))});throw error;}if(!failedChoiceRequests)throw Error('Image failure was not actually injected');if(await page.locator('[role=dialog] button.paper-postcard').first().locator('img').count())throw Error('Unrelated image substituted after failure');console.log('PASS failed choice image disclosed without misleading replacement');await audit('survey-dialog');
 for(const key of ['Tab','Shift+Tab'])for(let i=0;i<25;i++){await page.keyboard.press(key);if(!await page.evaluate(()=>document.querySelector('[role=dialog]')?.contains(document.activeElement)))throw Error('Keyboard focus escaped dialog');}
 await page.keyboard.press('Escape');if(await page.getByRole('dialog').count())throw Error('Escape did not dismiss dialog');
 if(!await start.evaluate(el=>el===document.activeElement))throw Error('Focus did not return to survey opener');console.log('PASS dialog keyboard containment, Escape and focus restoration');

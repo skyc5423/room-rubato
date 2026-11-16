@@ -4,7 +4,16 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported br
 (async()=>{
 const browser=await engines[engine].launch(engine==='chromium'?{executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']}:{headless:true});
 console.log(`ENGINE ${engine} ${browser.version()} (Linux CI, not a device Safari test)`);
-const context=await browser.newContext();const a=await context.newPage();const errors=[];a.on('pageerror',e=>errors.push(e.message));
+const context=await browser.newContext();
+await context.addInitScript(()=>{
+ window.__writerTrace=[];
+ const request=navigator.locks?.request.bind(navigator.locks);
+ if(request)navigator.locks.request=(name,options,callback)=>request(name,options,lock=>{
+  window.__writerTrace.push({name,granted:!!lock,at:performance.now()});
+  return callback(lock);
+ });
+});
+const a=await context.newPage();const errors=[];a.on('pageerror',e=>errors.push(e.message));
 await a.goto('http://127.0.0.1:3000/notes?lesson=light');
 await a.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 await a.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='A 쪽'&&!b.disabled));
@@ -28,12 +37,16 @@ console.log('PASS external non-locking write preserved by fresh read (not atomic
 await b.goto('http://127.0.0.1:3000/privacy');await legacy.goto('http://127.0.0.1:3000/notes?lesson=light');
 await legacy.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));console.log('PASS navigation away releases lease');
 if(engine==='chromium'){
-const crash=await context.newCDPSession(legacy);await Promise.race([crash.send('Page.crash').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1500))]);
+const crash=await context.newCDPSession(legacy);
+const crashed=legacy.waitForEvent('crash');
+void crash.send('Page.crash').catch(()=>{});
+await crashed; // Confirm the injected event, never assume a 1.5s sleep means a crash.
 await b.goto('http://127.0.0.1:3000/notes?lesson=light');
 await legacy.close();
 await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='이 탭에서 편집 다시 시도'||b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
 const retry=b.getByRole('button',{name:'이 탭에서 편집 다시 시도'});if(await retry.isVisible())await retry.click();
-await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
+try {await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));}
+catch(error){console.error('CRASH RECOVERY DIAGNOSTIC',await b.evaluate(async()=>({trace:window.__writerTrace,locks:await navigator.locks.query(),status:[...document.querySelectorAll('[role=status]')].map(el=>el.textContent)})));throw error;}
 if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('crash recovery lost saved record');
 console.log('PASS crashed-tab close and retry recover editing with saved records intact');
 }else console.log('SKIP renderer crash injection: Chromium CDP only');
