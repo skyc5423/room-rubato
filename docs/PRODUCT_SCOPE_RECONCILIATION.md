@@ -24,14 +24,14 @@ Completion means closing evidenced defects and documenting remaining prerequisit
 - Visual art, space/interior and music have direct substantive observation paths with primary sources.
 - Cinema and literature have specific original examples embedded in existing activities, not separate broad courses.
 - Gastronomy has a limited language-reading study, not tasting or smell training.
-- Fashion currently borrows a generic color-contrast exercise and explicitly does not simulate fabric, fit or actual garment color.
+- Fashion now has a bounded fibre-versus-weave reading activity with two independently authored fictional comparisons and a plain-weave schematic. The older generic contrast bridge remains; neither simulates fabric, fit or actual garment colour. See FIBRE_WEAVE.md for evidence and acceptance.
 - Travel, technology, economy, work/relationships and philosophy have questionnaires/reference curation or generic notebook links, not comparable subject-specific observation modules. Do not count a source-linked product recommendation as a complete professional activity.
 
 The required gate is that the entry points honestly describe these differences and each advertised activity works with evidence/rights boundaries. Adding five unrelated advisory modules or requiring twelve equal courses would expand scope without a clear user need. A bounded fashion material/surface observation could be a useful next content investment (2–3h after source/example feasibility), but is not silently made a prerequisite to the current review.
 
 ## Visual review method
 
-`capture-design-review.cjs` builds sixteen screenshots of home, catalogue, notebook and comparison pages at four widths. Each uses a fresh isolated guest context against CI localhost; no hosted account, production database, user notes or credentials are loaded. Same-origin local fonts are awaited; lazy images are requested with a bounded decode wait and loaded/missing status is recorded before capture. Artifact retention is seven days. Pixel inspection, findings and exact candidate identity must be recorded separately after download. Capturing files is not itself visual acceptance.
+`capture-design-review.cjs` builds twenty screenshots of home, catalogue, notebook, comparison and fibre/weave pages at four widths. Each uses a fresh isolated guest context against CI localhost; no hosted account, production database, user notes or credentials are loaded. Same-origin local fonts are awaited; lazy images are requested with a bounded decode wait and loaded/missing status is recorded before capture. Artifact retention is seven days. Pixel inspection, findings and exact candidate identity must be recorded separately after download. Capturing files is not itself visual acceptance.
 
 Review: header/content separation; primary action hierarchy; readable Korean line lengths and wrapping; card rhythm and spacing; whole artwork/caption clarity; competing content density; text/control clipping; desktop/tablet/phone-width consistency. This still does not establish physical touch behavior, actual iOS Safari, screenreader speech, subjective user satisfaction or audible sound quality.
 
@@ -48,3 +48,7 @@ Active-work estimates after prerequisites, not a calendar promise:
 - Deployment: not permitted in this task. An explicit release decision after applicable gates is required.
 
 No repeated login requests, no production deployment, no merge and no real-data deletion are performed by this review.
+
+## Subsequent bounded content implementation
+
+The fashion feasibility brief was selected for implementation after this reconciliation. It does not turn the other questionnaire domains into mandatory new courses. The current candidate adds /observe/fibre-weave; the independent release gates above remain unchanged. Earlier active-work estimates describe their respective checkpoints, not newly restarted work.

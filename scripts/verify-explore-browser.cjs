@@ -8,7 +8,7 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported en
  await page.waitForFunction(()=>localStorage.getItem('room_rubato_guest_state_v4')!==null);
  const original=await page.evaluate(()=>{localStorage.setItem('rubato_taste_journal_v1:guest',JSON.stringify({version:1,entries:{}}));return {journal:localStorage.getItem('rubato_taste_journal_v1:guest'),profile:localStorage.getItem('room_rubato_guest_state_v4')};});
  const entry=page.locator('header a[href="/explore"]');await entry.focus();await page.keyboard.press('Enter');await page.locator('[data-explore]').waitFor();
- if(await page.locator('[data-explore-destination]').count()!==11)throw Error('Catalogue entries missing');
+ if(await page.locator('[data-explore-destination]').count()!==12)throw Error('Catalogue entries missing');
  if(await page.locator('header a[href="/explore"]').getAttribute('aria-current')!=='page')throw Error('Active navigation missing');
  for(const id of ['compare','try','read']){const jump=page.locator(`a[href="/explore#${id}-content"]`);await jump.focus();await page.keyboard.press('Enter');await page.waitForFunction(hash=>location.hash===hash,`#${id}-content`);}
  for(const width of [320,768,1280]){await page.setViewportSize({width,height:900});if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Catalogue overflow '+width);}

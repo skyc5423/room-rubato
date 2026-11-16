@@ -27,3 +27,7 @@ No deployment or merge. This slice does not close operational backup, account, p
 ## History regression
 
 The new browser test reproduced a back-navigation failure after native fragment navigation and opening flavor: the URL returned to `/explore#read-content` while the catalogue did not render. Waiting for the outgoing route URL did not resolve it. Section jumps now use the same Next Link routing as page destinations, preserving framework history state. The original back/reload assertion remains, without bypass or forced reload as a substitute for back navigation.
+
+## Fashion reading addition
+
+The catalogue now also links /observe/fibre-weave, a bounded fibre-versus-weave reading study (FIBRE_WEAVE.md). The reading section heading now covers sensory and material language, rather than implying both pages are about eating/smelling. There are twelve direct destinations and thirteen smoke checks. Existing eight notebook activities and their completion denominator are unchanged.

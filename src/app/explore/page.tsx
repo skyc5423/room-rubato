@@ -34,8 +34,9 @@ export default function ExplorePage(){
    <Link href="/notes" className={`${linkStyle} mt-5`}>관찰실에서 내 기록과 이어 보기 →</Link>
   </section>
   <section id="read-content" aria-labelledby="read-title" className="scroll-mt-36 border-t border-[#0042AF]/25 py-7">
-   <p className="text-sm text-[#0042AF]">03 · 먹거나 냄새 맡지 않는 읽기</p><h2 id="read-title" className="mt-2 text-2xl font-semibold">말을 자세히</h2>
+   <p className="text-sm text-[#0042AF]">03 · 감각과 소재를 설명하는 말</p><h2 id="read-title" className="mt-2 text-2xl font-semibold">말을 자세히</h2>
    <article className={`${cardStyle} mt-5 max-w-3xl`}><p className="text-xs text-[#0042AF]">가상 예문 3개 · 저장 없음</p><h3 className="mt-3 text-xl font-semibold">풍미의 언어</h3><p className="my-4 text-sm leading-6">‘고소하다’, ‘산뜻하다’, ‘알싸하다’. 무엇을 느꼈다는 말인지, 좋다는 평가인지 나누어 읽어보세요. 식품이나 향 제품을 준비할 필요는 없어요.</p><Link data-explore-destination href="/observe/flavor" className={linkStyle}>감각과 평가 나눠 읽기 →</Link></article>
+   <article className={`${cardStyle} mt-5 max-w-3xl`}><p className="text-xs text-[#0042AF]">패션 · 섬유와 짜임 · 저장 없음</p><h3 className="mt-3 text-xl font-semibold">실크와 새틴은 같은 종류의 말일까요?</h3><p className="my-4 text-sm leading-6">무엇으로 만들었는지와 어떻게 짰는지를 나눠보세요. 가상 옷감 설명과 직접 만든 도식으로 살펴봅니다. 실제 원단이나 구매는 필요 없어요.</p><Link data-explore-destination href="/observe/fibre-weave" className={linkStyle}>섬유와 짜임 나눠 보기 →</Link></article>
   </section>
   <section aria-labelledby="survey-door-title" className="border-t border-[#0042AF]/25 py-7"><h2 id="survey-door-title" className="text-xl font-semibold">내 선택부터 살펴보고 싶다면</h2><p className="mt-3 max-w-3xl text-sm leading-6">방의 물건에서 12개 분야의 질문을 열 수 있어요. 완료한 응답은 기기 또는 로그인 계정에 저장됩니다. 결과는 정해진 가중치로 요약한 것으로, 심리 검사나 진단이 아닙니다.</p><div className="mt-3 flex flex-wrap gap-x-6"><Link href="/#room-stage" className={linkStyle}>방에서 분야 고르기 →</Link><Link href="/#threads-spread" className={linkStyle}>분야 사이의 취향 연결 보기 →</Link></div></section>
   <aside className="mt-4 rounded-2xl border border-[#0042AF]/25 p-5 text-sm leading-6"><p>정답이나 취향 등급을 매기는 목차가 아닙니다. 모두 마칠 필요도 없어요. 하나의 단서를 고르고, 다음에 다른 장면에서 다시 찾아보세요.</p><Link className={`${linkStyle} mt-2`} href="/privacy">기록의 저장·삭제 범위 확인하기 →</Link></aside>

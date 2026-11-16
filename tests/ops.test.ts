@@ -48,7 +48,8 @@ describe('operational surface', () => {
       expect(requests).toContain('https://example.com/account/withdrawal');
       expect(requests).toContain('https://example.com/observe/flavor');
       expect(requests).toContain('https://example.com/explore');
-      expect(requests).toHaveLength(12);
+      expect(requests).toContain('https://example.com/observe/fibre-weave');
+      expect(requests).toHaveLength(13);
     } finally { log.mockRestore(); }
   });
 });

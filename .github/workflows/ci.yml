@@ -63,6 +63,9 @@ jobs:
           node scripts/verify-flavor-browser.cjs
           BROWSER_ENGINE=firefox node scripts/verify-flavor-browser.cjs
           BROWSER_ENGINE=webkit node scripts/verify-flavor-browser.cjs
+          node scripts/verify-fibre-weave-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-fibre-weave-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-fibre-weave-browser.cjs
           node scripts/audit-accessibility.cjs
       - name: Preserve public-only design review screenshots
         if: always()
