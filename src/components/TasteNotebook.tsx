@@ -253,12 +253,14 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     catch { setStorageError('이전 브라우저 사본을 지우지 못했어요.'); }
   }
   function exportNotes() {
+    try {
     const text=tasteLessons.filter(n=>currentJournal.entries[n.id]).map(n=>{
       const e=currentJournal.entries[n.id];const label=(c?:ObservationChoice)=>choices.find(x=>x.value===c)?.label||'기록 없음';
       return `${n.title}\n첫 선택: ${label(e.before)} / 다시 선택: ${label(e.after)}\n도식 설정(점수 아님): ${e.beforeSetting ?? '없음'} → ${e.afterSetting ?? '없음'}\n메모: ${e.memo||'없음'}\n출처: ${n.sources.map(s=>s.url).join('\n')}\n`;
     }).join('\n---\n');
     const url=URL.createObjectURL(new Blob([`Room Rubato · 내 감상 기록\n개인 감상 기록이며 성격 검사 결과가 아닙니다.\n\n${text}`],{type:'text/plain;charset=utf-8'}));
     const a=document.createElement('a');a.href=url;a.download='room-rubato-notes.txt';a.click();URL.revokeObjectURL(url);
+    } catch { setStorageError('기록 파일을 내보내지 못했어요. 기록은 지우지 않았습니다. 메모를 복사해 보관하거나 다시 시도해 주세요.'); }
   }
   const pick=(phase:'before'|'after')=><div className="mt-5 grid grid-cols-2 gap-2" aria-label={phase==='before'?'첫 감상 선택':'다시 감상한 선택'}>{choices.map(c=><button type="button" key={c.value} disabled={!ready||!writer.canWrite||reviewOnly||neutralBackground} aria-pressed={entry?.[phase]===c.value} className={`${button} ${entry?.[phase]===c.value?'bg-[#0042AF] text-white':'bg-white'}`} onClick={()=>save(lesson!.id,phase==='before'?{before:c.value,beforeSetting:lesson!.diagram==='syncopation'?undefined:variation,after:undefined,afterSetting:undefined,completedAt:undefined}:{after:c.value,afterSetting:lesson!.diagram==='syncopation'?undefined:variation})}>{c.label}</button>)}</div>;
   const writerNotice=writer.state!=='held'&&<aside role="status" className="mt-6 rounded-xl border border-[#0042AF]/25 bg-white p-4 text-sm leading-6">{writer.state==='unsupported'?'이 브라우저는 탭 간 저장 잠금을 지원하지 않아요. 기록을 수정할 때는 관찰실을 한 탭에서만 열어 주세요.':writer.state==='busy'?'다른 탭에서 관찰실을 편집 중이에요. 이 탭에서는 읽기만 가능해요. 다른 탭의 관찰실을 닫거나 다른 페이지로 이동한 뒤 다시 시도해 주세요.':writer.state==='failed'?'안전한 저장 잠금을 확인하지 못해 읽기만 가능해요. 기록을 변경하지 않았습니다.':'안전한 저장을 위해 다른 탭을 확인하고 있어요.'}{(writer.state==='busy'||writer.state==='failed')&&<button className={`${button} ml-3`} onClick={writer.retry}>이 탭에서 편집 다시 시도</button>}</aside>;
