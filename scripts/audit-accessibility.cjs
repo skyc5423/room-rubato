@@ -83,6 +83,7 @@ console.log('PASS daily completion and immediate restart after explicit syntheti
 // A text-first artwork visit must be resumable without inventing an earlier A/B answer.
 const memoContext=await browser.newContext({viewport:{width:390,height:844}});const memoPage=await memoContext.newPage();
 await memoPage.goto('http://127.0.0.1:3000/notes?lesson=light');
+const secondArtwork=memoPage.locator('[aria-label="비교할 작품"] button').nth(1);const chosenArtwork=await secondArtwork.textContent();await secondArtwork.click();
 await memoPage.getByRole('button',{name:'기존 관찰 메모로 이동',exact:true}).click();
 await memoPage.locator('#observation-memo').fill('synthetic memo-only return');
 await memoPage.goto('http://127.0.0.1:3000/');
@@ -90,7 +91,8 @@ await memoPage.getByRole('link',{name:'멈춘 곳에서 이어보기 →',exact:
 await memoPage.locator('#observation-memo').waitFor();
 if(await memoPage.locator('#observation-memo').inputValue()!=='synthetic memo-only return')throw Error('Memo-only visit did not resume its saved memo');
 if(await memoPage.evaluate(()=>!!JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.light.before))throw Error('Memo resume fabricated a prior choice');
-console.log('PASS memo-only artwork visit resumes from home without invented choices');await memoContext.close();
+if(await memoPage.locator('[aria-label="비교할 작품"] button[aria-pressed=true]').textContent()!==chosenArtwork)throw Error('Return replaced explicitly selected artwork');
+console.log('PASS selected artwork and memo-only artwork visit resumes from home without invented choices');await memoContext.close();
 // Reflow and result content vary by domain: exercise every public questionnaire at 320 CSS pixels.
 await page.setViewportSize({width:320,height:800});
 const domainSlugs=['fashion','space-interior','gastronomy-scent','visual-art','music','cinema','literature','travel','tech-cosmos','economy','work-social','philosophy'];

@@ -528,3 +528,21 @@ it('blocks notebook writes in a second tab while retaining exploration and expor
   expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 관찰실을 편집 중');
   await act(async()=>view!.unmount());
 });
+
+it('saves only explicit artwork selection and restores it without changing the memo',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(storage.has(journalKey('guest'))).toBe(false);
+ act(()=>view!.root.findByType(ArtworkStudy).props.onSelectArtwork(works[1].id));
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.artworkId).toBe(works[1].id);
+ act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByType(ArtworkStudy).props.savedArtworkId).toBe(works[1].id);
+ expect(view!.root.findByType(ArtworkStudy).findByType('img').props.src).toBe(works[1].image);act(()=>view!.unmount());
+});
+it('does not overwrite completed artwork selection during read-only browsing',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'preserve',artworkId:'437881',bookmarked:false,completedAt:'2026-11-16T00:00:00.000Z',updatedAt:'2026-11-16T00:00:00.000Z'}}}));
+ const before=storage.get(journalKey('guest'));let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByType(ArtworkStudy).props.onSelectArtwork).toBeUndefined();
+ expect(storage.get(journalKey('guest'))).toBe(before);act(()=>view!.unmount());
+});

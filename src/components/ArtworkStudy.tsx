@@ -28,23 +28,27 @@ export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyD
 }
 
 /** Institutional facts and editorial interpretation deliberately remain separate. */
-export function ArtworkStudy({ lessonId, onMemo }: { lessonId: string; onMemo?: () => void }) {
+export function ArtworkStudy({ lessonId, onMemo, savedArtworkId, onSelectArtwork }: { lessonId: string; onMemo?: () => void; savedArtworkId?: string; onSelectArtwork?: (id:string) => void }) {
   const works = artworkStudies.filter(work => work.lessonIds.includes(lessonId));
-  const [selected, setSelected] = useState<string>('');
+  const [selected, setSelected] = useState<string>(savedArtworkId||'');
   const [detail, setDetail] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const focusContext = useRef(false);
   useEffect(() => { if (revealed && focusContext.current) { contextHeading.current?.focus(); focusContext.current = false; } }, [revealed]);
   const showContext = () => { if (revealed) contextHeading.current?.focus(); else { focusContext.current = true; setRevealed(true); } };
+  const savedIdRef=useRef(savedArtworkId);
+  useEffect(()=>{if(savedIdRef.current===savedArtworkId)return;savedIdRef.current=savedArtworkId;setSelected(savedArtworkId||'');setDetail(false);setRevealed(false);},[savedArtworkId]);
   const work = works.find(item => item.id === selected) || works[0];
   if (!work) return null;
   return <section className="mt-8 border-t border-[#0042AF]/15 pt-8" aria-label="실제 작품에서 살펴보기">
     <p className="text-xs font-semibold tracking-wide text-[#0042AF]">도식에서 작품으로</p>
     <h3 className="mt-2 text-xl font-semibold">실제 작품에서는 어떻게 보일까요?</h3>
     <p className="mt-2 text-sm leading-6">정답을 맞히기보다 눈에 보이는 근거를 하나 찾아보세요. 해설을 읽기 전과 후의 차이를 위의 메모에 함께 남길 수 있어요.</p>
+    {savedArtworkId&&selected===savedArtworkId&&!works.some(item=>item.id===savedArtworkId)&&<p role="status" className="mt-3 text-sm">저장된 작품을 현재 목록에서 찾지 못해 첫 작품을 보여드려요. 기존 기록은 바꾸지 않았습니다.</p>}
     <ObservationGuide/>
-    <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);}}>{item.titleKo}</button>)}</div>
+    <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);onSelectArtwork?.(item.id);}}>{item.titleKo}</button>)}</div>
+    <p className="mb-4 text-xs leading-6">{onSelectArtwork?'작품을 직접 고르면 마지막 선택을 이 활동의 기록에 함께 남겨요. 기존 메모 내용은 바꾸지 않습니다.':'지금 작품을 바꿔 보는 것은 저장된 선택이나 메모를 바꾸지 않아요.'}</p>
     <div className="grid gap-6 lg:grid-cols-2">
       <figure>
         {/* A new node and load state prevent the previous work's pixels surviving a src change. */}
