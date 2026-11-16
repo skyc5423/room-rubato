@@ -120,6 +120,7 @@ for(const slug of domainSlugs){
  }
  await page.locator('[data-survey-step-heading=result]').waitFor();
  await assertReflow(slug+' result');await audit('320px '+slug+' result');
+ if(await page.locator('[data-observation-bridge]').count()!==1)throw Error('Missing domain result activity path: '+slug);
  console.log('PASS 320px questionnaire completion and result reflow: '+slug);
 }
 for(const lesson of ['syncopation','complexity']){
@@ -141,7 +142,11 @@ if(copied.dailyShiftLog.length!==1)throw Error('Manual recovery omitted unsaved 
 if(await recoveryPage.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))!==null)throw Error('Failure fixture unexpectedly wrote journal');
 console.log('PASS unsaved survey recovery remains copyable when storage and download fail');await recoveryContext.close();
 await page.setViewportSize({width:320,height:844});
-await page.goto('http://127.0.0.1:3000/notes?lesson=rhythm');
+await page.goto('http://127.0.0.1:3000/domain/literature');
+const beforeActivityNavigation=await page.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'));
+await page.locator('[data-observation-bridge]').click();
+await page.waitForURL('**/notes?lesson=rhythm');
+if(await page.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))!==beforeActivityNavigation)throw Error('Activity navigation changed survey records');
 const lineSection=page.locator('section[aria-labelledby="literature-line-title"]');
 await lineSection.getByRole('heading',{name:'같은 말, 다른 행 끝',exact:true}).waitFor();
 const beforeLines=await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));

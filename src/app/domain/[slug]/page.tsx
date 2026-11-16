@@ -4,6 +4,7 @@ import { recordedChoice } from '@/lib/recorded-choice';
 import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
+import {ResultObservationBridge} from '@/components/ResultObservationBridge';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useRef, useState } from 'react';
@@ -277,6 +278,7 @@ export default function DomainDetailPage() {
                   “{matchedPhenotype.name}”
                 </h1>
                 <ResultEvidence domain={domain} scores={existingCompletion?.axisScores}/>
+                      <ResultObservationBridge slug={domain.slug}/>
               </div>
             </div>
 

@@ -7,6 +7,7 @@ import { recordedChoice } from '@/lib/recorded-choice';
 import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
+import {ResultObservationBridge} from '@/components/ResultObservationBridge';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import {storedSeconds} from '@/lib/result-display';
 import { recordedAxisScore, summarizeRecordedAxes } from '@/lib/result-evidence';
@@ -622,6 +623,7 @@ export default function HomePage() {
                         “{activeMatchedPhenotype.name}”
                       </h2>
                       <ResultEvidence domain={activeDomain} scores={activeCompletedResult?.axisScores}/>
+                      <ResultObservationBridge slug={activeDomain.slug}/>
                       <p className="text-[12.5px] text-[#0042AF] bg-[#FEF1D0]/70 rounded-xl px-3.5 py-2 border border-[#0042AF]/20">
                         {describeResponseTempo(
                           activeCompletedResult?.avgResponseTimeMs
