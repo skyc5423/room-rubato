@@ -83,6 +83,7 @@ export default function HomePage() {
   const [draftPhase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
   const [draftPhase1Rt, setPhase1Rt] = useState<number>(1500);
   const [draftPhase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
+  const submittedPulseRef=useRef(false);
   const pulseStartRef = useRef<number>(Date.now());
 
   const completedDomainIds = useMemo(
@@ -294,15 +295,16 @@ export default function HomePage() {
     window.addEventListener('focus', refreshDay);
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
   }, []);
+  const savedPulse = state.dailyShiftLog.filter(
+    (entry) => entry.pulseId === currentPulse.id && koreanDay(entry.timestamp) === today
+  ).at(-1);
   useEffect(() => {
+    submittedPulseRef.current=false;
     setPulsePhase('initial');
     setPhase1Choice(null);
     setPhase2Choice(null);
     pulseStartRef.current = Date.now();
-  }, [currentUserId, today]);
-  const savedPulse = state.dailyShiftLog.filter(
-    (entry) => entry.pulseId === currentPulse.id && koreanDay(entry.timestamp) === today
-  ).at(-1);
+  }, [currentUserId, today, activePulseIdx, savedPulse?.timestamp]);
   const pulsePhase = savedPulse ? 'letter' : draftPulsePhase;
   const phase1Choice = savedPulse?.phase1Choice ?? draftPhase1Choice;
   const phase2Choice = savedPulse?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
@@ -317,7 +319,8 @@ export default function HomePage() {
   };
 
   const handlePulsePhase2 = (finalChoice: 'A' | 'B') => {
-    if (!isHydrated || savedPulse || !phase1Choice) return;
+    if (!isHydrated || savedPulse || !phase1Choice || submittedPulseRef.current) return;
+    submittedPulseRef.current=true;
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: currentPulse.id,

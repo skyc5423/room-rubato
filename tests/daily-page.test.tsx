@@ -82,3 +82,17 @@ it('preserves an actual saved zero duration',()=>{
  store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B',phase1ResponseTimeMs:0}];let view:any;
  try{act(()=>{view=create(<Page/>);});expect(view.root.findAllByType('p').some((p:any)=>p.children.join('').includes('처음 고르기까지 0.0초'))).toBe(true);expect(store.state.dailyShiftLog[0].phase1ResponseTimeMs).toBe(0);}finally{act(()=>view?.unmount());}
 });
+it('records a rapid repeated final choice only once',()=>{
+ store.recordDailyPulseShift.mockClear();let view:any;act(()=>{view=create(<Page/>);});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ const keep=view.root.findAllByType('button').find((b:any)=>JSON.stringify(b.children).includes('유지하기'));
+ act(()=>{keep.props.onClick();keep.props.onClick();});expect(store.recordDailyPulseShift).toHaveBeenCalledTimes(1);act(()=>view.unmount());store.recordDailyPulseShift.mockClear();
+});
+it('returns to a fresh question after the completed daily record is reset',()=>{
+ let view:any;act(()=>{view=create(<Page/>);});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ act(()=>view.root.findAllByType('button').find((b:any)=>JSON.stringify(b.children).includes('유지하기')).props.onClick());
+ store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'A',phase1ResponseTimeMs:1000}];act(()=>view.update(<Page/>));
+ store.state.dailyShiftLog=[];act(()=>view.update(<Page/>));
+ expect(JSON.stringify(view.toJSON())).toContain('이 답변 선택하기');act(()=>view.unmount());store.recordDailyPulseShift.mockClear();
+});

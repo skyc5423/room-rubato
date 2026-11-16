@@ -16,6 +16,7 @@ export default function DailyPulsePage() {
   const [draftPhase1TimeMs, setPhase1TimeMs] = useState<number>(1500);
   const [draftPhase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
 
+  const submittedRef=useRef(false);
   const startRef = useRef<number>(Date.now());
   const pulse = DAILY_PULSE_QUESTIONS[questionIdx];
   const relatedDomain = ALL_MASTER_DOMAINS.find(domain => domain.id === pulse.domainId);
@@ -37,11 +38,12 @@ export default function DailyPulsePage() {
   const phase1TimeMs = saved ? saved.phase1ResponseTimeMs : draftPhase1TimeMs;
 
   useEffect(() => {
+    submittedRef.current=false;
     setPhase('phase1');
     setPhase1Choice(null);
     setPhase2Choice(null);
     startRef.current = Date.now();
-  }, [currentUserId, today]);
+  }, [currentUserId, today, questionIdx, saved?.timestamp]);
 
   if (!isHydrated) {
     return <div className="px-6 pt-6 sm:pt-28" role="status">저장된 응답을 불러오는 중입니다.</div>;
@@ -56,7 +58,8 @@ export default function DailyPulsePage() {
   };
 
   const handlePhase2Select = (finalChoice: 'A' | 'B') => {
-    if (!phase1Choice || saved) return;
+    if (!phase1Choice || saved || submittedRef.current) return;
+    submittedRef.current=true;
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: pulse.id,

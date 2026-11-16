@@ -33,5 +33,12 @@ const result=page.locator('[data-survey-step-heading=result]');await result.wait
 await page.keyboard.press('Escape');await page.reload();await page.getByRole('button',{name:/내 결과 다시 보기 →/}).first().click();
 if(await page.locator('[data-survey-step-heading=result]').textContent()!==resultText)throw Error('Saved survey result did not survive reload');
 console.log('PASS full survey, step/result focus, persistence and result revisit');
+await page.keyboard.press('Escape');
+const daily=page.locator('#yesterday-letter');await daily.locator('button.paper-postcard').first().click();await daily.getByRole('button',{name:/유지하기/}).click();
+if(await page.evaluate(()=>JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')).dailyShiftLog.length)!==1)throw Error('Daily reflection was not stored exactly once');
+page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'설문 응답 초기화',exact:true}).click();
+await daily.locator('button.paper-postcard').first().waitFor();
+if(await page.evaluate(()=>JSON.parse(localStorage.getItem('room_rubato_guest_state_v4')||'{}').dailyShiftLog?.length||0)!==0)throw Error('Daily records survived explicit synthetic reset');
+console.log('PASS daily completion and immediate restart after explicit synthetic reset');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

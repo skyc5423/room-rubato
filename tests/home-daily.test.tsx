@@ -209,3 +209,10 @@ it('uses the reviewed task description for every first-visit room preview',()=>{
  try{act(()=>{view=create(<Page/>);});for(const domain of ALL_MASTER_DOMAINS){act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(domain.id));expect(JSON.stringify(view.toJSON())).toContain(domain.subtitle);}}
  finally{act(()=>view?.unmount());store.state.completedDomains=original;}
 });
+it('ignores repeated daily final clicks before the UI rerenders',()=>{
+ store.state.dailyShiftLog=[];store.recordDailyPulseShift.mockClear();let view:any;
+ try{act(()=>{view=create(<Page/>);});act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ const keep=view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기')));
+ act(()=>{keep.props.onClick();keep.props.onClick();});expect(store.recordDailyPulseShift).toHaveBeenCalledTimes(1);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
+});
