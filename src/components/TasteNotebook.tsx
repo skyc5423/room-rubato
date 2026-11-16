@@ -229,7 +229,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     try {
       // Retain the browser copy before explicit replacement. Never upload this backup.
       // One user-visible backup per account, containing committed journal edits, not unsaved drafts.
-      localStorage.setItem(`${journalKey(owner)}:before-cloud-restore`, JSON.stringify(currentJournal));
+      const beforeRestore=localStorage.getItem(journalKey(owner))??JSON.stringify(emptyJournal());
+      localStorage.setItem(`${journalKey(owner)}:before-cloud-restore`, beforeRestore);
       setHasRestoreBackup(true);
       localStorage.setItem(journalKey(owner), JSON.stringify(value));
       pendingWrites.current={};setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');

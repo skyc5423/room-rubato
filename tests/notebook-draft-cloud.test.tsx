@@ -21,3 +21,13 @@ it.each(['backup','journal'])('preserves unsaved edit and recovery copy if cloud
  expect(view!.root.findByType('textarea').props.value).toBe('keep draft');expect(local.get(journalKey('synthetic'))).toBe(raw);expect([...tab.values()].join()).toContain('keep draft');
  expect(JSON.stringify(view!.toJSON())).toContain('불러오기를 중단');act(()=>view!.unmount());
 });
+it.each([false,true])('backs up the latest stored bytes and stops on read failure (%s)',failRead=>{
+ const key=journalKey('synthetic');const local=new Map<string,string>();let readFails=false;
+ vi.stubGlobal('localStorage',{getItem:(k:string)=>{if(readFails&&k===key)throw Error('unavailable');return local.get(k)||null;},setItem:(k:string,v:string)=>local.set(k,v)});
+ vi.stubGlobal('sessionStorage',{getItem:()=>null});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn(),confirm:()=>true});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ const latest=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'new external record',bookmarked:false,updatedAt:'now'}}});local.set(key,latest);readFails=failRead;
+ act(()=>view!.root.findAllByType('button').find(b=>JSON.stringify(b.children).includes('synthetic restore'))!.props.onClick());
+ if(failRead){expect(local.get(key)).toBe(latest);expect(local.has(`${key}:before-cloud-restore`)).toBe(false);}else{expect(local.get(`${key}:before-cloud-restore`)).toBe(latest);expect(local.get(key)).toBe(JSON.stringify({version:1,entries:{}}));}
+ act(()=>view!.unmount());
+});
