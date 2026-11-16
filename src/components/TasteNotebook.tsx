@@ -54,6 +54,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [draftStorageError,setDraftStorageError]=useState('');
   const pendingWrites = useRef<PendingWrites>({});
   const [pendingError,setPendingError]=useState('');
+  const pendingHadData=useRef(false);
   function withPending(value:TasteJournal):TasteJournal {
     const entries={...value.entries};
     for(const [id,pending] of Object.entries(pendingWrites.current)) {
@@ -68,7 +69,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   useEffect(() => { if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus({preventScroll:true});notebookHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=false;} }, [selected,stage]);
   useEffect(()=>{
     if (!isHydrated) return;
-    pendingWrites.current={};setRawRecovery(null);setPendingError('');
+    pendingWrites.current={};pendingHadData.current=false;setRawRecovery(null);setPendingError('');
     try{pendingWrites.current=readPending(owner);}catch{setPendingError('이전 실패 입력의 임시 사본을 읽지 못했어요. 기존 기록은 바꾸지 않았습니다.');}
     try { setJournal(withPending(readStoredForWrite()));setStorageError(Object.keys(pendingWrites.current).length?'이전에 저장하지 못한 입력을 이 탭에서 되살렸어요. 아직 원본에 저장된 것은 아닙니다. 내용을 확인하고 다시 저장하거나 내보내기로 보관해 주세요.':''); }
     catch { setJournal(withPending(emptyJournal()));setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
@@ -89,8 +90,11 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const writer=useNotebookWriter(owner,ready);
   useEffect(()=>{
     if(!ready)return;
+    const hasPending=Object.keys(pendingWrites.current).length>0;
+    if(hasPending)pendingHadData.current=true;
     const persisted=retainPending(owner,pendingWrites.current);
-    if(persisted)setPendingError('');
+    if(persisted){if(!hasPending)pendingHadData.current=false;setPendingError('');}
+    else if(!hasPending&&pendingHadData.current)setPendingError('임시 실패 입력 사본을 정리하지 못했어요. 다음 방문에 다시 표시될 수 있지만 원본을 자동으로 덮어쓰지는 않습니다.');
     if(!persisted&&Object.keys(pendingWrites.current).length)setPendingError('실패 입력을 이 화면의 메모리에만 보관하고 있어요. 사이트 안에서 이동해도 복귀할 수 있지만, 새로고침하거나 탭을 닫기 전에 내보내기로 보관해 주세요.');
   },[ready,owner,journal]);
   // Native history is supported by Next: each lesson/list transition has a reloadable URL.

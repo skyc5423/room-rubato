@@ -598,3 +598,12 @@ it('discards failed inputs only after confirmation and keeps committed journal b
  expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');expect(storage.get(journalKey('guest'))).toBe(original);
  act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');act(()=>view!.unmount());
 });
+
+it('warns when a successful retry cannot remove the old temporary copy',()=>{
+ let failed=true;vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:(key:string,value:string)=>{if(failed)throw Error('quota');storage.set(key,value);}});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});act(()=>button(view!,'A 쪽').props.onClick());
+ (sessionStorage as any).removeItem=()=>{throw Error('cleanup denied');};failed=false;
+ act(()=>button(view!,'B 쪽').props.onClick());
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.before).toBe('b');
+ expect(JSON.stringify(view!.toJSON())).toContain('임시 실패 입력 사본을 정리하지 못했어요');act(()=>view!.unmount());
+});
