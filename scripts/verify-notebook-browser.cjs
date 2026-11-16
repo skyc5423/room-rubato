@@ -25,7 +25,12 @@ await b.goto('http://127.0.0.1:3000/privacy');await legacy.goto('http://127.0.0.
 await legacy.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));console.log('PASS navigation away releases lease');
 const crash=await context.newCDPSession(legacy);await Promise.race([crash.send('Page.crash').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1500))]);
 await b.goto('http://127.0.0.1:3000/notes?lesson=light');
-await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));console.log('PASS renderer crash releases lease and saved records remain');
+await legacy.close();
+await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='이 탭에서 편집 다시 시도'||b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
+const retry=b.getByRole('button',{name:'이 탭에서 편집 다시 시도'});if(await retry.isVisible())await retry.click();
+await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
+if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('crash recovery lost saved record');
+console.log('PASS crashed-tab close and retry recover editing with saved records intact');
 if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
