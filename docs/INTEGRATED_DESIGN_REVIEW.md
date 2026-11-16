@@ -20,3 +20,9 @@ Regression includes closed initial state, all path titles preserved, independent
 ## Limits
 
 This is an assistant editorial/design review of real pixels, not a human-user aesthetic endorsement. It does not establish physical-phone touch, actual Safari, screenreader speech, audible audio, every saved state or every dialog. Existing synthetic lifecycle and accessibility suites remain required. No production account/data, deployment or merge is involved.
+
+## Follow-up actual640px finding
+
+Artifact14225695841 from candidate7b656321536272f84f58e00deb09a170d8d8a484 showed that at640px the fixed header wraps to three rows and visibly covers the home/notebook heading. The earlier390/768/1280 samples did not reveal this. A shared tablet-width main-content offset now reserves the additional wrapped rows, preserving existing mobile in-flow and desktop spacing. The capture script asserts at least16px heading clearance below the header at640/768px. This is a bounded layout fix, not proof of every possible zoom/font/device setting.
+
+The revised390px notebook screenshot measured5141px versus6443px before the disclosure change. This is a1302px reduction in the initial page, not an asserted usability or retention percentage. The native summary visibly retains keyboard focus and can reopen all paths.
