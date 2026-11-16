@@ -23,7 +23,7 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported en
  if(await page.locator('[data-fibre-study] input,[data-fibre-study] textarea').count())throw Error('Unexpected data collection');
  if(await page.getByRole('img',{name:/평직 교차 도식/}).count()!==1)throw Error('Missing schematic text alternative');
  for(const width of [320,390,640,768,1280]){
-  await page.setViewportSize({width,height:900});await page.evaluate(()=>document.fonts.ready);
+  await page.setViewportSize({width,height:900});await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>scrollTo(0,0));
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1))throw Error('Fibre overflow '+width);
   if(engine==='chromium'&&[320,640,1280].includes(width)){await fs.mkdir('design-review',{recursive:true});await page.screenshot({path:`design-review/fibre-expanded-${width}.png`,fullPage:true,animations:'disabled'});}
  }

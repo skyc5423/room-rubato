@@ -26,3 +26,7 @@ React component state only: initial first example, closed explanations, new exam
 - Public-only CI screenshots: initial page at four widths plus expanded page at 320/640/1280, downloaded for actual pixel review. Passing capture is not itself visual acceptance.
 
 Physical-device touch and screenreader speech are not established by these checks. Operational backup/account/ownership gates remain separate. No merge or production deployment.
+
+## Candidate review record
+
+Candidate c4fde6ba0f96474468c42071278e54217ae79ad6 passed full CI run 43870178584: 535 tests / 70 files, typecheck/build, three-engine fibre flows and the existing suites. Downloaded artifact 14227462168 and inspected all seven new page images, including full-size narrow content. Initial layouts are readable with no heading/navigation overlap or clipped controls; the schematic and textual order agree. Expanded full-page captures retained the keyboard-induced scroll position, placing fixed navigation (and the off-viewport skip link) in the middle of the stitched image. The capture now explicitly returns to the top after viewport changes; this is an evidence-generation fix, not a hidden product fix. Final candidate images must be rechecked. Physical-device and screenreader speech limits remain.
