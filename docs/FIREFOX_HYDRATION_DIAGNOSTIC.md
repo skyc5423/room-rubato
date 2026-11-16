@@ -19,3 +19,16 @@ A separate isolated localhost Firefox job preserves the ordinary aggregate job a
 After the matrix, ten complete existing Firefox notebook journeys must **each** pass. This is not retry-on-failure: a single failed journey fails the shell/job. Existing audio, lock, export and preservation assertions remain. All fixtures are synthetic; no DOM, storage contents or actual account credentials are logged.
 
 If reproduced, identify route/phase first, then run the same state with a development build for expected/actual-node diagnostics before changing the application. If not reproduced, report exact counts and limits, keep the strict error gate and do not claim root-cause resolution. Browser Linux CI does not replace physical Firefox or accessibility acceptance.
+
+## Verified outcome (2026-11-16)
+
+Candidate **2cf8b43071063bd122818a4987587e37aa646ade**, [run 43874158223](https://github.com/skyc5423/room-rubato/actions/runs/43874158223), diagnostic job 133322708734:
+- Matrix completed **96 visits**, 4 variants, 3 trials, **0 page errors**.
+- Full Firefox notebook journeys **10/10 passed consecutively**, each with the strict error gate; not failure retries.
+- The separate ordinary aggregate job also passed (536 tests / 70 files, typecheck/build, existing browser/SQL/backup suites).
+
+Classification: **unreproduced observation, root cause unknown**. No speculative application fix or suppression was made. This sample does not prove the error cannot recur. Keep the all-page event diagnostics and normal twice-run Firefox gate. The temporary additional CI job is removed after this bounded investigation to avoid duplicating build/install and ten journeys on every PR; the matrix script remains available for recurrence. To repeat against a local production server with installed Firefox and virtual audio: `node scripts/diagnose-firefox-hydration.cjs`, then `for trial in $(seq 1 10); do BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs || exit 1; done`. If it recurs, preserve the immediately recorded page/time/stack, isolate that transition, then use a development build before proposing a fix.
+
+## Accessible release-check follow-through
+
+`npm audit --omit=dev --json` and full `npm audit --json` succeeded against the current lockfile on 2026-11-16 with **0 known vulnerabilities at all severities**. No dependencies were changed. Registry advisory coverage is not a complete security audit. Real account/device journeys, backup upload/readback/isolated restore and owner policy decisions remain separate unverified release gates; passing this diagnostic does not close them. No merge or deployment.
