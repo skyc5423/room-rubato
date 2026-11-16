@@ -62,6 +62,20 @@ await b.evaluate(()=>{URL.createObjectURL=()=>{throw Error('synthetic download f
 await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
 if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
 console.log('PASS UTF-8 notebook download and explicit failure without record loss');
+// Real Web Audio context, synthetic pagehide event; not physical-device audibility.
+await b.addInitScript(()=>{const Audio=window.AudioContext;if(Audio)window.AudioContext=class extends Audio{constructor(...args){super(...args);window.__studyAudio=this;}};});
+await b.goto('http://127.0.0.1:3000/notes?lesson=syncopation');
+await b.getByRole('button',{name:'A 듣기',exact:true}).click();
+await b.getByText('A 재생 중',{exact:true}).waitFor();
+await b.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
+await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
+if(!await b.getByRole('button',{name:'정지',exact:true}).isDisabled())throw Error('Hidden-page audio remained active');
+await b.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+if(await b.evaluate(()=>window.__studyAudio?.state)!=='closed')throw Error('Returning to page unexpectedly resumed audio');
+await b.getByRole('button',{name:'B 듣기',exact:true}).click();await b.getByText('B 재생 중',{exact:true}).waitFor();
+await b.getByRole('button',{name:'정지',exact:true}).click();
+await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
+console.log('PASS Web Audio pagehide cancellation, no auto-resume, explicit replay (synthetic lifecycle event)');
 if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
