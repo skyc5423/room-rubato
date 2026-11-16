@@ -14,7 +14,7 @@ export default function ExplorePage(){
    <p className="mt-3 text-sm leading-6">목차는 로그인 없이 볼 수 있어요. 예상 시간은 읽는 속도에 따라 달라집니다. 각 활동의 출처와 한계는 해당 화면에서 확인할 수 있어요.</p>
   </header>
   <nav aria-label="콘텐츠 종류" className="my-6 flex flex-wrap gap-x-6 gap-y-2">
-   <a className={linkStyle} href="#compare-content">작품을 나란히</a><a className={linkStyle} href="#try-content">직접 바꿔 보기</a><a className={linkStyle} href="#read-content">말을 자세히</a>
+   <Link className={linkStyle} href="/explore#compare-content">작품을 나란히</Link><Link className={linkStyle} href="/explore#try-content">직접 바꿔 보기</Link><Link className={linkStyle} href="/explore#read-content">말을 자세히</Link>
   </nav>
   <section id="compare-content" aria-labelledby="compare-title" className="scroll-mt-36 py-7">
    <p className="text-sm text-[#0042AF]">01 · 실제 작품 비교</p><h2 id="compare-title" className="mt-2 text-2xl font-semibold">작품을 나란히</h2>

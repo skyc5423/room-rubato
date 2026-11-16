@@ -13,7 +13,7 @@ it('indexes every current observation and comparison without duplicating content
 });
 it('has distinct semantic sections and native jump links',()=>{
  const page=html();expect(metadata.title).toContain('콘텐츠 둘러보기');expect(page.match(/<h1/g)).toHaveLength(1);
- for(const id of ['compare','try','read']){expect(page).toContain(`href="#${id}-content"`);expect(page).toContain(`id="${id}-content"`);expect(page).toContain(`aria-labelledby="${id}-title"`);}
+ for(const id of ['compare','try','read']){expect(page).toContain(`href="/explore#${id}-content"`);expect(page).toContain(`id="${id}-content"`);expect(page).toContain(`aria-labelledby="${id}-title"`);}
  expect(page).not.toMatch(/<(input|textarea|button)\b/);
 });
 it('distinguishes optional saved activities from unsaved reading and avoids progress claims',()=>{
