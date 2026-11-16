@@ -6,6 +6,13 @@ const context=await browser.newContext({viewport:{width:390,height:844}});const 
 async function audit(label){await page.evaluate(axe.source);const result=await page.evaluate(async()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));console.log(JSON.stringify({label,violations:result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))}));if(result.violations.length)throw Error(`Accessibility violations at ${label}`);}
 for(const path of ['/','/notes','/notes?lesson=light','/daily','/compare','/compare/light-and-edges','/privacy','/research']){await page.goto('http://127.0.0.1:3000'+path);await page.waitForTimeout(600);await audit(path);
 if(path==='/notes?lesson=light'){
+const beforeRevisit=await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+await page.getByRole('button',{name:'같은 작품 다시 살펴보기',exact:true}).click();
+await page.getByRole('heading',{name:'두 번째 시선 · 달라진 단서 찾기',exact:true}).waitFor();
+await page.getByRole('button',{name:'기존 관찰 메모로 이동',exact:true}).click();
+await page.waitForFunction(()=>document.activeElement?.id==='observation-memo');
+if(await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeRevisit)throw Error('Artwork revisit navigation changed saved records');
+await page.reload();await page.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 await page.getByRole('button',{name:'A 쪽',exact:true}).click();
 await page.getByRole('button',{name:'선택했어요 · 관찰할 단서 읽기 →'}).click();
 await page.getByRole('button',{name:'이제 다시 보고 기록하기 →'}).click();
@@ -13,6 +20,12 @@ await page.getByRole('button',{name:'B 쪽',exact:true}).click();
 await page.locator('#observation-memo').fill('synthetic accessibility journey');
 await page.getByRole('button',{name:'이번 탐색 마치기',exact:true}).click();
 if(!await page.locator('#observation-memo').evaluate(el=>el.readOnly))throw Error('completed record is not read-only');
+await page.getByRole('button',{name:'기존 관찰 메모로 이동',exact:true}).click();
+await page.waitForFunction(()=>document.activeElement?.id==='observation-memo');
+if(!await page.locator('#observation-memo').evaluate(el=>el.readOnly))throw Error('Artwork revisit bypassed completed record read-only guard');
+await page.getByRole('button',{name:'작품의 맥락 함께 읽기',exact:true}).click();
+await page.getByRole('heading',{name:'미술관이 설명하는 맥락',exact:true}).waitFor();
+console.log('PASS artwork revisit memo focus, no implicit save and completed read-only guard');
 await audit('completed-notebook');console.log('PASS complete observation journey and read-only review');
 }}
 
