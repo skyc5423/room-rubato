@@ -75,3 +75,42 @@ jobs:
           path: design-review/
           retention-days: 7
           if-no-files-found: error
+  firefox-hydration-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_PERSONA_CAS_ENABLED: 'true'
+      NEXT_PUBLIC_TASTE_CLOUD_SYNC: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node node_modules/playwright-core/cli.js install --with-deps firefox
+      - name: Isolated synthetic Firefox reproduction
+        shell: bash
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=rubato_hydration_test
+          pactl set-default-sink rubato_hydration_test
+          npm start -- -H 127.0.0.1 > /tmp/rubato-hydration-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          READY=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then READY=1; break; fi
+            sleep 1
+          done
+          test "$READY" = 1
+          node scripts/diagnose-firefox-hydration.cjs
+          for trial in $(seq 1 10); do
+            echo "FULL FIREFOX JOURNEY $trial/10 (each must pass)"
+            BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs
+          done
