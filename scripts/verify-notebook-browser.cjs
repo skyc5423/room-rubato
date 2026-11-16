@@ -66,7 +66,7 @@ console.log('PASS UTF-8 notebook download and explicit failure without record lo
 await b.addInitScript(()=>{const Audio=window.AudioContext;if(Audio)window.AudioContext=class extends Audio{constructor(...args){super(...args);window.__studyAudio=this;}};});
 await b.goto('http://127.0.0.1:3000/notes?lesson=syncopation');
 await b.getByRole('button',{name:'A 듣기',exact:true}).click();
-await b.getByText('A 재생 중',{exact:true}).waitFor();
+try{await b.getByText('A 재생 중',{exact:true}).waitFor();}catch(error){console.error('AUDIO START DIAGNOSTIC',await b.evaluate(()=>({state:window.__studyAudio?.state,visibility:document.visibilityState,status:[...document.querySelectorAll('[role=status]')].map(el=>el.textContent)})));throw error;}
 await b.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
 await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
 if(!await b.getByRole('button',{name:'정지',exact:true}).isDisabled())throw Error('Hidden-page audio remained active');

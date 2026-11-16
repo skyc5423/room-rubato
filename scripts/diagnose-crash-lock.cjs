@@ -25,7 +25,7 @@ const {chromium}=require('playwright-core');
   await owner.waitForFunction(editable);
   const session=await context.newCDPSession(owner);
   let crashObserved=false;owner.on('crash',()=>{crashObserved=true;});
-  await Promise.race([session.send('Page.crash').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1500))]);
+  const crashed=owner.waitForEvent('crash');void session.send('Page.crash').catch(()=>{});await crashed;
   await recovery.goto('http://127.0.0.1:3000/notes?lesson=light');
   await owner.close();
   await recovery.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='이 탭에서 편집 다시 시도'||b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
