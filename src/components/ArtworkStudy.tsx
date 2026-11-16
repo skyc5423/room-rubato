@@ -28,7 +28,7 @@ export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyD
 }
 
 /** Institutional facts and editorial interpretation deliberately remain separate. */
-export function ArtworkStudy({ lessonId, onMemo, selectionKey, canRemember=false }: { lessonId: string; onMemo?: () => void; selectionKey?:string; canRemember?:boolean }) {
+export function ArtworkStudy({ lessonId, onMemo, selectionKey, canRemember=false, canForget=canRemember }: { lessonId: string; onMemo?: () => void; selectionKey?:string; canRemember?:boolean; canForget?:boolean }) {
   const works = artworkStudies.filter(work => work.lessonIds.includes(lessonId));
   const [selection,setSelection]=useState<{key?:string;id:string}>({key:selectionKey,id:''});
   const selected=selection.key===selectionKey?selection.id:'';
@@ -56,6 +56,7 @@ export function ArtworkStudy({ lessonId, onMemo, selectionKey, canRemember=false
     <ObservationGuide/>
     <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);if(selectionKey&&canRemember){try{localStorage.setItem(selectionKey,item.id);setSelectionError('');}catch{setSelectionError('작품 선택을 이 브라우저에 기억하지 못했어요. 다음 방문에는 첫 작품이 열릴 수 있습니다. 메모는 바꾸지 않았어요.');}}}}>{item.titleKo}</button>)}</div>
     {selectionKey&&<p className="mb-4 text-xs leading-6">{canRemember?'작품을 직접 고르면 이 사용자·브라우저에서 마지막으로 본 작품을 기억해요. 메모에 연결된 작품 기록이나 클라우드 백업은 아니며 다른 기기로 옮겨지지 않습니다.':'지금 작품을 바꿔 보는 것은 이전 작품 선택이나 메모를 덮어쓰지 않아요.'}</p>}
+    {selectionKey&&selected&&<button type="button" disabled={!canForget} className={`${control} mb-4`} onClick={()=>{if(!canForget)return;try{localStorage.removeItem(selectionKey);setSelected('');setSelectionError('');}catch{setSelectionError('이 브라우저의 작품 선택을 지우지 못했어요. 기록과 메모는 바꾸지 않았습니다.');}}}>이 브라우저의 작품 선택 지우기</button>}
     <div className="grid gap-6 lg:grid-cols-2">
       <figure>
         {/* A new node and load state prevent the previous work's pixels surviving a src change. */}

@@ -92,7 +92,11 @@ await memoPage.locator('#observation-memo').waitFor();
 if(await memoPage.locator('#observation-memo').inputValue()!=='synthetic memo-only return')throw Error('Memo-only visit did not resume its saved memo');
 if(await memoPage.evaluate(()=>!!JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.light.before))throw Error('Memo resume fabricated a prior choice');
 if(await memoPage.locator('[aria-label="비교할 작품"] button[aria-pressed=true]').textContent()!==chosenArtwork)throw Error('Return replaced explicitly selected artwork');
-console.log('PASS selected artwork and memo-only artwork visit resumes from home without invented choices');await memoContext.close();
+console.log('PASS selected artwork and memo-only artwork visit resumes from home without invented choices');
+const journalBeforeForget=await memoPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));await memoPage.getByRole('button',{name:'이 브라우저의 작품 선택 지우기',exact:true}).click();
+if(await memoPage.evaluate(()=>localStorage.getItem('rubato_artwork_view_v1:guest:light'))!==null)throw Error('Artwork view preference did not clear');
+if(await memoPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==journalBeforeForget)throw Error('Forgetting artwork view altered observations');
+console.log('PASS explicit artwork preference deletion preserves observation records');await memoContext.close();
 // Reflow and result content vary by domain: exercise every public questionnaire at 320 CSS pixels.
 await page.setViewportSize({width:320,height:800});
 const domainSlugs=['fashion','space-interior','gastronomy-scent','visual-art','music','cinema','literature','travel','tech-cosmos','economy','work-social','philosophy'];
