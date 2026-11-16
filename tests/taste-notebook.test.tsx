@@ -457,3 +457,26 @@ describe('cross-tab browser storage clearing',()=>{
     expect(button(view!,'이전 브라우저 사본 내보내기')).toBeUndefined();act(()=>view!.unmount());
   });
 });
+
+it('does not overwrite other records when deletion cannot read the latest journal',()=>{
+  const entry={lessonId:'light',version:1,before:'a',memo:'내 기록',bookmarked:false,updatedAt:'2026-11-11T00:00:00Z'};
+  storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:entry}}));
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'이어서 살펴보기').props.onClick());
+  const latest=JSON.stringify({version:1,entries:{light:entry,space:{...entry,lessonId:'space',memo:'다른 탭의 새 기록'}}});
+  storage.set(journalKey('guest'),latest);
+  const setItem=vi.fn((k:string,v:string)=>storage.set(k,v));
+  vi.stubGlobal('localStorage',{getItem:()=>{throw new Error('read unavailable');},setItem});
+  (window as unknown as {confirm:()=>boolean}).confirm=()=>true;
+  act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+  expect(setItem).not.toHaveBeenCalled();
+  expect(storage.get(journalKey('guest'))).toBe(latest);
+  expect(JSON.stringify(view!.toJSON())).toContain('기존 기록을 확인할 수 없어 삭제하지 않았어요');
+  // A prior error must not suppress a fresh read when storage becomes available.
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem});
+  act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+  const remaining=parseJournal(storage.get(journalKey('guest'))!);
+  expect(remaining.entries.light).toBeUndefined();
+  expect(remaining.entries.space.memo).toBe('다른 탭의 새 기록');
+  act(()=>view!.unmount());
+});

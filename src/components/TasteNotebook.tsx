@@ -183,8 +183,10 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   }
   function deleteEntry(id:string) {
     if (!ready || !window.confirm('이 브라우저의 이 탐색 기록과 메모, 저장 표시를 지울까요? 이 작업은 되돌릴 수 없어요. 기존 설문 응답은 유지됩니다.')) return;
-    let base=journal;
-    try { if(!storageError) base=parseJournal(localStorage.getItem(journalKey(owner))); } catch { /* retain memory fallback */ }
+    let base:TasteJournal;
+    // Never delete from a stale in-memory snapshot after a read failure.
+    try { base=parseJournal(localStorage.getItem(journalKey(owner))); }
+    catch { setStorageError('기존 기록을 확인할 수 없어 삭제하지 않았어요. 브라우저 저장소를 확인한 뒤 다시 시도해 주세요.');return; }
     const entries={...base.entries};delete entries[id];
     const updated:TasteJournal={version:1,entries};
     try {
