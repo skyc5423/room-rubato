@@ -197,12 +197,13 @@ console.log('PASS Korean unknown-route recovery, correct noindex/status and unch
 // Titles must distinguish direct visits and client-side history, without personal answers.
 for(const [path,title] of [
  ['/daily','오늘의 질문 | Room Rubato'],['/research','내가 고른 취향 | Room Rubato'],
- ['/account/withdrawal','계정 탈퇴 | Room Rubato'],
+ ['/account/withdrawal','회원 탈퇴 준비 상태 | Room Rubato'],
  ['/domain/visual-art','미술 · 디자인 · 취향 고르기 | Room Rubato'],
  ['/compare/light-and-edges','빛이 만드는 경계 · 두 작품 사이 | Room Rubato']
 ]) {
  await page.goto('http://127.0.0.1:3000'+path);
- await page.waitForFunction(expected=>document.title===expected,title);
+ try { await page.waitForFunction(expected=>document.title===expected,title); }
+ catch(error) { console.error('ROUTE TITLE DIAGNOSTIC',{path,expected:title,actual:await page.title()});throw error; }
 }
 await page.getByRole('link',{name:'← 두 작품 사이',exact:true}).click();
 await page.waitForFunction(()=>document.title==='두 작품 사이 | Room Rubato');

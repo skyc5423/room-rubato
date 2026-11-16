@@ -12,3 +12,10 @@ it('does not echo unrecognized route input into public metadata',async()=>{
   expect(value.robots).toEqual({index:false,follow:false});
  }
 });
+
+// Leaf-page metadata overrides ancestor layouts in Next. Guard the effective
+// withdrawal title, which must not imply the disabled action is available.
+it('keeps the withdrawal title honest about readiness',async()=>{
+ const {metadata}=await import('../src/app/account/withdrawal/page');
+ expect(metadata.title).toBe('회원 탈퇴 준비 상태 | Room Rubato');
+});
