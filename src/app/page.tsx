@@ -1082,14 +1082,14 @@ export default function HomePage() {
                       type="button"
                       aria-label={`${robj.domainLabel} (${robj.shortObject})`}
                       onClick={() => handleSelectRoomObject(robj.domainId)}
-                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors flex items-center gap-1.5 ${
+                      className={`px-3 py-1 rounded-full text-[12px] font-medium flex items-center gap-1.5 ${
                         done
                           ? 'bg-[#0042AF] text-[#FEF1D0]'
                           : 'bg-[#FEF1D0]/80 text-[#010D6E] border border-[#0042AF]/35 hover:bg-[#FEF1D0]'
                       }`}
                     >
                       <span>{robj.domainLabel}</span>
-                      <span className="opacity-70">({robj.shortObject})</span>
+                      <span className={done ? undefined : "opacity-70"}>({robj.shortObject})</span>
                     </button>
                   );
                 })}
