@@ -4,6 +4,12 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported br
 (async()=>{
 const browser=await engines[engine].launch(engine==='chromium'?{executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']}:{headless:true});
 console.log(`ENGINE ${engine} ${browser.version()} (Linux CI, not a device Safari test)`);
+// Isolate direct-entry rendering from the later completed-record navigation journey.
+const directContext=await browser.newContext();const direct=await directContext.newPage();
+await direct.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+await direct.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+if(await direct.locator('[data-field-observation]').count())throw Error('Fresh unfinished lesson displays field card');
+console.log('PASS fresh-context perspective direct entry');await directContext.close();
 const context=await browser.newContext();
 await context.addInitScript(()=>{
  window.__writerTrace=[];
@@ -95,6 +101,7 @@ if(await spaceField.evaluate(el=>el.open))throw Error('Expanded field state carr
 await spaceField.locator('summary').click();await b.reload();await spaceField.waitFor();
 if(await spaceField.evaluate(el=>el.open))throw Error('Field observation persisted expansion');
 if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeField)throw Error('Field observation changed original records');
+console.log('FIELD completed lesson reopen, narrow reflow, reset and immutable journal verified; navigating to unfinished perspective');
 await b.goto('http://127.0.0.1:3000/notes?lesson=perspective');
 await b.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 if(await b.locator('[data-field-observation]').count())throw Error('Unfinished lesson offered completed-record field observation');
