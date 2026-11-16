@@ -44,3 +44,4 @@ jobs:
           done
           test "$READY" = 1
           node scripts/smoke.mjs http://127.0.0.1:3000
+          node scripts/verify-notebook-browser.cjs
