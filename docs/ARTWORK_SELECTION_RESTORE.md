@@ -1,9 +1,11 @@
-# Explicit artwork selection on return
+# Browser-only artwork view preference
 
-An optional `artworkId` on the existing observation record retains the last explicitly selected catalogue work, not a personality inference or a claim that the entire memo concerns that one work. Opening an activity never writes the default first artwork. The selector explains its persistence before interaction.
+Explicitly selecting a catalogue work remembers its ID under a separate owner/lesson browser preference key. Merely opening an activity writes nothing. The UI distinguishes this last-view preference from the artwork described by a memo; it is not a cloud-backed journal field and does not travel to another device.
 
-Only IDs present in that lesson's current catalogue can be saved by the UI. The record parser, cloud payload validator and temporary edit parser accept a bounded numeric identity; missing/deleted catalogue works are disclosed and displayed with a fallback without rewriting the original ID. Records without this optional field retain their earlier default display.
+The initial optional journal-field implementation was removed before merge/deployment because older strict cloud/draft validators would reject it. Existing journal, draft, cloud payload and export schemas are unchanged. No hosted schema migration or production deployment occurred.
 
-Writes use the existing owner-scoped journal path, fresh reads, pending-write preservation and writer lease. Completed records are read-only until the user explicitly edits; browsing another work in read-only mode remains temporary. Text exports include the stored ID. No hosted schema or production deployment was changed.
+Current lesson catalogue membership controls choices. Unknown/deleted IDs display an explanation and fall back without changing saved observations. Locked tabs and completed read-only records can browse but cannot overwrite the preference. Failure to read or remember the preference is reported and never changes the memo.
 
-Older client versions with strict cloud/draft field allowlists can reject records containing this added field. They must not be used to restore newer records; rejection preserves local records rather than dropping an unknown field. Real hosted cloud round-trip and mixed-version deployment remain unverified. Synthetic validator tests cover the current client only.
+Deleting the corresponding observation or explicitly replacing the local journal from cloud clears this user's relevant preferences, to avoid suggesting they describe the newly restored notes. Preference cleanup precedes journal replacement and fails closed; cleanup may remove a view preference even if the following journal write fails, but the original observation remains intact.
+
+Cloud-only/cross-device restoration of the exact artwork remains unresolved; no new field is uploaded merely to claim that guarantee. This is a bounded current-browser return improvement, not whole-service acceptance or a claim about the artwork a historical memo refers to.

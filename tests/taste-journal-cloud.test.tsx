@@ -107,8 +107,3 @@ describe('manual observation cloud sync candidate', ()=>{
   });
 
 });
-it('roundtrips optional artwork identity and rejects malformed IDs without replacing records',()=>{
- const journal=updateJournal(emptyJournal(),'light',1,{memo:'original',artworkId:'437853'});
- expect(journalFromCloud({revision:'r1',state:journal}).entries.light.artworkId).toBe('437853');
- expect(()=>journalFromCloud({revision:'r1',state:{...journal,entries:{light:{...journal.entries.light,artworkId:'external-url'}}}})).toThrow();
-});

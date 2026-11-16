@@ -6,7 +6,6 @@ export interface JournalEntry {
   after?: ObservationChoice;
   beforeSetting?: number;
   afterSetting?: number;
-  artworkId?: string;
   memo: string;
   bookmarked: boolean;
   completedAt?: string;
@@ -26,7 +25,7 @@ export function parseJournal(raw: string | null): TasteJournal {
     for (const [key, entry] of Object.entries(value.entries)) {
       const e = entry as JournalEntry;
       if (!e || e.lessonId !== key || typeof e.memo !== 'string' || typeof e.updatedAt !== 'string' || typeof e.version !== 'number') continue;
-      entries[key] = { ...e, before: choices.has(e.before!) ? e.before : undefined, after: choices.has(e.after!) ? e.after : undefined, beforeSetting: setting(e.beforeSetting), afterSetting: setting(e.afterSetting), artworkId: typeof e.artworkId === 'string' && /^[0-9]{1,16}$/.test(e.artworkId) ? e.artworkId : undefined, memo: e.memo.slice(0, 1500), bookmarked: e.bookmarked === true };
+      entries[key] = { ...e, before: choices.has(e.before!) ? e.before : undefined, after: choices.has(e.after!) ? e.after : undefined, beforeSetting: setting(e.beforeSetting), afterSetting: setting(e.afterSetting), memo: e.memo.slice(0, 1500), bookmarked: e.bookmarked === true };
     }
     return { version: 1, entries };
   } catch { return emptyJournal(); }

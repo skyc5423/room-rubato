@@ -88,8 +88,3 @@ describe('artwork image transitions', () => {
     expect(image().props.style.visibility).toBe('hidden');
   });
 });
-it('discloses missing saved artwork without persisting a replacement',()=>{
- act(()=>{renderer=create(<ArtworkStudy lessonId="light" savedArtworkId="999999"/>);});
- expect(JSON.stringify(renderer.toJSON())).toContain('저장된 작품을 현재 목록에서 찾지 못해');
- expect(image().props.src).toBe(works[0].image);
-});

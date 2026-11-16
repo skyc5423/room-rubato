@@ -14,7 +14,7 @@ import { emptyJournal, journalKey, parseJournal, updateJournal, suggestNext, Tas
 import { TasteStudyDiagram } from './TasteStudyDiagram';
 import { RhythmListening } from './RhythmListening';
 import { RHYTHM_GRID_EXPLANATION } from '@/lib/rhythm-patterns';
-import { artworkStudies } from '@/lib/artwork-studies';
+import {artworkSelectionKey} from '@/lib/artwork-selection';
 import { ArtworkStudy } from './ArtworkStudy';
 import { StudyPaths } from './StudyPaths';
 import { TasteJournalCloudSync } from './TasteJournalCloudSync';
@@ -219,6 +219,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     const entries={...base.entries};delete entries[id];
     const updated:TasteJournal={version:1,entries};
     try {
+      if(localStorage.getItem(artworkSelectionKey(owner,id))!==null)localStorage.removeItem(artworkSelectionKey(owner,id));
       localStorage.setItem(journalKey(owner),JSON.stringify(updated));
       delete pendingWrites.current[id];setJournal(withPending(updated));if(draftEntry||pendingRecovery?.entry.lessonId===id)clearTabDraft();setDraftEntry(null);draftBase.current=null;setStorageError(Object.keys(pendingWrites.current).length?'아직 저장하지 못한 다른 탐색의 입력이 있어요. 창을 닫기 전에 내보내기로 보관해 주세요.':'');setStage(0);setVariation(60);setNotice('이 탐색 기록을 지웠어요.');
     } catch {setStorageError('기록을 지우지 못했어요. 브라우저 저장소 설정을 확인해 주세요.');}
@@ -234,6 +235,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       const beforeRestore=localStorage.getItem(journalKey(owner))??JSON.stringify(emptyJournal());
       localStorage.setItem(`${journalKey(owner)}:before-cloud-restore`, beforeRestore);
       setHasRestoreBackup(true);
+      for(const item of tasteLessons){const key=artworkSelectionKey(owner,item.id);if(localStorage.getItem(key)!==null)localStorage.removeItem(key);}
       localStorage.setItem(journalKey(owner), JSON.stringify(value));
       pendingWrites.current={};setJournal(value); if(draftEntry||pendingRecovery)clearTabDraft(); setDraftEntry(null);draftBase.current=null; setSelected(null); writeLessonUrl(null); setStage(0); setStorageError('');
       return true;
@@ -257,7 +259,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     try {
     const text=tasteLessons.filter(n=>currentJournal.entries[n.id]).map(n=>{
       const e=currentJournal.entries[n.id];const label=(c?:ObservationChoice)=>choices.find(x=>x.value===c)?.label||'기록 없음';
-      return `${n.title}\n작품 ID: ${e.artworkId||'미기록'}\n첫 선택: ${label(e.before)} / 다시 선택: ${label(e.after)}\n도식 설정(점수 아님): ${e.beforeSetting ?? '없음'} → ${e.afterSetting ?? '없음'}\n메모: ${e.memo||'없음'}\n출처: ${n.sources.map(s=>s.url).join('\n')}\n`;
+      return `${n.title}\n첫 선택: ${label(e.before)} / 다시 선택: ${label(e.after)}\n도식 설정(점수 아님): ${e.beforeSetting ?? '없음'} → ${e.afterSetting ?? '없음'}\n메모: ${e.memo||'없음'}\n출처: ${n.sources.map(s=>s.url).join('\n')}\n`;
     }).join('\n---\n');
     const url=URL.createObjectURL(new Blob([`Room Rubato · 내 감상 기록\n개인 감상 기록이며 성격 검사 결과가 아닙니다.\n\n${text}`],{type:'text/plain;charset=utf-8'}));
     const a=document.createElement('a');a.href=url;a.download='room-rubato-notes.txt';a.click();URL.revokeObjectURL(url);
@@ -295,7 +297,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
       </div>
       {lesson.id==='space'&&<ArchitectureCaseStudy key={lesson.id}/>}
       {lesson.id==='context'&&<CinemaSequenceStudy key={lesson.id}/>}
-      <ArtworkStudy key={lesson.id} lessonId={lesson.id} savedArtworkId={entry?.artworkId} onSelectArtwork={!reviewOnly&&writer.canWrite?id=>{if(artworkStudies.some(work=>work.id===id&&work.lessonIds.includes(lesson.id)))save(lesson.id,{artworkId:id});}:undefined} onMemo={()=>{flushSync(()=>setStage(2));document.getElementById('observation-memo')?.focus();}}/>
+      <ArtworkStudy key={lesson.id} lessonId={lesson.id} selectionKey={artworkSelectionKey(owner,lesson.id)} canRemember={!reviewOnly&&writer.canWrite} onMemo={()=>{flushSync(()=>setStage(2));document.getElementById('observation-memo')?.focus();}}/>
       {lesson.diagram==='syncopation'&&<aside className="mt-6 rounded-2xl border border-[#0042AF]/20 bg-white p-5 text-sm leading-7"><h3 className="font-semibold">다른 음악의 반복도 들어볼까요? · 선택 활동</h3><p className="mt-2">위 합성 클릭은 장단을 재현한 소리가 아닙니다. 아래 기관 자료를 따로 듣고, 되풀이되는 흐름에서 무엇이 같고 다른지 내 말로 적어보세요. 음악 사이의 구조나 선호가 같다고 가정하지 않습니다.</p><ul className="mt-3 space-y-3"><li><a className="underline" target="_blank" rel="noopener noreferrer" href="https://academy.gugak.go.kr/open/open/lecture/detail.do?currentMenuId=900006007&openLectureSeq=1536&srchListType=SERIES&srchOpenCategorySeq=">국립국악원 · 장단맞춰, 쿵딱! ↗</a><p className="text-xs">굿거리장단과 자진모리장단을 소개하는 어린이용 교육 애니메이션입니다. 원본 영상과 활동지는 기관 사이트에서 확인해 주세요.</p></li><li><a className="underline" target="_blank" rel="noopener noreferrer" href="https://www.carnegiehall.org/Education/Programs/Music-Educators-Toolbox/1-Performing-and-Composing-Four-Beat-Patterns">Carnegie Hall · 네 박 패턴 연주와 만들기 ↗</a><p className="text-xs">일정한 박을 유지하는 역할과 리듬을 연주하는 역할을 나누는 초등 음악교육 사례를 참고했어요. 위 소리는 별도로 만든 예시이며 기관의 음원이나 활동지를 복제하지 않았어요. 성인 학습 효과를 검증한 자료는 아닙니다.</p></li></ul><p className="mt-3 text-xs opacity-70">외부 영상·악보·활동지는 복제하지 않습니다. 이 비교 제안은 Room Rubato가 작성했으며 기관 공동 개발을 뜻하지 않습니다.</p></aside>}
       <section className="mt-8 rounded-2xl bg-[#FEF1D0]/70 p-5"><h3 className="font-semibold">화면 밖에서 해보기</h3><p className="mt-2 leading-7">{lesson.activity}</p></section>
       <section className="mt-6 border-t border-[#0042AF]/15 pt-5"><h3 className="text-sm font-semibold">설명의 근거와 더 읽을 자료</h3><ul className="mt-2 space-y-2">{lesson.sources.map(s=><li key={s.url}><a className="inline-block py-2 text-sm text-[#0042AF] underline underline-offset-4" href={s.url} target="_blank" rel="noopener noreferrer">{s.title} ↗ <span className="sr-only">새 탭</span></a><span className="ml-2 text-xs text-[#010D6E]/60">{s.kind}</span></li>)}</ul><p className="mt-3 text-xs leading-5 text-[#010D6E]/65">출처를 바탕으로 Room Rubato가 만든 활동입니다. 원문 저자가 이 활동이나 결과를 검증한 것은 아닙니다. 자료 검토: 2026.11.11 · 콘텐츠 v{lesson.version}</p></section>

@@ -13,7 +13,7 @@ const timestamp = (value: unknown): value is string => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) && date.toISOString() === value;
 };
-const entryFields = new Set(['lessonId', 'version', 'before', 'after', 'beforeSetting', 'afterSetting', 'artworkId', 'memo', 'bookmarked', 'completedAt', 'updatedAt']);
+const entryFields = new Set(['lessonId', 'version', 'before', 'after', 'beforeSetting', 'afterSetting', 'memo', 'bookmarked', 'completedAt', 'updatedAt']);
 const choice = new Set(['a', 'b', 'both', 'unsure']);
 export function journalFromCloud(row: JournalCloudRow | null): TasteJournal {
   if (!row) return { version: 1, entries: {} };
@@ -32,7 +32,6 @@ export function journalFromCloud(row: JournalCloudRow | null): TasteJournal {
       const value = entry[key];
       if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100)) throw invalidCloud();
     }
-    if (entry.artworkId !== undefined && (typeof entry.artworkId !== 'string' || !/^\d{1,16}$/.test(entry.artworkId))) throw invalidCloud();
     if (entry.completedAt !== undefined && !timestamp(entry.completedAt)) throw invalidCloud();
   }
   // Detach the checked JSON data from the network response; no sanitization.

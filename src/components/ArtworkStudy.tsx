@@ -28,27 +28,34 @@ export function ArtworkImage({ work, detail, detailView }: { work: ArtworkStudyD
 }
 
 /** Institutional facts and editorial interpretation deliberately remain separate. */
-export function ArtworkStudy({ lessonId, onMemo, savedArtworkId, onSelectArtwork }: { lessonId: string; onMemo?: () => void; savedArtworkId?: string; onSelectArtwork?: (id:string) => void }) {
+export function ArtworkStudy({ lessonId, onMemo, selectionKey, canRemember=false }: { lessonId: string; onMemo?: () => void; selectionKey?:string; canRemember?:boolean }) {
   const works = artworkStudies.filter(work => work.lessonIds.includes(lessonId));
-  const [selected, setSelected] = useState<string>(savedArtworkId||'');
+  const [selection,setSelection]=useState<{key?:string;id:string}>({key:selectionKey,id:''});
+  const selected=selection.key===selectionKey?selection.id:'';
+  const setSelected=(id:string)=>setSelection({key:selectionKey,id});
+  const [selectionError,setSelectionError]=useState('');
+  useEffect(()=>{
+    if(!selectionKey)return;
+    const read=()=>{try{setSelection({key:selectionKey,id:localStorage.getItem(selectionKey)||''});setSelectionError('');}catch{setSelectionError('이 브라우저의 이전 작품 선택을 읽지 못했어요. 작품은 계속 둘러볼 수 있어요.');}};
+    read();const sync=(event:StorageEvent)=>{if(event.key===selectionKey||event.key===null)read();};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
+  },[selectionKey]);
   const [detail, setDetail] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const contextHeading = useRef<HTMLHeadingElement>(null);
   const focusContext = useRef(false);
   useEffect(() => { if (revealed && focusContext.current) { contextHeading.current?.focus(); focusContext.current = false; } }, [revealed]);
   const showContext = () => { if (revealed) contextHeading.current?.focus(); else { focusContext.current = true; setRevealed(true); } };
-  const savedIdRef=useRef(savedArtworkId);
-  useEffect(()=>{if(savedIdRef.current===savedArtworkId)return;savedIdRef.current=savedArtworkId;setSelected(savedArtworkId||'');setDetail(false);setRevealed(false);},[savedArtworkId]);
   const work = works.find(item => item.id === selected) || works[0];
   if (!work) return null;
   return <section className="mt-8 border-t border-[#0042AF]/15 pt-8" aria-label="실제 작품에서 살펴보기">
     <p className="text-xs font-semibold tracking-wide text-[#0042AF]">도식에서 작품으로</p>
     <h3 className="mt-2 text-xl font-semibold">실제 작품에서는 어떻게 보일까요?</h3>
     <p className="mt-2 text-sm leading-6">정답을 맞히기보다 눈에 보이는 근거를 하나 찾아보세요. 해설을 읽기 전과 후의 차이를 위의 메모에 함께 남길 수 있어요.</p>
-    {savedArtworkId&&selected===savedArtworkId&&!works.some(item=>item.id===savedArtworkId)&&<p role="status" className="mt-3 text-sm">저장된 작품을 현재 목록에서 찾지 못해 첫 작품을 보여드려요. 기존 기록은 바꾸지 않았습니다.</p>}
+    {selectionError&&<p role="status" className="mt-3 text-sm">{selectionError}</p>}
+    {selected&&!works.some(item=>item.id===selected)&&<p role="status" className="mt-3 text-sm">이전에 본 작품을 현재 목록에서 찾지 못해 첫 작품을 보여드려요. 기록과 메모는 바꾸지 않았습니다.</p>}
     <ObservationGuide/>
-    <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);onSelectArtwork?.(item.id);}}>{item.titleKo}</button>)}</div>
-    <p className="mb-4 text-xs leading-6">{onSelectArtwork?'작품을 직접 고르면 마지막 선택을 이 활동의 기록에 함께 남겨요. 기존 메모 내용은 바꾸지 않습니다.':'지금 작품을 바꿔 보는 것은 저장된 선택이나 메모를 바꾸지 않아요.'}</p>
+    <div className="my-4 flex flex-wrap gap-2" aria-label="비교할 작품">{works.map(item => <button key={item.id} className={`${control} ${item.id === work.id ? 'bg-[#010D6E] text-white' : 'bg-white'}`} aria-pressed={item.id === work.id} onClick={() => {setSelected(item.id);setDetail(false);setRevealed(false);if(selectionKey&&canRemember){try{localStorage.setItem(selectionKey,item.id);setSelectionError('');}catch{setSelectionError('작품 선택을 이 브라우저에 기억하지 못했어요. 다음 방문에는 첫 작품이 열릴 수 있습니다. 메모는 바꾸지 않았어요.');}}}}>{item.titleKo}</button>)}</div>
+    {selectionKey&&<p className="mb-4 text-xs leading-6">{canRemember?'작품을 직접 고르면 이 사용자·브라우저에서 마지막으로 본 작품을 기억해요. 메모에 연결된 작품 기록이나 클라우드 백업은 아니며 다른 기기로 옮겨지지 않습니다.':'지금 작품을 바꿔 보는 것은 이전 작품 선택이나 메모를 덮어쓰지 않아요.'}</p>}
     <div className="grid gap-6 lg:grid-cols-2">
       <figure>
         {/* A new node and load state prevent the previous work's pixels surviving a src change. */}

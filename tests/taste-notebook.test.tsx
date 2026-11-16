@@ -529,20 +529,26 @@ it('blocks notebook writes in a second tab while retaining exploration and expor
   await act(async()=>view!.unmount());
 });
 
-it('saves only explicit artwork selection and restores it without changing the memo',async()=>{
+it('remembers explicit artwork views separately without changing the journal schema',async()=>{
  const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
- expect(storage.has(journalKey('guest'))).toBe(false);
- act(()=>view!.root.findByType(ArtworkStudy).props.onSelectArtwork(works[1].id));
- expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.artworkId).toBe(works[1].id);
+ const art=view!.root.findByType(ArtworkStudy);expect(storage.size).toBe(0);
+ act(()=>art.findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(storage.get(art.props.selectionKey)).toBe(works[1].id);expect(storage.has(journalKey('guest'))).toBe(false);
  act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
- expect(view!.root.findByType(ArtworkStudy).props.savedArtworkId).toBe(works[1].id);
  expect(view!.root.findByType(ArtworkStudy).findByType('img').props.src).toBe(works[1].image);act(()=>view!.unmount());
 });
-it('does not overwrite completed artwork selection during read-only browsing',async()=>{
- const {ArtworkStudy}=await import('../src/components/ArtworkStudy');
- storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'preserve',artworkId:'437881',bookmarked:false,completedAt:'2026-11-16T00:00:00.000Z',updatedAt:'2026-11-16T00:00:00.000Z'}}}));
- const before=storage.get(journalKey('guest'));let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
- expect(view!.root.findByType(ArtworkStudy).props.onSelectArtwork).toBeUndefined();
- expect(storage.get(journalKey('guest'))).toBe(before);act(()=>view!.unmount());
+it('keeps artwork selection temporary when a completed record is read-only',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'preserve',bookmarked:false,completedAt:'2026-11-16T00:00:00.000Z',updatedAt:'2026-11-16T00:00:00.000Z'}}}));
+ const before=storage.get(journalKey('guest'));let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});const art=view!.root.findByType(ArtworkStudy);
+ expect(art.props.canRemember).toBe(false);act(()=>art.findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(storage.has(art.props.selectionKey)).toBe(false);expect(storage.get(journalKey('guest'))).toBe(before);act(()=>view!.unmount());
+});
+it('reports artwork preference write failures without rewriting journal records',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+ act(()=>view!.root.findByType(ArtworkStudy).findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(JSON.stringify(view!.toJSON())).toContain('작품 선택을 이 브라우저에 기억하지 못했어요');expect(storage.size).toBe(0);act(()=>view!.unmount());
 });

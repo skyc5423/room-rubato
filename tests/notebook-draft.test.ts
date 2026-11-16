@@ -9,8 +9,3 @@ describe('tab notebook draft validation',()=>{
  });
  it('never accepts missing or changed saved originals',()=>{const parsed=parseNotebookDraft(JSON.stringify(draft))!;expect(sameDraftBase(undefined,parsed.base)).toBe(false);expect(sameDraftBase({...parsed.base,memo:'new saved'},parsed.base)).toBe(false);expect(sameDraftBase(parsed.base,parsed.base)).toBe(true);});
 });
-it('preserves bounded artwork identity in draft and rejects invalid identifiers',()=>{
- const value={...draft,base:{...base,artworkId:'437881'},entry:{...base,artworkId:'437853'}};
- expect(parseNotebookDraft(JSON.stringify(value))?.entry.artworkId).toBe('437853');
- expect(parseNotebookDraft(JSON.stringify({...value,entry:{...value.entry,artworkId:'https://external'}}))).toBeNull();
-});
