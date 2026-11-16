@@ -209,7 +209,7 @@ export default function DomainDetailPage() {
               Q{currentIdx + 1}. {currentQuestion.prompt}
             </h2>
             <p className="text-[13.5px] text-[#0042AF]/85">
-              {domain.shortTitle} 전문 용어를 몰라도 괜찮습니다. 두 가지 실제 장면·아이템 중 평소 더 손이 가는 쪽을 골라 주세요.
+              {domain.shortTitle} 전문 용어를 몰라도 괜찮습니다. 두 선택지의 설명을 읽고 더 마음이 가는 쪽을 골라 주세요.
             </p>
           </div>
 

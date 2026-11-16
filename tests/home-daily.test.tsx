@@ -204,3 +204,8 @@ it('grounds the completed room preview in recorded scores rather than prototype 
     expect(text).not.toContain(domain.phenotypes[0].summary);
   } finally {act(()=>view?.unmount());store.state.completedDomains=original;}
 });
+it('uses the reviewed task description for every first-visit room preview',()=>{
+ const original=store.state.completedDomains;store.state.completedDomains={};let view:any;
+ try{act(()=>{view=create(<Page/>);});for(const domain of ALL_MASTER_DOMAINS){act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(domain.id));expect(JSON.stringify(view.toJSON())).toContain(domain.subtitle);}}
+ finally{act(()=>view?.unmount());store.state.completedDomains=original;}
+});

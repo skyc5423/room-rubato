@@ -147,7 +147,7 @@ export default function HomePage() {
         body:
           completedDomainIds.length > 0
             ? pred.bridgeExplanation
-            : roomObj.emptyWhisper,
+            : domain.subtitle,
       };
     }
   }, [
@@ -492,7 +492,7 @@ export default function HomePage() {
                     Q{questionIndex + 1}. {activeDomain.questions[questionIndex]?.prompt}
                   </h2>
                   <p className="text-[13.5px] text-[#0042AF]/85">
-                    전문 용어를 몰라도 괜찮습니다. 두 가지 실제 아이템 중 평소 더 마음이 가는 쪽을 골라 주세요.
+                    전문 용어를 몰라도 괜찮습니다. 두 선택지의 설명을 읽고 더 마음이 가는 쪽을 골라 주세요.
                   </p>
                 </div>
 
