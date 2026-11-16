@@ -245,7 +245,7 @@ it('keeps a focused draft open when leaving is declined',()=>{
 it('keeps storage errors visible before the focused activity',()=>{
  vi.stubGlobal('localStorage',{getItem:()=>{throw Error('blocked');}});
  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
- expect(view!.root.findByProps({role:'alert'}).children.join('')).toContain('저장소');
+ expect(view!.root.findByProps({role:'alert'}).children.join('')).toContain('안전하게 읽지 못했어요');
  expect(view!.root.findByType('h1').props.id).toBe('lesson-heading');act(()=>view!.unmount());
 });
 
@@ -551,4 +551,27 @@ it('reports artwork preference write failures without rewriting journal records'
  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
  act(()=>view!.root.findByType(ArtworkStudy).findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
  expect(JSON.stringify(view!.toJSON())).toContain('작품 선택을 이 브라우저에 기억하지 못했어요');expect(storage.size).toBe(0);act(()=>view!.unmount());
+});
+
+it('never replaces malformed journal bytes and exposes an owner-scoped recovery copy',()=>{
+ const raw='{"version":1,"entries":{"light":{"memo":"important unfinished raw data"}}}';
+ storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(raw);
+ act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ expect(button(view!,'A 쪽').props['aria-pressed']).toBe(true);
+ owner='another';act(()=>view!.update(<TasteNotebook/>));
+ expect(view!.root.findAllByProps({'aria-label':'읽지 못한 브라우저 원본 기록'})).toHaveLength(0);
+ act(()=>view!.unmount());
+});
+it('refuses deletion when another writer corrupts an entry after the page loads',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());
+ const corrupted='{"version":2,"entries":{"other":{"memo":"future format"}}}';storage.set(journalKey('guest'),corrupted);
+ (window as any).confirm=()=>true;
+ act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(corrupted);
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(corrupted);
+ act(()=>view!.unmount());
 });

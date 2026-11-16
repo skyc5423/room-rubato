@@ -38,3 +38,19 @@ export function updateJournal(journal: TasteJournal, lessonId: string, version: 
 export function suggestNext(ids: string[], journal: TasteJournal): string | undefined {
   return ids.find(id => !journal.entries[id]?.completedAt);
 }
+
+/** Mutation guard: display parsing may salvage records, but writes must not erase rejected data. */
+export function parseJournalForWrite(raw:string|null):TasteJournal {
+  if(raw===null)return emptyJournal();
+  let value:unknown;
+  try{value=JSON.parse(raw);}catch{throw new Error('Unreadable journal');}
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid journal');
+  const data=value as Record<string,unknown>;
+  if(Object.keys(data).some(key=>key!=='version'&&key!=='entries')||data.version!==1||!data.entries||typeof data.entries!=='object'||Array.isArray(data.entries))throw new Error('Unsupported journal');
+  for(const [key,entry] of Object.entries(data.entries)){
+    if(!entry||typeof entry!=='object'||Array.isArray(entry))throw new Error('Invalid journal entry');
+    const e=entry as Record<string,unknown>;
+    if(e.lessonId!==key||typeof e.memo!=='string'||e.memo.length>1500||typeof e.updatedAt!=='string'||typeof e.version!=='number'||!Number.isFinite(e.version))throw new Error('Invalid journal entry');
+  }
+  return parseJournal(raw);
+}

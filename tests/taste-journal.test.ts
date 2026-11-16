@@ -38,3 +38,11 @@ describe('local diagram setting validation',()=>{
     expect(entry.beforeSetting).toBe(value);expect(entry.afterSetting).toBe(value);
   });
 });
+
+it('rejects unreadable mutation bases instead of converting them to an empty write',async()=>{
+ const {parseJournalForWrite}=await import('../src/lib/taste-journal');
+ for(const raw of ['', '{', 'null','[]','{"version":2,"entries":{}}','{"version":1,"entries":[]}','{"version":1,"entries":{"x":{"memo":"keep"}}}'])expect(()=>parseJournalForWrite(raw)).toThrow();
+ expect(parseJournalForWrite(null)).toEqual(emptyJournal());
+ const journal=updateJournal(emptyJournal(),'light',1,{memo:'intact'});
+ expect(parseJournalForWrite(JSON.stringify(journal))).toEqual(parseJournal(JSON.stringify(journal)));
+});
