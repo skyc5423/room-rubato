@@ -36,7 +36,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [trustedLocalSnapshot,setTrustedLocalSnapshot] = useState(false);
   function acceptStoredSnapshot(raw:string|null){
     try{const parsed=parseJournalForWrite(raw);setJournal(withPending(parsed));setRawRecovery(null);setTrustedLocalSnapshot(true);return parsed;}
-    catch(error){setTrustedLocalSnapshot(false);if(raw!==null)setRawRecovery({owner,raw});throw error;}
+    catch(error){setJournal(withPending(parseJournal(raw)));setTrustedLocalSnapshot(false);if(raw!==null)setRawRecovery({owner,raw});throw error;}
   }
   function readStoredForWrite(){
     try{return acceptStoredSnapshot(localStorage.getItem(journalKey(owner)));}
@@ -75,8 +75,10 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     if (!isHydrated) return;
     pendingWrites.current={};pendingHadData.current=false;setTrustedLocalSnapshot(false);setRawRecovery(null);setPendingError('');
     try{pendingWrites.current=readPending(owner);}catch{setPendingError('이전 실패 입력의 임시 사본을 읽지 못했어요. 기존 기록은 바꾸지 않았습니다.');}
+    // A denied read starts empty; parse failures may still safely display recoverable fields.
+    setJournal(withPending(emptyJournal()));
     try { setJournal(withPending(readStoredForWrite()));setStorageError(Object.keys(pendingWrites.current).length?'이전에 저장하지 못한 입력을 이 탭에서 되살렸어요. 아직 원본에 저장된 것은 아닙니다. 내용을 확인하고 다시 저장하거나 내보내기로 보관해 주세요.':''); }
-    catch { setJournal(withPending(emptyJournal()));setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
+    catch { setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
     try { setHasRestoreBackup(!!localStorage.getItem(`${journalKey(owner)}:before-cloud-restore`)); } catch { setHasRestoreBackup(false); }
     try{const value=parseNotebookDraft(sessionStorage.getItem(notebookDraftKey(owner)));setRecovery(value?{owner,value}:null);setDraftStorageError('');}catch{setRecovery(null);setDraftStorageError('이 탭에 임시 수정을 보관할 수 없어요. 이동하거나 새로고침하기 전에 수정 내용을 저장하거나 복사해 주세요.');}
     setLoadedOwner(owner);setDraftEntry(null);setSelected(null);setStage(0);setNotice('');

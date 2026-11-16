@@ -51,6 +51,19 @@ export function parseJournalForWrite(raw:string|null):TasteJournal {
     if(!entry||typeof entry!=='object'||Array.isArray(entry))throw new Error('Invalid journal entry');
     const e=entry as Record<string,unknown>;
     if(e.lessonId!==key||typeof e.memo!=='string'||e.memo.length>1500||typeof e.updatedAt!=='string'||typeof e.version!=='number'||!Number.isFinite(e.version))throw new Error('Invalid journal entry');
+    // Display parsing may hide unsupported values; mutation must preserve their raw
+    // evidence rather than normalize another entry while saving an unrelated one.
+    for(const field of ['before','after']){
+      const choice=e[field];
+      if(choice!==undefined&&(typeof choice!=='string'||!['a','b','both','unsure'].includes(choice)))throw new Error('Invalid journal choice');
+    }
+    for(const field of ['beforeSetting','afterSetting']){
+      const setting=e[field];
+      if(setting!==undefined&&(typeof setting!=='number'||!Number.isFinite(setting)||setting<0||setting>100))throw new Error('Invalid journal setting');
+    }
+    // Older records may omit the bookmark entirely. Only that absence can safely
+    // default to false; an explicitly stored non-boolean must not be overwritten.
+    if(e.bookmarked!==undefined&&typeof e.bookmarked!=='boolean')throw new Error('Invalid journal bookmark');
   }
   return parseJournal(raw);
 }

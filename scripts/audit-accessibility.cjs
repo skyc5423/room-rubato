@@ -167,6 +167,16 @@ if(await corruptPage.getByRole('textbox',{name:'읽지 못한 브라우저 원�
 if(await corruptPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==corruptRaw)throw Error('Malformed journal was overwritten');
 if(await corruptPage.getByRole('button',{name:'A 쪽',exact:true}).getAttribute('aria-pressed')!=='true')throw Error('Unsaved input was lost');
 console.log('PASS malformed journal preserved verbatim, raw copy exposed, new input retained');await corruptContext.close();
+const optionalContext=await browser.newContext({viewport:{width:320,height:844}});
+const optionalRaw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'synthetic recoverable original',bookmarked:'true',before:'future-choice',beforeSetting:'72',updatedAt:'2026-11-16'}}});
+await optionalContext.addInitScript(raw=>localStorage.setItem('rubato_taste_journal_v1:guest',raw),optionalRaw);
+const optionalPage=await optionalContext.newPage();await optionalPage.goto('http://127.0.0.1:3000/notes?lesson=space');
+await optionalPage.getByRole('button',{name:'A 쪽',exact:true}).click();
+if(await optionalPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==optionalRaw)throw Error('Unrelated write normalized rejected optional fields');
+await optionalPage.getByText('읽지 못한 원본 기록 복사하기',{exact:true}).click();
+if(await optionalPage.getByRole('textbox',{name:'읽지 못한 브라우저 원본 기록',exact:true}).inputValue()!==optionalRaw)throw Error('Optional-field recovery copy changed bytes');
+if(await optionalPage.getByRole('button',{name:'A 쪽',exact:true}).getAttribute('aria-pressed')!=='true')throw Error('Blocked optional-field write lost new input');
+console.log('PASS malformed optional fields preserved on unrelated activity write with recoverable pending input');await optionalContext.close();
 const pendingContext=await browser.newContext();
 await pendingContext.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='rubato_taste_journal_v1:guest'&&!window.__allowNotebookSave)throw Error('synthetic notebook quota');return set.call(this,key,value);};});
 const pendingPage=await pendingContext.newPage();await pendingPage.goto('http://127.0.0.1:3000/notes?lesson=light');

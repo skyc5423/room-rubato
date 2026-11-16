@@ -1,5 +1,5 @@
 import { describe,it,expect } from 'vitest';
-import { emptyJournal,parseJournal,updateJournal,suggestNext,journalKey } from '../src/lib/taste-journal';
+import { emptyJournal,parseJournal,parseJournalForWrite,updateJournal,suggestNext,journalKey } from '../src/lib/taste-journal';
 import { tasteLessons } from '../src/lib/taste-lessons';
 describe('taste journal',()=>{
   it('recovers invalid storage and rejects malformed records',()=>{
@@ -45,4 +45,35 @@ it('rejects unreadable mutation bases instead of converting them to an empty wri
  expect(parseJournalForWrite(null)).toEqual(emptyJournal());
  const journal=updateJournal(emptyJournal(),'light',1,{memo:'intact'});
  expect(parseJournalForWrite(JSON.stringify(journal))).toEqual(parseJournal(JSON.stringify(journal)));
+});
+
+describe('lossless mutation-base optional fields',()=>{
+  it.each([
+    {before:'future-choice'},{before:null},{before:1},{after:{}},{after:'invalid'},
+    {beforeSetting:'72'},{beforeSetting:null},{beforeSetting:{}},{beforeSetting:-1},
+    {afterSetting:[]},{afterSetting:true},{afterSetting:101},
+    {bookmarked:'true'},{bookmarked:'false'},{bookmarked:0},{bookmarked:null},{bookmarked:{}},
+  ])('refuses an unrelated write rather than normalizing stored values: %j',patch=>{
+    const original=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'recoverable memo',bookmarked:true,before:'a',after:'b',beforeSetting:0,afterSetting:100,updatedAt:'2026-11-16',...patch}}});
+    let stored=original;
+    expect(()=>{const base=parseJournalForWrite(stored);stored=JSON.stringify(updateJournal(base,'space',1,{memo:'unrelated edit'}));}).toThrow();
+    expect(stored).toBe(original);
+    // Read-only display remains intentionally tolerant and can show the memo.
+    expect(parseJournal(original).entries.light.memo).toBe('recoverable memo');
+  });
+  it.each(['a','b','both','unsure'] as const)('preserves valid optional choice %s and numeric boundaries',choice=>{
+    const entry={lessonId:'light',version:1,memo:'valid',bookmarked:true,before:choice,after:choice,beforeSetting:0,afterSetting:100,updatedAt:'2026-11-16'};
+    const parsed=parseJournalForWrite(JSON.stringify({version:1,entries:{light:entry}}));
+    expect(JSON.parse(JSON.stringify(parsed.entries.light))).toEqual(entry);
+    expect(updateJournal(parsed,'space',1,{memo:'unrelated'}).entries.light).toEqual(parsed.entries.light);
+  });
+  it('allows a legacy missing bookmark and absent optional values without dropping recorded fields',()=>{
+    const entry={lessonId:'light',version:1,memo:'legacy',updatedAt:'2026-11-16'};
+    const parsed=parseJournalForWrite(JSON.stringify({version:1,entries:{light:entry}}));
+    expect(JSON.parse(JSON.stringify(parsed.entries.light))).toEqual({...entry,bookmarked:false});
+  });
+  it.each([false,true])('preserves explicit boolean bookmark %s',bookmarked=>{
+    const entry={lessonId:'light',version:1,memo:'valid',bookmarked,updatedAt:'2026-11-16'};
+    expect(parseJournalForWrite(JSON.stringify({version:1,entries:{light:entry}})).entries.light.bookmarked).toBe(bookmarked);
+  });
 });

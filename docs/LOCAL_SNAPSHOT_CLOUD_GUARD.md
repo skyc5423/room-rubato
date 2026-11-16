@@ -9,3 +9,5 @@ The notebook now tracks successful local snapshot reads separately from generic 
 Manual server reads/restores remain available. A previously sent request with unknown acknowledgment can still be retried using its original request, not later local state. The separate pending-local-input guard remains in place. This does not solve every multi-tab atomicity problem, and the current optional-field mutation parser's normalization behavior is outside this patch.
 
 Synthetic tests first failed against the previous implementation, then passed for malformed/unavailable initial reads, external malformed data and valid recovery, failed export independence, explicit restore with raw backup preservation, direct save-handler refusal, and immutable pending-request retry. No hosted account isolation claim follows from these tests.
+
+Follow-up: the previously deferred optional-field normalization issue is addressed in `LOSSLESS_LOCAL_JOURNAL_WRITES.md`. Malformed optional values now keep the snapshot untrusted while recoverable memo text remains viewable; raw originals are not normalized by unrelated writes.

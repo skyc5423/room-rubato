@@ -607,3 +607,16 @@ it('warns when a successful retry cannot remove the old temporary copy',()=>{
  expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.before).toBe('b');
  expect(JSON.stringify(view!.toJSON())).toContain('임시 실패 입력 사본을 정리하지 못했어요');act(()=>view!.unmount());
 });
+
+it.each([{before:'future-choice'},{beforeSetting:'72'},{bookmarked:'true'}])('preserves other records raw optional fields during unrelated save and deletion: %j',invalid=>{
+ const journal=updateJournal(updateJournal(emptyJournal(),'light',1,{memo:'recoverable original memo'}),'space',1,{before:'a'});
+ const raw=JSON.stringify({...journal,entries:{...journal.entries,light:{...journal.entries.light,...invalid}}});
+ storage.set(journalKey('guest'),raw);(window as any).confirm=()=>true;
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="space"/>);});
+ act(()=>button(view!,'＋ 다시 볼 단서에 저장').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(raw);
+ act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ act(()=>view!.unmount());
+});

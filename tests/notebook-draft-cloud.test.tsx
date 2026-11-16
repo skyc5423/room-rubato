@@ -47,8 +47,8 @@ it('marks failed ordinary inputs as ineligible for new account uploads until exp
  expect(cloud().props['data-pending-local']).toBe(false);act(()=>view!.unmount());
 });
 
-it.each(['malformed','unreadable'])('does not offer an untrusted %s local fallback for account upload',failure=>{
- const key=journalKey('synthetic');const raw='{broken';const local=new Map([[key,raw]]),tab=new Map<string,string>();let unreadable=failure==='unreadable';
+it.each(['malformed','unreadable','optional'])('does not offer an untrusted %s local fallback for account upload',failure=>{
+ const key=journalKey('synthetic');const raw=failure==='optional'?JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'',bookmarked:false,beforeSetting:'72',updatedAt:'2026-11-16'}}}):'{broken';const local=new Map([[key,raw]]),tab=new Map<string,string>();let unreadable=failure==='unreadable';
  vi.stubGlobal('localStorage',{getItem:(k:string)=>{if(unreadable&&k===key)throw Error('read denied');return local.get(k)||null;},setItem:(k:string,v:string)=>local.set(k,v)});
  vi.stubGlobal('sessionStorage',{getItem:(k:string)=>tab.get(k)||null,setItem:(k:string,v:string)=>tab.set(k,v),removeItem:(k:string)=>tab.delete(k)});
  vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn(),confirm:()=>true});
