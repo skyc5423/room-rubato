@@ -62,6 +62,43 @@ await b.evaluate(()=>{URL.createObjectURL=()=>{throw Error('synthetic download f
 await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
 if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
 console.log('PASS UTF-8 notebook download and explicit failure without record loss');
+// Optional field observation reads completed synthetic records without rewriting them.
+await b.goto('http://127.0.0.1:3000/privacy');
+await b.evaluate(()=>{
+ const key='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(key));
+ for(const id of ['light','space'])j.entries[id]={lessonId:id,version:1,before:'a',after:'b',memo:'synthetic field observation original',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'};
+ localStorage.setItem(key,JSON.stringify(j));
+});
+const beforeField=await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+await b.goto('http://127.0.0.1:3000/notes?lesson=light');
+const field=b.locator('[data-field-observation="light"]');await field.waitFor();
+if(await field.evaluate(el=>el.open))throw Error('Field observation unexpectedly starts expanded');
+await field.locator('summary').focus();await b.keyboard.press('Enter');
+await b.waitForFunction(()=>document.querySelector('[data-field-observation="light"]')?.open===true);
+if(!await b.locator('#observation-memo').evaluate(el=>el.readOnly))throw Error('Field observation made completed memo writable');
+await b.setViewportSize({width:320,height:760});
+if(await b.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1))throw Error('Expanded field observation overflows narrow viewport');
+if(engine==='chromium'){
+ await b.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+ const audit=await b.evaluate(()=>axe.run(document.querySelector('[data-field-observation="light"]'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));
+ if(audit.violations.length)throw Error('Field observation accessibility violations: '+JSON.stringify(audit.violations.map(v=>({id:v.id,impact:v.impact}))));
+}
+await b.setViewportSize({width:1280,height:720});
+await b.keyboard.press('Enter');
+await b.waitForFunction(()=>document.querySelector('[data-field-observation="light"]')?.open===false);
+await b.keyboard.press('Enter');
+await b.getByRole('button',{name:'← 목록으로',exact:true}).click();
+await b.getByRole('button',{name:'내 기록',exact:true}).click();
+await b.locator('article').filter({hasText:'나누면서 열어두기'}).getByRole('button',{name:'다시 살펴보기 →',exact:true}).click();
+const spaceField=b.locator('[data-field-observation="space"]');await spaceField.waitFor();
+if(await spaceField.evaluate(el=>el.open))throw Error('Expanded field state carried to another lesson');
+await spaceField.locator('summary').click();await b.reload();await spaceField.waitFor();
+if(await spaceField.evaluate(el=>el.open))throw Error('Field observation persisted expansion');
+if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeField)throw Error('Field observation changed original records');
+await b.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+await b.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+if(await b.locator('[data-field-observation]').count())throw Error('Unfinished lesson offered completed-record field observation');
+console.log('PASS optional field observation keyboard/revisit/reset and unchanged original records');
 // Real Web Audio context, synthetic pagehide event; not physical-device audibility.
 await b.addInitScript(()=>{const Audio=window.AudioContext;if(Audio)window.AudioContext=class extends Audio{constructor(...args){super(...args);window.__studyAudio=this;}};});
 await b.goto('http://127.0.0.1:3000/notes?lesson=syncopation');
