@@ -2,7 +2,7 @@ import React from 'react';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { TasteNotebook } from '../src/components/TasteNotebook';
-import { journalKey, parseJournal } from '../src/lib/taste-journal';
+import { journalKey, parseJournal, updateJournal, emptyJournal } from '../src/lib/taste-journal';
 let owner: string|null = null;
 vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:owner?{userUuid:owner}:null,isHydrated:true})}));
 let storage: Map<string,string>;
@@ -574,4 +574,27 @@ it('refuses deletion when another writer corrupts an entry after the page loads'
  expect(storage.get(journalKey('guest'))).toBe(corrupted);
  expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(corrupted);
  act(()=>view!.unmount());
+});
+
+it('restores failed ordinary input after a client-route unmount without writing it automatically',()=>{
+ const setItem=vi.fn(()=>{throw Error('quota');});vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+ act(()=>view!.root.findByProps({id:'observation-memo'}).props.onChange({target:{value:'unsaved ordinary memo'}}));
+ act(()=>view!.unmount());const attempts=setItem.mock.calls.length;
+ act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('unsaved ordinary memo');expect(setItem).toHaveBeenCalledTimes(attempts);
+ owner='other';act(()=>view!.update(<TasteNotebook initialLesson="light"/>));expect(JSON.stringify(view!.toJSON())).not.toContain('unsaved ordinary memo');act(()=>view!.unmount());
+});
+
+it('discards failed inputs only after confirmation and keeps committed journal bytes',()=>{
+ const original=JSON.stringify(updateJournal(emptyJournal(),'light',1,{before:'a',memo:'original'}));storage.set(journalKey('guest'),original);
+ vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:()=>{throw Error('quota');}});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>view!.root.findByProps({id:'observation-memo'}).props.onChange({target:{value:'pending'}}));
+ const confirm=vi.fn(()=>false);(window as any).confirm=confirm;
+ act(()=>button(view!,'저장 실패 입력 버리기').props.onClick());expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('pending');
+ confirm.mockReturnValue(true);act(()=>button(view!,'저장 실패 입력 버리기').props.onClick());
+ expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');expect(storage.get(journalKey('guest'))).toBe(original);
+ act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');act(()=>view!.unmount());
 });

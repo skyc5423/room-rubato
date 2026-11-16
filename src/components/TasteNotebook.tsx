@@ -9,6 +9,7 @@ import {ArchitectureCaseStudy} from './ArchitectureCaseStudy';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePersonaStore } from '@/lib/persona-store';
 import { tasteLessons, TasteLesson } from '@/lib/taste-lessons';
+import {readPending,retainPending,type PendingWrites} from '@/lib/notebook-pending';
 import {notebookDraftKey,parseNotebookDraft,sameDraftBase,type NotebookDraft} from '@/lib/notebook-draft';
 import { notebookReturn } from '@/lib/notebook-return';
 import { emptyJournal, journalKey, parseJournal, parseJournalForWrite, updateJournal, suggestNext, TasteJournal, JournalEntry, ObservationChoice } from '@/lib/taste-journal';
@@ -51,7 +52,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   const [draftOwner,setDraftOwner] = useState<string|null>(null);
   const [recovery,setRecovery]=useState<{owner:string;value:NotebookDraft}|null>(null);
   const [draftStorageError,setDraftStorageError]=useState('');
-  const pendingWrites = useRef<Record<string,{base:JournalEntry|undefined;patch:Partial<JournalEntry>}>>({});
+  const pendingWrites = useRef<PendingWrites>({});
+  const [pendingError,setPendingError]=useState('');
   function withPending(value:TasteJournal):TasteJournal {
     const entries={...value.entries};
     for(const [id,pending] of Object.entries(pendingWrites.current)) {
@@ -66,9 +68,10 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   useEffect(() => { if(selected){lessonHeading.current?.focus({preventScroll:true});lessonHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=true;}else if(hadLesson.current){notebookHeading.current?.focus({preventScroll:true});notebookHeading.current?.scrollIntoView?.({block:'start',behavior:'instant'});hadLesson.current=false;} }, [selected,stage]);
   useEffect(()=>{
     if (!isHydrated) return;
-    pendingWrites.current={};setRawRecovery(null);
-    try { setJournal(readStoredForWrite());setStorageError(''); }
-    catch { setJournal(emptyJournal());setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
+    pendingWrites.current={};setRawRecovery(null);setPendingError('');
+    try{pendingWrites.current=readPending(owner);}catch{setPendingError('이전 실패 입력의 임시 사본을 읽지 못했어요. 기존 기록은 바꾸지 않았습니다.');}
+    try { setJournal(withPending(readStoredForWrite()));setStorageError(Object.keys(pendingWrites.current).length?'이전에 저장하지 못한 입력을 이 탭에서 되살렸어요. 아직 원본에 저장된 것은 아닙니다. 내용을 확인하고 다시 저장하거나 내보내기로 보관해 주세요.':''); }
+    catch { setJournal(withPending(emptyJournal()));setStorageError('저장된 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않습니다. 아래에 원본이 표시되면 복사해 보관해 주세요.'); }
     try { setHasRestoreBackup(!!localStorage.getItem(`${journalKey(owner)}:before-cloud-restore`)); } catch { setHasRestoreBackup(false); }
     try{const value=parseNotebookDraft(sessionStorage.getItem(notebookDraftKey(owner)));setRecovery(value?{owner,value}:null);setDraftStorageError('');}catch{setRecovery(null);setDraftStorageError('이 탭에 임시 수정을 보관할 수 없어요. 이동하거나 새로고침하기 전에 수정 내용을 저장하거나 복사해 주세요.');}
     setLoadedOwner(owner);setDraftEntry(null);setSelected(null);setStage(0);setNotice('');
@@ -84,6 +87,12 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   },[owner,isHydrated]);
   const ready = isHydrated && loadedOwner===owner;
   const writer=useNotebookWriter(owner,ready);
+  useEffect(()=>{
+    if(!ready)return;
+    const persisted=retainPending(owner,pendingWrites.current);
+    if(persisted)setPendingError('');
+    if(!persisted&&Object.keys(pendingWrites.current).length)setPendingError('실패 입력을 이 화면의 메모리에만 보관하고 있어요. 사이트 안에서 이동해도 복귀할 수 있지만, 새로고침하거나 탭을 닫기 전에 내보내기로 보관해 주세요.');
+  },[ready,owner,journal]);
   // Native history is supported by Next: each lesson/list transition has a reloadable URL.
   function writeLessonUrl(id:string|null,replace=false){
     if(!window.location?.href || !window.history)return;
@@ -195,7 +204,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     const pending=pendingWrites.current[id];
     if(pending&&JSON.stringify(base.entries[id])!==JSON.stringify(pending.base)){
       if(!commitDraft)pending.patch={...pending.patch,...patch,updatedAt:new Date().toISOString()};
-      setJournal(withPending(base));setStorageError('다른 탭에서 기록이 바뀌었거나 삭제되어 저장하지 않았어요. 화면의 입력 내용을 내보내기로 보관한 뒤 새로고침해 최신 기록을 확인해 주세요.');return false;
+      setJournal(withPending(base));setStorageError('다른 탭에서 기록이 바뀌었거나 삭제되어 저장하지 않았어요. 화면의 입력 내용을 내보내기로 보관한 뒤 ‘저장 실패 입력 버리기’로 최신 기록을 확인해 주세요.');return false;
     }
     const merged={...pending?.patch,...patch};
     const updated=updateJournal(base,id,version,merged);
@@ -208,6 +217,13 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     }
   }
 
+  function discardPending(){
+    if(!window.confirm('저장하지 못한 입력만 버릴까요? 이미 저장된 원본 기록은 바뀌지 않습니다.'))return;
+    const writes=pendingWrites.current;
+    if(!retainPending(owner,{})){retainPending(owner,writes);setPendingError('임시 사본을 지우지 못해 실패 입력을 유지했어요. 먼저 내보내기로 보관한 뒤 다시 시도해 주세요.');return;}
+    pendingWrites.current={};setPendingError('');
+    try{setJournal(readStoredForWrite());setStorageError('');}catch{setJournal(emptyJournal());setStorageError('실패 입력은 버렸지만 원본 기록을 읽지 못했어요. 원본은 덮어쓰지 않았습니다.');}
+  }
   function open(n:TasteLesson) {
     if(draftEntry&&!window.confirm('저장하지 않은 수정을 버리고 다른 탐색을 열까요? 기존 기록은 유지돼요.'))return;
     const saved = currentJournal.entries[n.id];
@@ -282,6 +298,8 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     {!lesson&&writerNotice}
     {!lesson&&<a href="#notebook-storage" className="mt-2 inline-flex min-h-11 items-center text-sm underline underline-offset-4">저장 범위와 기록 관리 보기</a>}
     {rawRecovery?.owner===owner&&<details className="my-4 rounded-xl border border-[#0042AF]/30 bg-white p-4"><summary className="min-h-11 cursor-pointer py-2 font-semibold">읽지 못한 원본 기록 복사하기</summary><p className="text-sm leading-6">자동으로 복구하거나 삭제하지 않았어요. 이 원본과 새로 입력한 내용의 내보내기는 서로 다릅니다. 메모가 포함될 수 있으니 공개하지 말고 개인적으로 보관해 주세요.</p><textarea aria-label="읽지 못한 브라우저 원본 기록" readOnly value={rawRecovery.raw} className="mt-3 min-h-32 w-full border p-2 text-sm"/></details>}
+    {ready&&Object.keys(pendingWrites.current).length>0&&<button type="button" className={`${button} my-3`} onClick={discardPending}>저장 실패 입력 버리기</button>}
+    {ready&&pendingError&&<p role="alert" className="my-3 rounded-xl bg-amber-100 p-3 text-sm">{pendingError}</p>}
     {navigationError&&<p role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 text-sm">{navigationError}</p>}
     {ready&&draftStorageError&&<p role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 text-sm">{draftStorageError}</p>}
     {ready&&draftStorageError&&!draftEntry&&!pendingRecovery&&<button className={button} onClick={()=>{if(window.confirm('이 탭에 남은 임시 수정 사본을 지울까요? 저장된 기록은 유지돼요.'))clearTabDraft();}}>임시 사본 삭제 다시 시도</button>}
