@@ -58,7 +58,7 @@ jobs:
           BROWSER_ENGINE=webkit node scripts/verify-explore-browser.cjs
           node scripts/diagnose-crash-lock.cjs
           node scripts/verify-notebook-browser.cjs
-          BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs
+          for trial in 1 2; do BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs; done
           BROWSER_ENGINE=webkit node scripts/verify-notebook-browser.cjs
           node scripts/verify-flavor-browser.cjs
           BROWSER_ENGINE=firefox node scripts/verify-flavor-browser.cjs

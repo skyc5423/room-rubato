@@ -14,6 +14,7 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported en
  if(await page.title()!=='섬유와 조직 | Room Rubato')throw Error('Wrong fibre page title');
  const terms=page.locator('[data-fibre-terms]');const explanation=page.locator('[data-fibre-explanation]');
  for(const disclosure of [terms,explanation]){if(await disclosure.evaluate(el=>el.open))throw Error('Initial disclosure open');await disclosure.locator('summary').focus();await page.keyboard.press('Enter');await disclosure.evaluate(el=>{if(!el.open)throw Error('Keyboard disclosure did not open');});}
+ const realCase=page.locator('[data-fibre-case]');await realCase.locator('summary').focus();await page.keyboard.press('Enter');await realCase.getByText('실크 날실과 면 씨실',{exact:false}).waitFor();
  const options=page.locator('[data-fibre-example]');if(await options.count()!==2)throw Error('Expected two bounded examples');
  await options.nth(1).focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>document.querySelector('[data-fibre-example="same-weave"]')?.getAttribute('aria-pressed')==='true');
  if(await explanation.evaluate(el=>el.open))throw Error('Stale explanation carried to next example');

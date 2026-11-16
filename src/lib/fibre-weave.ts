@@ -9,3 +9,5 @@ export const fibreWeaveSources=[
  {title:'Canadian Conservation Institute · 섬유와 직물 조직',url:'https://www.canada.ca/en/conservation-institute/services/preventive-conservation/guidelines-collections/textiles-costumes.html'},
  {title:'US National Park Service · Weaving Patterns',url:'https://www.nps.gov/articles/000/weaving-patterns.htm'},
 ];
+
+export const mixedFibreCaseSource="https://www.metmuseum.org/pt/-/media/files/about-the-met/conservation-and-scientific-research/textile-conservation/highlights/the-sacred-and-the-modern_madina-sitara_metropolitan_museum_journal_v_52_2017.pdf?sc_lang=zh";

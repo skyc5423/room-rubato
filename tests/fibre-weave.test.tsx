@@ -2,7 +2,7 @@ import React from 'react';
 import {act,create} from 'react-test-renderer';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {it,expect,vi} from 'vitest';
-import {plainWeave,fibreWeaveExamples,fibreWeaveSources} from '../src/lib/fibre-weave';
+import {plainWeave,fibreWeaveExamples,fibreWeaveSources,mixedFibreCaseSource} from '../src/lib/fibre-weave';
 import {FibreWeaveStudy} from '../src/components/FibreWeaveStudy';
 import Page,{metadata} from '../src/app/observe/fibre-weave/page';
 vi.mock('next/link',()=>({default:({children,...props}:any)=><a {...props}>{children}</a>}));
@@ -29,3 +29,5 @@ it('has no inputs or storage and remounts at the first example',()=>{
 it('provides metadata, one page heading and a catalogue return link',()=>{
  const html=renderToStaticMarkup(<Page/>);expect(metadata.title).toContain('섬유와 조직');expect(html.match(/<h1/g)).toHaveLength(1);expect(html).toContain('href="/explore"');expect(html).toContain('약 2–3분');
 });
+
+it('bounds the documented mixed-fibre example to its actual object and does not infer fibre from appearance',()=>{const html=renderToStaticMarkup(<FibreWeaveStudy/>);expect(html).toContain(mixedFibreCaseSource.replaceAll('&','&amp;'));expect(html).toContain('실크 날실과 면 씨실');expect(html).toContain('모든 새틴 조직의 재료나 표면 방향을 뜻하지');expect(html).toContain('사진이나 광택만 보고 섬유를 식별하는 활동도 아닙니다');});

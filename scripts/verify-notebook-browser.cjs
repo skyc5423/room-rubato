@@ -4,14 +4,32 @@ if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported br
 (async()=>{
 const browser=await engines[engine].launch(engine==='chromium'?{executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']}:{headless:true});
 console.log(`ENGINE ${engine} ${browser.version()} (Linux CI, not a device Safari test)`);
+const errors=[];let pageSequence=0;
+// Diagnostics contain routes and error metadata only, never DOM/storage contents.
+function routeOnly(value){try{const u=new URL(value);return u.origin+u.pathname;}catch{return 'unavailable';}}
+function observePage(page){
+ const label=`page-${++pageSequence}`;
+ const metadata=()=>({page:label,route:routeOnly(page.url()),at:new Date().toISOString()});
+ page.on('pageerror',error=>{
+  errors.push(error.message);
+  console.error('PAGE ERROR',JSON.stringify({...metadata(),message:error.message,stack:error.stack}));
+ });
+ page.on('console',message=>{
+  // React errors carry useful hydration arguments; do not serialize arbitrary app console payloads.
+  if(message.type()==='error'&&/Minified React error #\d+/.test(message.text()))console.error('REACT CONSOLE ERROR',JSON.stringify({...metadata(),message:message.text()}));
+ });
+ page.on('framenavigated',frame=>{if(frame===page.mainFrame())console.log('PAGE NAVIGATION',JSON.stringify(metadata()));});
+}
+function observeContext(context){context.on('page',observePage);}
+
 // Isolate direct-entry rendering from the later completed-record navigation journey.
-const directContext=await browser.newContext();const direct=await directContext.newPage();
+const directContext=await browser.newContext();observeContext(directContext);const direct=await directContext.newPage();
 await direct.goto('http://127.0.0.1:3000/notes?lesson=perspective');
 await direct.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 if(await direct.locator('[data-field-observation]').count())throw Error('Fresh unfinished lesson displays field card');
 console.log('PASS fresh-context perspective direct entry');await directContext.close();
 if(engine==='webkit'){
- const isolated=await browser.newContext();const page=await isolated.newPage();
+ const isolated=await browser.newContext();observeContext(isolated);const page=await isolated.newPage();
  await page.goto('http://127.0.0.1:3000/privacy');
  await page.evaluate(()=>localStorage.setItem('rubato_taste_journal_v1:guest',JSON.stringify({version:1,entries:{space:{lessonId:'space',version:1,before:'a',after:'b',memo:'isolated synthetic',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'}}})));
  await page.goto('http://127.0.0.1:3000/notes?lesson=space');
@@ -22,7 +40,7 @@ if(engine==='webkit'){
  console.log('PASS isolated completed space card/reload to unfinished perspective');await isolated.close();
 }
 
-const context=await browser.newContext();
+const context=await browser.newContext();observeContext(context);
 await context.addInitScript(()=>{
  window.__writerTrace=[];
  const request=navigator.locks?.request.bind(navigator.locks);
@@ -31,12 +49,12 @@ await context.addInitScript(()=>{
   return callback(lock);
  });
 });
-const a=await context.newPage();const errors=[];a.on('pageerror',e=>errors.push(e.message));
+const a=await context.newPage();
 await a.goto('http://127.0.0.1:3000/notes?lesson=light');
 await a.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 await a.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='A 쪽'&&!b.disabled));
 await a.getByRole('button',{name:'A 쪽',exact:true}).click();
-const b=await context.newPage();b.on('pageerror',e=>errors.push(e.message));await b.goto('http://127.0.0.1:3000/notes?lesson=light');
+const b=await context.newPage();await b.goto('http://127.0.0.1:3000/notes?lesson=light');
 await b.getByText('다른 탭에서 관찰실을 편집 중이에요.',{exact:false}).waitFor();
 if(!await b.getByRole('button',{name:'＋ 다시 볼 단서에 저장',exact:true}).isDisabled())throw Error('second tab writable');
 const titleBox=await b.getByRole('heading',{level:1}).boundingBox();const noticeBox=await b.getByRole('status').filter({hasText:'다른 탭에서 관찰실을 편집 중'}).boundingBox();if(!titleBox||!noticeBox||noticeBox.y-titleBox.y-titleBox.height>48)throw Error('Read-only explanation is detached from the lesson heading');
