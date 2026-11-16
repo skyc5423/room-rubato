@@ -56,4 +56,7 @@ jobs:
           node scripts/verify-notebook-browser.cjs
           BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs
           BROWSER_ENGINE=webkit node scripts/verify-notebook-browser.cjs
+          node scripts/verify-flavor-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-flavor-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-flavor-browser.cjs
           node scripts/audit-accessibility.cjs

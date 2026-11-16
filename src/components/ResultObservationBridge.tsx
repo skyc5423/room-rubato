@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 /** Editorial domain-to-activity navigation. Deliberately does not accept user scores. */
 const activities:Record<string,{href:string;label:string;question:string}>={
+ 'gastronomy-scent':{href:'/observe/flavor',label:'풍미의 언어 살펴보기',question:'고소하다·산뜻하다는 말에는 어떤 감각과 평가가 함께 담길까요? 시식 없이 가상 예문을 읽어보세요.'},
  'visual-art':{href:'/compare/light-and-edges',label:'두 작품의 빛과 경계 비교하기',question:'같은 그림 안에서도 또렷한 가장자리와 흐린 가장자리를 함께 찾을 수 있을까요?'},
  'space-interior':{href:'/notes?lesson=space',label:'시선과 동선 직접 비교하기',question:'너머가 보이는 것과 직접 걸어갈 수 있는 것은 어떻게 다를까요?'},
  music:{href:'/notes?lesson=syncopation',label:'기준 박과 두 리듬 들어보기',question:'따라가기 편한 리듬과 다시 듣고 싶은 리듬은 같을까요? 소리 없이도 읽을 수 있어요.'},
