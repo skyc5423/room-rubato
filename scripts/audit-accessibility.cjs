@@ -194,5 +194,20 @@ for(const missing of ['/missing-rubato-page','/compare/missing-study']){
 }
 if(await page.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeMissingPage)throw Error('Missing-page recovery changed journal');
 console.log('PASS Korean unknown-route recovery, correct noindex/status and unchanged records');
+// Titles must distinguish direct visits and client-side history, without personal answers.
+for(const [path,title] of [
+ ['/daily','오늘의 질문 | Room Rubato'],['/research','내가 고른 취향 | Room Rubato'],
+ ['/account/withdrawal','계정 탈퇴 | Room Rubato'],
+ ['/domain/visual-art','미술 · 디자인 · 취향 고르기 | Room Rubato'],
+ ['/compare/light-and-edges','빛이 만드는 경계 · 두 작품 사이 | Room Rubato']
+]) {
+ await page.goto('http://127.0.0.1:3000'+path);
+ await page.waitForFunction(expected=>document.title===expected,title);
+}
+await page.getByRole('link',{name:'← 두 작품 사이',exact:true}).click();
+await page.waitForFunction(()=>document.title==='두 작품 사이 | Room Rubato');
+await page.goBack();
+await page.waitForFunction(()=>document.title==='빛이 만드는 경계 · 두 작품 사이 | Room Rubato');
+console.log('PASS distinct route titles on direct visit, client navigation and history return');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
