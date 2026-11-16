@@ -124,20 +124,22 @@ await b.goto('http://127.0.0.1:3000/notes?lesson=perspective');
 await b.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 if(await b.locator('[data-field-observation]').count())throw Error('Unfinished lesson offered completed-record field observation');
 console.log('PASS optional field observation keyboard/revisit/reset and unchanged original records');
-// Real Web Audio context, synthetic pagehide event; not physical-device audibility.
+// Real Web Audio context, synthetic background visibility; not physical-device audibility.
+// Do not fake pagehide/pageshow in a live document: Next uses them to abort RSC fetches.
+// The pagehide stop handler remains independently covered by rhythm-listening.test.tsx.
 await b.addInitScript(()=>{const Audio=window.AudioContext;if(Audio)window.AudioContext=class extends Audio{constructor(...args){super(...args);window.__studyAudio=this;}};});
 await b.goto('http://127.0.0.1:3000/notes?lesson=syncopation');
 await b.getByRole('button',{name:'A 듣기',exact:true}).click();
 try{await b.getByText('A 재생 중',{exact:true}).waitFor();}catch(error){console.error('AUDIO START DIAGNOSTIC',await b.evaluate(()=>({state:window.__studyAudio?.state,visibility:document.visibilityState,status:[...document.querySelectorAll('[role=status]')].map(el=>el.textContent)})));throw error;}
-await b.evaluate(()=>window.dispatchEvent(new Event('pagehide')));
+await b.evaluate(()=>{window.__originalHiddenDescriptor=Object.getOwnPropertyDescriptor(document,'hidden');Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
 await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
 if(!await b.getByRole('button',{name:'정지',exact:true}).isDisabled())throw Error('Hidden-page audio remained active');
-await b.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+await b.evaluate(()=>{if(window.__originalHiddenDescriptor)Object.defineProperty(document,'hidden',window.__originalHiddenDescriptor);else delete document.hidden;delete window.__originalHiddenDescriptor;document.dispatchEvent(new Event('visibilitychange'));});
 if(await b.evaluate(()=>window.__studyAudio?.state)!=='closed')throw Error('Returning to page unexpectedly resumed audio');
 await b.getByRole('button',{name:'B 듣기',exact:true}).click();await b.getByText('B 재생 중',{exact:true}).waitFor();
 await b.getByRole('button',{name:'정지',exact:true}).click();
 await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
-console.log('PASS Web Audio pagehide cancellation, no auto-resume, explicit replay (synthetic lifecycle event)');
+console.log('PASS Web Audio background cancellation, no auto-resume, explicit replay (synthetic visibility event)');
 if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

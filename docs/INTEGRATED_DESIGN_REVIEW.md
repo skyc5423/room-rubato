@@ -26,3 +26,9 @@ This is an assistant editorial/design review of real pixels, not a human-user ae
 Artifact14225695841 from candidate7b656321536272f84f58e00deb09a170d8d8a484 showed that at640px the fixed header wraps to three rows and visibly covers the home/notebook heading. The earlier390/768/1280 samples did not reveal this. A shared tablet-width main-content offset now reserves the additional wrapped rows, preserving existing mobile in-flow and desktop spacing. The capture script asserts at least16px heading clearance below the header at640/768px. This is a bounded layout fix, not proof of every possible zoom/font/device setting.
 
 The revised390px notebook screenshot measured5141px versus6443px before the disclosure change. This is a1302px reduction in the initial page, not an asserted usability or retention percentage. The native summary visibly retains keyboard focus and can reopen all paths.
+
+## Separating test lifecycle from application errors
+
+The retained notebook browser suite intermittently logged WebKit RSC access-control failures after fake pagehide/pageshow events. Installed Next15.5.29 source shows pagehide aborts the shared RSC fetch controller, while pageshow replaces it; late fetch catches inspect the current controller. Dispatching both without actually leaving the document can therefore create an inconsistent app-router lifecycle. This is evidence of a test-induced cancellation path, not proof of a production CORS policy problem.
+
+The real Web Audio browser check now simulates background visibility via a temporary document.hidden descriptor, restores it, and verifies closure/no automatic resume/explicit replay. It no longer fakes an app-wide unload while retaining the page. Every pageerror still fails the suite; no CORS setting or error filter is relaxed. Component tests retain the separate pagehide stop/cancellation assertion. Browser-level real unload/audio audibility remains a distinct limit, not silently relabelled as verified.
