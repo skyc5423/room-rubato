@@ -190,3 +190,17 @@ it('moves focus to the new survey question after an answer instead of leaving it
   act(()=>{vi.advanceTimersByTime(360);});expect(focus).toHaveBeenCalledOnce();
  }finally{act(()=>view?.unmount());vi.useRealTimers();}
 });
+
+it('grounds the completed room preview in recorded scores rather than prototype claims', () => {
+  const domain=ALL_MASTER_DOMAINS[0];
+  const original=store.state.completedDomains;
+  store.state.completedDomains={ [domain.id]: { matchedPhenotypeId:domain.phenotypes[0].id, axisScores:{} } };
+  let view:any;
+  try {
+    act(()=>{view=create(<Page/>);});
+    act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(domain.id));
+    const text=JSON.stringify(view.toJSON());
+    expect(text).toContain('저장된 축 점수가 없어 답변 방향을 요약할 수 없어요');
+    expect(text).not.toContain(domain.phenotypes[0].summary);
+  } finally {act(()=>view?.unmount());store.state.completedDomains=original;}
+});

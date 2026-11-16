@@ -9,7 +9,7 @@ import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import {storedSeconds} from '@/lib/result-display';
-import { recordedAxisScore } from '@/lib/result-evidence';
+import { recordedAxisScore, summarizeRecordedAxes } from '@/lib/result-evidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_MASTER_DOMAINS,
@@ -131,7 +131,7 @@ export default function HomePage() {
         domain,
         roomObj,
         headline: matched?`내 ${domain.shortTitle} 취향: ${matched.name}`:`${domain.shortTitle}: 저장된 유형 확인 필요`,
-        body: matched?.summary??'현재 목록에서 저장된 유형을 찾지 못했어요. 기록을 열어 저장된 점수와 선택을 확인해 보세요.',
+        body: matched ? summarizeRecordedAxes(domain.axes, completed.axisScores) : '현재 목록에서 저장된 유형을 찾지 못했어요. 기록을 열어 저장된 점수와 선택을 확인해 보세요.',
       };
     } else {
       const pred = predictUnplayedDomainPhenotype(
