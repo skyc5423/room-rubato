@@ -31,7 +31,9 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      - name: Public-route smoke test on local production build
+      - name: Install Firefox and WebKit test engines
+        run: node node_modules/playwright-core/cli.js install --with-deps firefox webkit
+      - name: Public-route and multi-engine notebook tests on local production build
         shell: bash
         run: |
           npm start -- -H 127.0.0.1 > /tmp/room-rubato-start.log 2>&1 &
@@ -45,3 +47,5 @@ jobs:
           test "$READY" = 1
           node scripts/smoke.mjs http://127.0.0.1:3000
           node scripts/verify-notebook-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-notebook-browser.cjs

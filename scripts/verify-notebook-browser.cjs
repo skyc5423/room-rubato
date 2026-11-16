@@ -1,6 +1,9 @@
-const {chromium}=require('playwright-core');
+const engines=require('playwright-core');
+const engine=process.env.BROWSER_ENGINE||'chromium';
+if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported browser engine');
 (async()=>{
-const browser=await chromium.launch({executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
+const browser=await engines[engine].launch(engine==='chromium'?{executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']}:{headless:true});
+console.log(`ENGINE ${engine} ${browser.version()} (Linux CI, not a device Safari test)`);
 const context=await browser.newContext();const a=await context.newPage();const errors=[];a.on('pageerror',e=>errors.push(e.message));
 await a.goto('http://127.0.0.1:3000/notes?lesson=light');
 await a.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
@@ -23,6 +26,7 @@ if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v
 console.log('PASS external non-locking write preserved by fresh read (not atomic CAS)');
 await b.goto('http://127.0.0.1:3000/privacy');await legacy.goto('http://127.0.0.1:3000/notes?lesson=light');
 await legacy.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));console.log('PASS navigation away releases lease');
+if(engine==='chromium'){
 const crash=await context.newCDPSession(legacy);await Promise.race([crash.send('Page.crash').catch(()=>{}),new Promise(resolve=>setTimeout(resolve,1500))]);
 await b.goto('http://127.0.0.1:3000/notes?lesson=light');
 await legacy.close();
@@ -31,6 +35,7 @@ const retry=b.getByRole('button',{name:'이 탭에서 편집 다시 시도'});if
 await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
 if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('crash recovery lost saved record');
 console.log('PASS crashed-tab close and retry recover editing with saved records intact');
+}else console.log('SKIP renderer crash injection: Chromium CDP only');
 if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
