@@ -114,5 +114,15 @@ for(const slug of domainSlugs){
  await assertReflow(slug+' result');await audit('320px '+slug+' result');
  console.log('PASS 320px questionnaire completion and result reflow: '+slug);
 }
+// Guest storage failure and file-download failure must still leave a copyable recovery record.
+const recoveryContext=await browser.newContext();
+await recoveryContext.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='room_rubato_guest_state_v4')throw new DOMException('synthetic quota','QuotaExceededError');return set.call(this,key,value);};URL.createObjectURL=()=>{throw Error('synthetic download unavailable');};});
+const recoveryPage=await recoveryContext.newPage();await recoveryPage.goto('http://127.0.0.1:3000/daily');
+await recoveryPage.locator('button.paper-postcard').first().click();await recoveryPage.getByRole('button',{name:/유지하기/}).click();
+await recoveryPage.getByRole('button',{name:'현재 기록 내려받기',exact:true}).click();
+const copied=JSON.parse(await recoveryPage.getByRole('textbox',{name:'복구용 JSON 직접 복사',exact:true}).inputValue());
+if(copied.dailyShiftLog.length!==1)throw Error('Manual recovery omitted unsaved daily answer');
+if(await recoveryPage.evaluate(()=>localStorage.getItem('room_rubato_guest_state_v4'))!==null)throw Error('Failure fixture unexpectedly wrote journal');
+console.log('PASS unsaved survey recovery remains copyable when storage and download fail');await recoveryContext.close();
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
