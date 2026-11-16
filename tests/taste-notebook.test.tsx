@@ -518,3 +518,13 @@ it.each(['changed','deleted'])('does not resurrect or overwrite a %s entry when 
   expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 기록이 바뀌었거나 삭제되어');
   act(()=>view!.unmount());
 });
+it('blocks notebook writes in a second tab while retaining exploration and export',async()=>{
+  Object.assign(window,{navigator:{locks:{request:async(_n:string,_o:unknown,callback:(lock:null)=>unknown)=>callback(null)}}});
+  let view:ReactTestRenderer;await act(async()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());
+  expect(button(view!,'A 쪽').props.disabled).toBe(true);
+  act(()=>button(view!,'A 쪽').props.onClick());
+  expect(storage.has(journalKey('guest'))).toBe(false);
+  expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 관찰실을 편집 중');
+  await act(async()=>view!.unmount());
+});
