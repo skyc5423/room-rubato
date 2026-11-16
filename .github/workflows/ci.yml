@@ -33,6 +33,12 @@ jobs:
       - run: npm run build
       - name: Install Firefox and WebKit test engines
         run: node node_modules/playwright-core/cli.js install --with-deps firefox webkit
+      - name: Virtual audio output for headless Web Audio checks
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=rubato_test
+          pactl set-default-sink rubato_test
       - name: Public-route and multi-engine notebook tests on local production build
         shell: bash
         run: |
