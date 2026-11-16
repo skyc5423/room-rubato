@@ -10,6 +10,18 @@ await direct.goto('http://127.0.0.1:3000/notes?lesson=perspective');
 await direct.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 if(await direct.locator('[data-field-observation]').count())throw Error('Fresh unfinished lesson displays field card');
 console.log('PASS fresh-context perspective direct entry');await directContext.close();
+if(engine==='webkit'){
+ const isolated=await browser.newContext();const page=await isolated.newPage();
+ await page.goto('http://127.0.0.1:3000/privacy');
+ await page.evaluate(()=>localStorage.setItem('rubato_taste_journal_v1:guest',JSON.stringify({version:1,entries:{space:{lessonId:'space',version:1,before:'a',after:'b',memo:'isolated synthetic',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'}}})));
+ await page.goto('http://127.0.0.1:3000/notes?lesson=space');
+ await page.locator('[data-field-observation="space"] summary').click();await page.reload();
+ await page.locator('[data-field-observation="space"]').waitFor();
+ await page.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+ await page.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+ console.log('PASS isolated completed space card/reload to unfinished perspective');await isolated.close();
+}
+
 const context=await browser.newContext();
 await context.addInitScript(()=>{
  window.__writerTrace=[];
@@ -102,6 +114,12 @@ await spaceField.locator('summary').click();await b.reload();await spaceField.wa
 if(await spaceField.evaluate(el=>el.open))throw Error('Field observation persisted expansion');
 if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeField)throw Error('Field observation changed original records');
 console.log('FIELD completed lesson reopen, narrow reflow, reset and immutable journal verified; navigating to unfinished perspective');
+b.on('crash',()=>console.log('FIELD page crash event'));
+b.on('domcontentloaded',()=>console.log('FIELD DOMContentLoaded',b.url()));
+b.on('response',response=>{if(response.request().isNavigationRequest())console.log('FIELD navigation response',response.status(),response.url());});
+b.on('dialog',async dialog=>{errors.push('Unexpected field navigation dialog: '+dialog.type());console.log('FIELD unexpected dialog',dialog.type());await dialog.dismiss();});
+console.log('FIELD prior state',await b.evaluate(async()=>({url:location.href,locks:navigator.locks?await navigator.locks.query():null,temporaryKeys:Object.keys(sessionStorage).filter(k=>k.includes('pending')||k.includes('draft'))})));
+
 await b.goto('http://127.0.0.1:3000/notes?lesson=perspective');
 await b.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
 if(await b.locator('[data-field-observation]').count())throw Error('Unfinished lesson offered completed-record field observation');
