@@ -53,3 +53,12 @@ it('keeps the activity entry without duplicating the integrated artwork comparis
  expect(links.filter(a=>a.props.href==='/notes')).toHaveLength(1);
  expect(localStorage.setItem).not.toHaveBeenCalled();act(()=>view!.unmount());
 });
+
+it('resumes memo-only and after-only observations without treating bookmarks as started',()=>{
+ const memo=updateJournal(emptyJournal(),'light',1,{memo:'PRIVATE unfinished observation'});
+ expect(notebookReturn(memo).kind).toBe('continue');expect(notebookReturn(memo).target?.id).toBe('light');
+ const after=updateJournal(emptyJournal(),'context',1,{after:'unsure'});
+ expect(notebookReturn(after).kind).toBe('continue');
+ const bookmark=updateJournal(emptyJournal(),'light',1,{memo:'   ',bookmarked:true});
+ expect(notebookReturn(bookmark).kind).toBe('bookmark');
+});

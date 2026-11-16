@@ -95,7 +95,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
   }
   function showLesson(id:string|null){
     const saved=id?journal.entries[id]:undefined;
-    setSelected(id);setStage(saved?.after?2:saved?.before?1:0);
+    setSelected(id);setStage(saved?.after||saved?.memo.trim()?2:saved?.before?1:0);
     setVariation(saved?.afterSetting??saved?.beforeSetting??60);
   }
   const routeOwner=useRef<string|null>(null);
@@ -205,7 +205,7 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     const saved = currentJournal.entries[n.id];
     if(!discardDraft())return;
     setSelected(n.id);writeLessonUrl(n.id);
-    setStage(saved?.after ? 2 : saved?.before ? 1 : 0);
+    setStage(saved?.after || saved?.memo.trim() ? 2 : saved?.before ? 1 : 0);
     setVariation(saved?.afterSetting ?? saved?.beforeSetting ?? 60);
     setNotice('');
   }
