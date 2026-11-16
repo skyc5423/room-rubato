@@ -180,3 +180,13 @@ it('preserves an actual zero duration and rejects coercive common-trait summarie
  const previous=store.state.layer3Vector;store.state.layer3Vector={complexity:'0.8',conceptualism:Infinity,novelty:null} as any;let view:any;
  try{act(()=>{view=create(<Page/>);});act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));const text=JSON.stringify(view.toJSON());expect(text).toContain('문항당 평균 0.0초');expect(text).not.toContain('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');expect(text).not.toContain('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');expect((store.state.layer3Vector as any).complexity).toBe('0.8');}finally{act(()=>view?.unmount());store.state.completedDomains={};store.state.layer3Vector=previous;}
 });
+it('moves focus to the new survey question after an answer instead of leaving it on a changed option',()=>{
+ vi.useFakeTimers();const focus=vi.fn();let view:any;
+ try{
+  act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-survey-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+  act(()=>view.root.findByType(DomainExplorer).props.onSelect(ALL_MASTER_DOMAINS[0].id));
+  focus.mockClear();
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+  act(()=>{vi.advanceTimersByTime(360);});expect(focus).toHaveBeenCalledOnce();
+ }finally{act(()=>view?.unmount());vi.useRealTimers();}
+});

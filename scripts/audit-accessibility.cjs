@@ -20,5 +20,18 @@ await page.goto('http://127.0.0.1:3000/');const start=page.getByRole('button',{n
 for(const key of ['Tab','Shift+Tab'])for(let i=0;i<25;i++){await page.keyboard.press(key);if(!await page.evaluate(()=>document.querySelector('[role=dialog]')?.contains(document.activeElement)))throw Error('Keyboard focus escaped dialog');}
 await page.keyboard.press('Escape');if(await page.getByRole('dialog').count())throw Error('Escape did not dismiss dialog');
 if(!await start.evaluate(el=>el===document.activeElement))throw Error('Focus did not return to survey opener');console.log('PASS dialog keyboard containment, Escape and focus restoration');
+await start.click();
+for(let step=0;step<20;step++){
+ const heading=page.locator('[data-survey-step-heading]');
+ if(await heading.getAttribute('data-survey-step-heading')==='result')break;
+ const previous=await heading.textContent();
+ await page.locator('[role=dialog] button.paper-postcard').first().click();
+ await page.waitForFunction(old=>document.querySelector('[data-survey-step-heading]')?.textContent!==old,previous);
+ await page.waitForFunction(()=>document.querySelector('[data-survey-step-heading]')===document.activeElement);
+}
+const result=page.locator('[data-survey-step-heading=result]');await result.waitFor();const resultText=await result.textContent();await audit('survey-result');
+await page.keyboard.press('Escape');await page.reload();await page.getByRole('button',{name:/내 결과 다시 보기 →/}).first().click();
+if(await page.locator('[data-survey-step-heading=result]').textContent()!==resultText)throw Error('Saved survey result did not survive reload');
+console.log('PASS full survey, step/result focus, persistence and result revisit');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});

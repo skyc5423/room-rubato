@@ -55,6 +55,12 @@ export default function HomePage() {
     { questionId: string; chosenOption: 'A' | 'B'; responseTimeMs: number }[]
   >([]);
   const [stampedOption, setStampedOption] = useState<'A' | 'B' | null>(null);
+  const surveyStepHeading=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{
+    if(!activeDomainId)return;
+    surveyStepHeading.current?.focus({preventScroll:true});
+    surveyStepHeading.current?.scrollIntoView?.({block:'nearest'});
+  },[activeDomainId,overlayMode,questionIndex]);
   const questionStartRef = useRef<number>(Date.now());
   const choiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const choiceLockedRef = useRef(false);
@@ -482,7 +488,7 @@ export default function HomePage() {
                       {activeDomain.questions[questionIndex]?.contextHint}
                     </span>
                   )}
-                  <h2 className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.42] mb-1.5">
+                  <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="question" className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.42] mb-1.5">
                     Q{questionIndex + 1}. {activeDomain.questions[questionIndex]?.prompt}
                   </h2>
                   <p className="text-[13.5px] text-[#0042AF]/85">
@@ -609,7 +615,7 @@ export default function HomePage() {
                           {activeMatchedPhenotype.englishCode}
                         </span>
                       </div>
-                      <h2 className="font-editorial text-[21px] sm:text-[25px] text-[#010D6E] leading-[1.38] mb-2.5">
+                      <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="result" className="font-editorial text-[21px] sm:text-[25px] text-[#010D6E] leading-[1.38] mb-2.5">
                         “{activeMatchedPhenotype.name}”
                       </h2>
                       <ResultEvidence domain={activeDomain} scores={activeCompletedResult?.axisScores}/>

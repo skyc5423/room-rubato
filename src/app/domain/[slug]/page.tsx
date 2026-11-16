@@ -38,6 +38,12 @@ export default function DomainDetailPage() {
   >([]);
   const [viewMode, setViewMode] = useState<'questions' | 'result'>('questions');
 
+  const surveyStepHeading=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{
+    if(!isHydrated)return;
+    surveyStepHeading.current?.focus({preventScroll:true});
+    surveyStepHeading.current?.scrollIntoView?.({block:'nearest'});
+  },[currentIdx,viewMode,params.slug,isHydrated]);
   const questionStartRef = useRef<number>(Date.now());
   const selectingRef = useRef(false);
 
@@ -199,7 +205,7 @@ export default function DomainDetailPage() {
             <span className="inline-block px-3 py-0.5 rounded-full bg-[#FEF1D0]/90 border border-[#0042AF]/20 text-[12px] font-semibold text-[#0042AF] mb-2">
               {currentQuestion.contextHint}
             </span>
-            <h2 className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.45] mb-1.5">
+            <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="question" className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.45] mb-1.5">
               Q{currentIdx + 1}. {currentQuestion.prompt}
             </h2>
             <p className="text-[13.5px] text-[#0042AF]/85">
@@ -267,7 +273,7 @@ export default function DomainDetailPage() {
                     {matchedPhenotype.englishCode}
                   </span>
                 </div>
-                <h1 className="font-editorial text-[24px] md:text-[28px] text-[#010D6E] leading-[1.35] mb-3">
+                <h1 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="result" className="font-editorial text-[24px] md:text-[28px] text-[#010D6E] leading-[1.35] mb-3">
                   “{matchedPhenotype.name}”
                 </h1>
                 <ResultEvidence domain={domain} scores={existingCompletion?.axisScores}/>
