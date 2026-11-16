@@ -63,7 +63,7 @@ describe('optional neutral saved record inspection', () => {
   });
   it('links the two music papers through their canonical publisher DOIs', () => {
     expect(tasteLessons.find(lesson=>lesson.id==='syncopation')!.sources.map(source=>source.url)).toEqual([
-      'https://doi.org/10.1371/journal.pone.0094446','https://doi.org/10.1371/journal.pone.0311877',
+      'https://doi.org/10.1371/journal.pone.0094446','https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0139409','https://doi.org/10.1371/journal.pone.0311877',
     ]);
   });
 });

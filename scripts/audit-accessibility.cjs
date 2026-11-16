@@ -118,6 +118,14 @@ for(const slug of domainSlugs){
  await assertReflow(slug+' result');await audit('320px '+slug+' result');
  console.log('PASS 320px questionnaire completion and result reflow: '+slug);
 }
+for(const lesson of ['syncopation','complexity']){
+ await page.goto('http://127.0.0.1:3000/notes?lesson='+lesson);
+ await page.locator('summary').filter({hasText:'논문은 무엇을 확인했나요?'}).click();
+ if(lesson==='syncopation')await page.getByText('Witek 등(2014)은 펑크 드럼 패턴을 들려주고',{exact:false}).waitFor();
+ else await page.getByText('논문은 보는 즐거움과 작품의 예술적 가치를 구분합니다.',{exact:false}).waitFor();
+ await audit('expanded evidence notes '+lesson);await assertReflow('evidence notes '+lesson);
+}
+console.log('PASS sourced music and aesthetic-evidence notes expand at 320px');
 // Guest storage failure and file-download failure must still leave a copyable recovery record.
 const recoveryContext=await browser.newContext();
 await recoveryContext.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='room_rubato_guest_state_v4')throw new DOMException('synthetic quota','QuotaExceededError');return set.call(this,key,value);};URL.createObjectURL=()=>{throw Error('synthetic download unavailable');};});
