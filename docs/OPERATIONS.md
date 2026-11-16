@@ -40,3 +40,17 @@ Actions refs were resolved from their official Git repositories before pinning (
 ## Dependency advisory checkpoint (2026-11-12)
 
 `npm audit --omit=dev --json` against the committed lockfile reported zero known production dependency advisories (31 production dependencies). A follow-up `npm audit --json` including development dependencies also reported zero known advisories. No dependency or lockfile was changed. This is the registry's advisory snapshot, not a penetration test, proof of zero vulnerabilities, or provider configuration audit. Recheck as dependencies and advisories change.
+
+## Response identity guard, 2026-11-16
+
+The previous smoke check accepted HTML routes solely on status and security headers:
+an empty HTTP 200 or unrelated maintenance page could pass. The candidate now checks
+HTML/JSON media types, a bounded (2 MiB) HTML document with the Room Rubato title,
+exact health service identity, the disabled legacy-auth response, and the exact
+`no-store` directive rather than a substring. Programmatic calls also validate the
+bare origin before any request. Unexpected body contents are never logged.
+
+This is still a public-response smoke check, not full functional readiness. A branded
+error page or broken client-side interaction can still pass; browser acceptance,
+OAuth, writes, backups and recovery remain separate gates. No monitoring subscription,
+authentication, production configuration, or deployment is enabled by this change.

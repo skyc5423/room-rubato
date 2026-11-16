@@ -53,7 +53,14 @@ export function TasteNotebook({initialLesson}:{initialLesson?:string} = {}) {
     try { setHasRestoreBackup(!!localStorage.getItem(`${journalKey(owner)}:before-cloud-restore`)); } catch { setHasRestoreBackup(false); }
     try{const value=parseNotebookDraft(sessionStorage.getItem(notebookDraftKey(owner)));setRecovery(value?{owner,value}:null);setDraftStorageError('');}catch{setRecovery(null);setDraftStorageError('이 탭에 임시 수정을 보관할 수 없어요. 이동하거나 새로고침하기 전에 수정 내용을 저장하거나 복사해 주세요.');}
     setLoadedOwner(owner);setDraftEntry(null);setSelected(null);setStage(0);setNotice('');
-    const sync = (event: StorageEvent) => { if(event.key===journalKey(owner)) setJournal(parseJournal(event.newValue)); };
+    const sync = (event: StorageEvent) => {
+      // A clear event uses key=null. Do not keep deleted records visible until reload.
+      // Session storage events (e.g. an iframe) must not clear this local journal.
+      try { if(event.storageArea && event.storageArea!==localStorage)return; } catch { return; }
+      if(event.key===null){setJournal(emptyJournal());setHasRestoreBackup(false);return;}
+      if(event.key===journalKey(owner))setJournal(parseJournal(event.newValue));
+      if(event.key===`${journalKey(owner)}:before-cloud-restore`)setHasRestoreBackup(!!event.newValue);
+    };
     window.addEventListener('storage',sync);return ()=>window.removeEventListener('storage',sync);
   },[owner,isHydrated]);
   const ready = isHydrated && loadedOwner===owner;

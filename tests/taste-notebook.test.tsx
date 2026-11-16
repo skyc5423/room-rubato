@@ -416,3 +416,44 @@ describe('notebook URL history',()=>{
     expect(view!.root.findAllByType('article')).toHaveLength(8);expect(h.location.href).toBe('https://room-rubato.test/notes?from=compare#notebook-storage');expect(storage.size).toBe(0);act(()=>view!.unmount());
   });
 });
+
+describe('malformed local diagram settings',()=>{
+  it('opens saved notes without rendering untrusted objects and leaves stored bytes untouched',()=>{
+    const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'preserve this memo',bookmarked:false,before:'a',after:'b',beforeSetting:{value:60},afterSetting:['bad'],updatedAt:'2026-11-16T00:00:00Z',completedAt:'2026-11-16T00:00:00Z'}}});
+    storage.set(journalKey('guest'),raw);
+    let view:ReactTestRenderer;
+    act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('preserve this memo');
+    act(()=>button(view!,'다시 살펴보기').props.onClick());
+    expect(view!.root.findByProps({type:'range'}).props.value).toBe(60);
+    expect(storage.get(journalKey('guest'))).toBe(raw);
+    act(()=>view!.unmount());
+  });
+});
+
+describe('cross-tab browser storage clearing',()=>{
+  it('removes stale visible records and recovery-copy controls after localStorage.clear in another tab',()=>{
+    storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'removed elsewhere',bookmarked:true,before:'a',updatedAt:'2026-11-16T00:00:00Z'}}}));
+    storage.set(`${journalKey('guest')}:before-cloud-restore`,'{}');
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('removed elsewhere');
+    const listener=vi.mocked(window.addEventListener).mock.calls.find(call=>call[0]==='storage')![1] as (event:StorageEvent)=>void;
+    storage.clear();act(()=>listener({key:null,newValue:null,storageArea:localStorage} as StorageEvent));
+    expect(JSON.stringify(view!.toJSON())).not.toContain('removed elsewhere');
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeUndefined();
+    expect(storage.size).toBe(0);act(()=>view!.unmount());
+  });
+  it('ignores sessionStorage clearing and updates owner backup existence',()=>{
+    storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'keep visible',bookmarked:false,before:'a',updatedAt:'2026-11-16T00:00:00Z'}}}));
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});act(()=>button(view!,'내 기록').props.onClick());
+    const listener=vi.mocked(window.addEventListener).mock.calls.find(call=>call[0]==='storage')![1] as (event:StorageEvent)=>void;
+    act(()=>listener({key:null,newValue:null,storageArea:sessionStorage} as StorageEvent));
+    expect(JSON.stringify(view!.toJSON())).toContain('keep visible');
+    act(()=>listener({key:`${journalKey('guest')}:before-cloud-restore`,newValue:'{}',storageArea:localStorage} as StorageEvent));
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeDefined();
+    act(()=>listener({key:`${journalKey('guest')}:before-cloud-restore`,newValue:null,storageArea:localStorage} as StorageEvent));
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeUndefined();act(()=>view!.unmount());
+  });
+});

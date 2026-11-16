@@ -20,11 +20,12 @@ export function parseJournal(raw: string | null): TasteJournal {
     const value = JSON.parse(raw);
     if (value.version !== 1 || !value.entries || typeof value.entries !== 'object') return emptyJournal();
     const entries: Record<string, JournalEntry> = {};
+    const setting = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100 ? value : undefined;
     const choices = new Set(['a', 'b', 'both', 'unsure']);
     for (const [key, entry] of Object.entries(value.entries)) {
       const e = entry as JournalEntry;
       if (!e || e.lessonId !== key || typeof e.memo !== 'string' || typeof e.updatedAt !== 'string' || typeof e.version !== 'number') continue;
-      entries[key] = { ...e, before: choices.has(e.before!) ? e.before : undefined, after: choices.has(e.after!) ? e.after : undefined, memo: e.memo.slice(0, 1500), bookmarked: e.bookmarked === true };
+      entries[key] = { ...e, before: choices.has(e.before!) ? e.before : undefined, after: choices.has(e.after!) ? e.after : undefined, beforeSetting: setting(e.beforeSetting), afterSetting: setting(e.afterSetting), memo: e.memo.slice(0, 1500), bookmarked: e.bookmarked === true };
     }
     return { version: 1, entries };
   } catch { return emptyJournal(); }

@@ -36,9 +36,9 @@ describe('operational surface', () => {
         requests.push(url);
         expect(options?.credentials).toBe('omit');
         const health = url.endsWith('/api/health');
-        return new Response(health ? JSON.stringify({status:'ok',check:'liveness'}) : null, {
+        return new Response(health ? JSON.stringify({status:'ok',check:'liveness',service:'room-rubato'}) : url.endsWith('/api/users') ? JSON.stringify({error:'Legacy authentication is disabled. Use Supabase Auth.'}) : '<html><head><title>관찰실 · 취향 노트 | Room Rubato</title></head><body>fixture</body></html>', {
           status: url.endsWith('/api/users') ? 410 : 200,
-          headers: {'x-content-type-options':'nosniff','x-frame-options':'DENY','cache-control':'no-store'},
+          headers: {'content-type':url.includes('/api/')?'application/json':'text/html; charset=utf-8','x-content-type-options':'nosniff','x-frame-options':'DENY','cache-control':'no-store'},
         });
       });
       expect(requests).toContain('https://example.com/compare');
@@ -48,5 +48,37 @@ describe('operational surface', () => {
       expect(requests).toContain('https://example.com/account/withdrawal');
       expect(requests).toHaveLength(10);
     } finally { log.mockRestore(); }
+  });
+});
+
+const validHeaders = {'content-type':'text/html', 'x-content-type-options':'nosniff','x-frame-options':'DENY'};
+describe('smoke response identity', () => {
+  it.each(['', '<html><title>Maintenance</title><body>private unexpected content</body></html>'])('rejects empty or unrelated HTTP 200 documents', async body => {
+    await expect(smoke('https://example.com', async () => new Response(body,{headers:validHeaders}))).rejects.toThrow('expected Room Rubato document missing');
+  });
+  it('rejects JSON posing as an HTML route', async () => {
+    await expect(smoke('https://example.com', async () => new Response('{}',{headers:{...validHeaders,'content-type':'application/json'}}))).rejects.toThrow('content type');
+  });
+  it('bounds response body consumption', async () => {
+    await expect(smoke('https://example.com', async () => new Response('x'.repeat(2*1024*1024+1),{headers:validHeaders}))).rejects.toThrow('exceeded smoke-check limit');
+  });
+  it('validates programmatic targets before making requests', async () => {
+    const fetcher=vi.fn();
+    await expect(smoke('https://example.com/?token=secret',fetcher)).rejects.toThrow('bare origin');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['{"status":"ok","check":"liveness","service":"other"}', 'no-store', 'Unexpected liveness'],
+    ['not json with private content', 'no-store', 'invalid JSON'],
+    ['null', 'no-store', 'Unexpected liveness'],
+    ['{"status":"ok","check":"liveness","service":"room-rubato"}', 'x-no-store', 'must not be cached'],
+  ])('rejects wrong or malformed liveness and non-token cache directives', async (body, cache, error) => {
+    const log=vi.spyOn(console,'log').mockImplementation(()=>{});
+    try {
+      await expect(smoke('https://example.com', async input => String(input).endsWith('/api/health')
+        ? new Response(body,{headers:{...validHeaders,'content-type':'application/json','cache-control':cache}})
+        : new Response('<html><title>Room Rubato — fixture</title><body>fixture</body></html>',{headers:validHeaders}))).rejects.toThrow(error);
+      expect(JSON.stringify(log.mock.calls)).not.toContain('private content');
+    } finally {log.mockRestore();}
   });
 });

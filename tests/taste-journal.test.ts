@@ -25,3 +25,16 @@ describe('taste journal',()=>{
     }
   });
 });
+
+describe('local diagram setting validation',()=>{
+  it.each([{},[],null,'60',-1,101,true])('ignores invalid setting %j without inventing a saved value',value=>{
+    const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'keep',bookmarked:true,before:'a',after:'b',beforeSetting:value,afterSetting:value,updatedAt:'2026-11-16T00:00:00Z'}}});
+    const entry=parseJournal(raw).entries.light;
+    expect(entry.beforeSetting).toBeUndefined();expect(entry.afterSetting).toBeUndefined();
+    expect(entry.memo).toBe('keep');expect(entry.before).toBe('a');expect(entry.after).toBe('b');expect(entry.bookmarked).toBe(true);
+  });
+  it.each([0,0.5,60,100])('retains valid numeric setting %s exactly',value=>{
+    const entry=parseJournal(JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'',bookmarked:false,beforeSetting:value,afterSetting:value,updatedAt:'2026-11-16T00:00:00Z'}}})).entries.light;
+    expect(entry.beforeSetting).toBe(value);expect(entry.afterSetting).toBe(value);
+  });
+});
