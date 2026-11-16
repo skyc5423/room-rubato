@@ -233,7 +233,15 @@ console.log('PASS original literature line comparison, narrow reflow and no jour
 const corruptContext=await browser.newContext({viewport:{width:320,height:844}});
 const corruptRaw='{"version":1,"entries":{"light":{"memo":"synthetic raw recovery"}}}';
 await corruptContext.addInitScript(raw=>localStorage.setItem('rubato_taste_journal_v1:guest',raw),corruptRaw);
-const corruptPage=await corruptContext.newPage();await corruptPage.goto('http://127.0.0.1:3000/notes?lesson=light');
+const corruptPage=await corruptContext.newPage();await corruptPage.goto('http://127.0.0.1:3000');
+const corruptReturn=corruptPage.getByRole('complementary',{name:'관찰실 시작과 이어보기'});
+await corruptReturn.getByText('기록 확인 필요',{exact:true}).waitFor();
+if((await corruptReturn.innerText()).includes('현재 사용자 기록을 기준')||(await corruptReturn.innerText()).includes('개 탐색을 마쳤어요'))throw Error('Unreadable journal presented as healthy home progress');
+if(await corruptPage.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==corruptRaw)throw Error('Home recovery overwrote original');
+await corruptReturn.getByRole('link',{name:'관찰실에서 기록 확인하기 →',exact:true}).click();
+await corruptPage.waitForURL('**/notes');
+console.log('PASS unreadable home journal shows recovery without claiming progress or changing original');
+await corruptPage.goto('http://127.0.0.1:3000/notes?lesson=light');
 await corruptPage.getByRole('button',{name:'A 쪽',exact:true}).click();
 await corruptPage.getByText('읽지 못한 원본 기록 복사하기',{exact:true}).click();
 if(await corruptPage.getByRole('textbox',{name:'읽지 못한 브라우저 원본 기록',exact:true}).inputValue()!==corruptRaw)throw Error('Raw recovery changed bytes');

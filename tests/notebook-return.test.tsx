@@ -85,3 +85,18 @@ it('finds memory-only pending input and never overwrites unreadable temporary st
  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=context')).toBe(true);
  expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE MEMORY');act(()=>view!.unmount());
 });
+
+it.each(['{broken',JSON.stringify(updateJournal(emptyJournal(),'light',1,{before:'a',completedAt:'2026-11-16',bookmarked:'invalid' as any}))])('shows recovery rather than normal progress for unreadable original: %s',raw=>{
+ owner='unread-health';storage.set(journalKey(owner),raw);const get=vi.spyOn(localStorage,'getItem');let view:ReactTestRenderer;
+ act(()=>{view=create(<NotebookReturn withArtworkPreview/>);});
+ try{const text=JSON.stringify(view!.toJSON());expect(text).toContain('기록 확인 필요');expect(text).not.toContain('개 탐색을 마쳤어요');expect(text).not.toContain('현재 사용자 기록을 기준');expect(text).not.toContain('직접 바꾸며 관찰하기');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes'&&a.children.join('').includes('기록 확인'))).toBe(true);expect(get.mock.calls.filter(([key])=>key===journalKey(owner!))).toHaveLength(1);expect(storage.get(journalKey(owner!))).toBe(raw);expect(localStorage.setItem).not.toHaveBeenCalled();}finally{act(()=>view!.unmount());}
+});
+it('keeps valid same-owner pending recovery ahead of unreadable journal and clears warning on owner switch',()=>{
+ owner='pending-health';storage.set(journalKey(owner),'{broken');retainPending(owner,{space:{base:undefined,patch:{memo:'PRIVATE PENDING',updatedAt:'2026-11-16'}}});let view:ReactTestRenderer;
+ act(()=>{view=create(<NotebookReturn/>);});
+ try{expect(JSON.stringify(view!.toJSON())).toContain('기록 확인 필요');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=space'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE PENDING');owner='healthy-empty';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('기록 확인 필요');expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력 확인하기');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/compare')).toBe(true);expect(storage.get(journalKey('pending-health'))).toBe('{broken');}finally{act(()=>view!.unmount());}
+});
+it('treats a valid explicit empty journal as a normal start',()=>{
+ owner='valid-empty';storage.set(journalKey(owner),JSON.stringify(emptyJournal()));let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{expect(JSON.stringify(view!.toJSON())).not.toContain('기록 확인 필요');expect(JSON.stringify(view!.toJSON())).toContain('현재 사용자 기록을 기준');expect(localStorage.setItem).not.toHaveBeenCalled();}finally{act(()=>view!.unmount());}
+});
