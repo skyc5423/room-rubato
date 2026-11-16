@@ -21,7 +21,7 @@ if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v
 console.log('PASS tab close releases lease and retry persists');
 await b.reload();await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='✓ 다시 볼 단서에 저장됨'&&!b.disabled));console.log('PASS reload reacquires lease and preserves data');
 const legacy=await context.newPage();await legacy.goto('http://127.0.0.1:3000/privacy');
-await legacy.evaluate(()=>{const k='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(k));j.entries.space={lessonId:'space',version:1,memo:'synthetic legacy writer',bookmarked:false,updatedAt:'2026-11-16T00:00:00Z'};localStorage.setItem(k,JSON.stringify(j));});
+await legacy.evaluate(()=>{const k='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(k));j.entries.space={lessonId:'space',version:1,memo:'테스트 감상: 여백과 빛 🌿',bookmarked:false,updatedAt:'2026-11-16T00:00:00Z'};localStorage.setItem(k,JSON.stringify(j));});
 await b.getByRole('button',{name:'✓ 다시 볼 단서에 저장됨',exact:true}).click();
 if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('legacy different record lost');
 console.log('PASS external non-locking write preserved by fresh read (not atomic CAS)');
@@ -37,6 +37,18 @@ await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.t
 if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('crash recovery lost saved record');
 console.log('PASS crashed-tab close and retry recover editing with saved records intact');
 }else console.log('SKIP renderer crash injection: Chromium CDP only');
+await b.goto('http://127.0.0.1:3000/notes');
+const exportButton=b.getByRole('button',{name:'기록 내보내기',exact:true});await exportButton.waitFor();
+const beforeExport=await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+const downloadEvent=b.waitForEvent('download');await exportButton.click();const download=await downloadEvent;
+if(download.suggestedFilename()!=='room-rubato-notes.txt'||await download.failure())throw Error('Notebook export failed');
+const stream=await download.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);const exported=Buffer.concat(chunks).toString('utf8');
+if(!exported.includes('테스트 감상: 여백과 빛 🌿')||!exported.includes('출처:'))throw Error('Notebook export lost text or sources');
+if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Export modified saved records');
+await b.evaluate(()=>{URL.createObjectURL=()=>{throw Error('synthetic download failure');};});await exportButton.click();
+await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
+if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
+console.log('PASS UTF-8 notebook download and explicit failure without record loss');
 if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
