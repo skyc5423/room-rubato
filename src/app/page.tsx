@@ -965,7 +965,7 @@ export default function HomePage() {
                         document
                           .getElementById('room-stage')
                           ?.scrollIntoView({ behavior: 'smooth' });
-                        setTimeout(() => handleOpenResultNote(id), 420);
+                        handleOpenResultNote(id);
                       }}
                       className="w-full text-left rounded-2xl p-3.5 bg-[#FFF9EB] hover:bg-[#FEF1D0] border border-[#0042AF]/25 transition-all flex items-center justify-between gap-4 group"
                     >
@@ -1055,10 +1055,7 @@ export default function HomePage() {
                           document
                             .getElementById('room-stage')
                             ?.scrollIntoView({ behavior: 'smooth' });
-                          setTimeout(
-                            () => handleSelectRoomObject(item.domain.id),
-                            420
-                          );
+                          handleSelectRoomObject(item.domain.id);
                         }}
                         className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#0042AF] hover:text-[#010D6E]"
                       >

@@ -216,3 +216,35 @@ it('ignores repeated daily final clicks before the UI rerenders',()=>{
  act(()=>{keep.props.onClick();keep.props.onClick();});expect(store.recordDailyPulseShift).toHaveBeenCalledTimes(1);
  }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
 });
+
+it('opens a recommended survey immediately and cannot reopen it after dismissal', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('document', { getElementById: () => ({ scrollIntoView: vi.fn() }) });
+  let view: any;
+  try {
+    act(() => { view = create(<Page />); });
+    const start = view.root.findAllByType('button').find((b:any) => b.findAllByType('span').some((s:any) => s.children.some((c:any) => typeof c === 'string' && c.includes('문항으로 직접 해보기'))));
+    act(() => start.props.onClick());
+    const close = view.root.findAllByType('button').find((b:any) => b.children.includes('방으로 돌아가기 ✕'));
+    expect(close).toBeDefined();
+    act(() => close.props.onClick());
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(view.root.findAllByType('button').some((b:any) => b.children.includes('방으로 돌아가기 ✕'))).toBe(false);
+  } finally { act(() => view?.unmount()); vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
+
+it('does not open a previous account survey after switching accounts', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('document', { getElementById: () => ({ scrollIntoView: vi.fn() }) });
+  let view: any;
+  const originalOwner = store.currentUserId;
+  try {
+    act(() => { view = create(<Page />); });
+    const start = view.root.findAllByType('button').find((b:any) => b.findAllByType('span').some((s:any) => s.children.some((c:any) => typeof c === 'string' && c.includes('문항으로 직접 해보기'))));
+    act(() => start.props.onClick());
+    store.currentUserId = 'another-owner';
+    act(() => view.update(<Page />));
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(view.root.findAllByType('button').some((b:any) => b.children.includes('방으로 돌아가기 ✕'))).toBe(false);
+  } finally { act(() => view?.unmount()); store.currentUserId = originalOwner; vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
