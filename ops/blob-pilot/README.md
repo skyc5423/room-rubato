@@ -45,3 +45,9 @@ npm run test:backup
 ```
 
 CI uses generated synthetic keys only and never contacts hosted stores. Root workflow retains all existing gates. The pilot's pinned SDK lockfile and files under `api/` + `lib/`, `package.json`, `package-lock.json`, `vercel.json` are the deploy bundle; omit tests, README, node_modules and all repo-external recovery files. Do not add the offline SQL harness to deployment.
+
+## Temporary synthetic diagnostic evidence
+
+`PILOT_DIAGNOSTIC_LOG=true` opts in to a **synthetic-only** diagnostic emitter on successfully authenticated Cron GET runs. POST/manual runs never emit archive data. The emitter rechecks active gates, fixed fixture identity, bundle HMAC/digests and sealed-envelope shape, then emits a field-allowlisted `RUBATO_SYNTHETIC_PILOT_RECEIPT` and base64 `RUBATO_SYNTHETIC_PILOT_ARCHIVE_CHUNK` events (1500 characters/chunk, zero-based index, count, day and bundleDigest). Use the existing authenticated administrative runtime-log connector, not a change to deployment protection. Reassemble only one complete matching day/digest set, verify its digest against the separate receipt, then run the offline private-key/PGlite verifier. Missing/truncated/mixed chunks are failure, not successful restoration.
+
+This is temporary evidence for the bounded **synthetic** rehearsal only. It must never be enabled for real user backups. No private key, API token, request header, arbitrary result/env fields, plaintext fixture or raw exception text is logged. Failures emit only a fixed diagnostic marker and cannot convert backup failure into success. Logs are short-lived on Hobby, are not durable independent backup storage, and remain within the same Vercel account. Disable the opt-in after evidence collection. The persistent Blob receipts and external missed-run check remain necessary.
