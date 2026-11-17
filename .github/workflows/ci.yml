@@ -25,6 +25,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Synthetic Blob pilot tests (no hosted credentials)
+        run: |
+          npm ci --ignore-scripts --prefix ops/blob-pilot
+          npm test --prefix ops/blob-pilot
       - run: npm run test:backup
       - name: Isolated withdrawal SQL safety checks (no hosted credentials)
         run: node scripts/verify-withdrawal-sql.mjs

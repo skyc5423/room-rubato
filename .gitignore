@@ -34,3 +34,6 @@ next-env.d.ts
 
 # local user data (never commit user DB to git)
 /data/
+
+# Isolated backup pilot dependencies and local reports
+/ops/blob-pilot/node_modules/
