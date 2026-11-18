@@ -18,6 +18,9 @@ function observePage(page){
   // React errors carry useful hydration arguments; do not serialize arbitrary app console payloads.
   if(message.type()==='error'&&/Minified React error #\d+/.test(message.text()))console.error('REACT CONSOLE ERROR',JSON.stringify({...metadata(),message:message.text()}));
  });
+ // Correlate natural navigation failures without filtering/weakening pageerror checks.
+ page.on('requestfailed',request=>console.log('REQUEST FAILED',JSON.stringify({...metadata(),requestRoute:routeOnly(request.url()),navigation:request.isNavigationRequest(),error:request.failure()?.errorText})));
+ page.on('response',response=>{if(response.status()>=400)console.log('HTTP ERROR',JSON.stringify({...metadata(),requestRoute:routeOnly(response.url()),status:response.status()}));});
  page.on('framenavigated',frame=>{if(frame===page.mainFrame())console.log('PAGE NAVIGATION',JSON.stringify(metadata()));});
 }
 function observeContext(context){context.on('page',observePage);}

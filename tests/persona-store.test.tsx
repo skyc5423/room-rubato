@@ -177,3 +177,44 @@ it('does not promote a future temporary OAuth consent timestamp to durable metad
  sessionStorage.setItem('room_rubato_pending_consent_v1',JSON.stringify({version:'2026-11-10',at:new Date(Date.now()+60_000).toISOString()}));
  await emit(oauth);expect(mock.updateUser).not.toHaveBeenCalled();expect(store.isHydrated).toBe(false);expect(store.syncError).toContain('동의 기록');
 });
+
+describe('delayed signout ownership', () => {
+  it.each([false, true])('preserves a newer account while old signout settles (loading=%s)', async loading => {
+    await emit(session('alice'));
+    let finishSignout!: (value: any) => void;
+    mock.signout.mockReturnValueOnce(new Promise(resolve => { finishSignout = resolve; }));
+    let logout!: ReturnType<typeof store.logoutToGuest>;
+    await act(async () => { logout = store.logoutToGuest(); });
+    expect(mock.signout).toHaveBeenCalledWith({ scope: 'local' });
+    let finishRead!: (value: any) => void;
+    const bob = { data: { state: { demographics: { occupation: 'research_edu' } } }, error: null };
+    if (loading) mock.read.mockReturnValueOnce(new Promise(resolve => { finishRead = resolve; }));
+    else mock.read.mockResolvedValueOnce(bob);
+    await emit(session('bob'));
+    let result: any;
+    await act(async () => { finishSignout({ error: null }); result = await logout; });
+    if (loading) await act(async () => { finishRead(bob); });
+    expect(store.authUser?.userUuid).toBe('bob');
+    expect(store.state.demographics?.occupation).toBe('research_edu');
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem('room_rubato_guest_state_v4') || '').not.toContain('research_edu');
+  });
+  it('accepts the SDK signed-out event without overwriting the resulting guest state', async () => {
+    await emit(session('alice'));
+    localStorage.setItem('room_rubato_guest_state_v4', JSON.stringify({ demographics: { occupation: 'research_edu' } }));
+    mock.signout.mockImplementationOnce(async () => { await emit(null); return { error: null }; });
+    await act(async () => { expect((await store.logoutToGuest()).ok).toBe(true); });
+    expect(store.authUser).toBeNull();
+    expect(store.state.demographics?.occupation).toBe('research_edu');
+  });
+  it.each(['returned', 'thrown'])('keeps the current account after %s signout failure and resumes writes', async kind => {
+    await emit(session('alice'));
+    if (kind === 'returned') mock.signout.mockResolvedValueOnce({ error: { message: 'offline' } });
+    else mock.signout.mockRejectedValueOnce(Error('offline'));
+    await act(async () => { expect((await store.logoutToGuest()).ok).toBe(false); });
+    expect(store.authUser?.userUuid).toBe('alice');
+    act(() => store.updateDemographics({ occupation: 'research_edu' })); await tick();
+    expect(mock.save).toHaveBeenCalledTimes(1);
+    expect(mock.save.mock.calls[0][0].user_id).toBe('alice');
+  });
+});

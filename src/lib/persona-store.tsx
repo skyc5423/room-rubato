@@ -283,6 +283,8 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const blocked = useRef(false);
   const [reloadToken, setReloadToken] = useState(0);
   const owner = useRef<string | null>(null);
+  // Session identity is known before its profile has finished loading.
+  const latestSessionOwner = useRef<string | null | undefined>(undefined);
   const generation = useRef(0);
   const lastSaved = useRef('');
   const writes = useRef<Promise<void>>(Promise.resolve());
@@ -386,9 +388,10 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         setIsHydrated(false);
       }
     };
-    if (!sb) { void hydrate(null); return () => { alive = false; }; }
+    if (!sb) { latestSessionOwner.current = null; void hydrate(null); return () => { alive = false; }; }
     // The callback must remain synchronous: Supabase calls here can deadlock.
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      latestSessionOwner.current = session?.user.id ?? null;
       if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && session?.user.id === owner.current)) return;
       owner.current = null;
       ++generation.current;
@@ -398,7 +401,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       setState(DEFAULT_STATE);
       setTimeout(() => { if (alive) void hydrate(session); }, 0);
     });
-    return () => { alive = false; ++generation.current; subscription.unsubscribe(); };
+    return () => { alive = false; latestSessionOwner.current = undefined; ++generation.current; subscription.unsubscribe(); };
   }, [reloadToken]);
 
   useEffect(() => {
@@ -491,6 +494,11 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         const { error } = await supabase.auth.signOut({ scope: 'local' });
         if (error) return { ok: false, error: error.message };
       }
+      // The SDK can emit SIGNED_OUT, or a new session can arrive, before this
+      // promise settles. Never replace that newer state with the old logout.
+      if (id !== generation.current) return latestSessionOwner.current === null
+        ? { ok: true }
+        : { ok: false, error: '인증 상태가 변경되어 현재 계정 상태를 유지했습니다.' };
       ++generation.current;
       owner.current = null;
       setRecoveryDraft(null); setGuestRecoveryRaw(null); setSyncConflict(false); setSyncError(null);
