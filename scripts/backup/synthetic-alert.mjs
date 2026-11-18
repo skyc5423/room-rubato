@@ -5,7 +5,8 @@ const fields=['synthetic','status','archivePresent','lastScheduledInvocationAt',
 const timestamp=x=>typeof x==='string'&&Number.isFinite(Date.parse(x))&&new Date(Date.parse(x)).toISOString()===x;
 const validDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&timestamp(`${x}T00:00:00.000Z`);
 export function evaluateSyntheticStatus(value,{now,expectedDay}) {
- if(!Number.isSafeInteger(now)||!validDay(expectedDay)||Date.parse(`${expectedDay}T13:00:00.000Z`)>now)throw Error('Check only after expected daily window');
+ if(!Number.isSafeInteger(now)||!validDay(expectedDay)||Date.parse(`${expectedDay}T13:10:00.000Z`)>now)throw Error('Check only after expected daily window');
+ // Match the scheduled-monitor runbook: allow the noon window plus ten-minute grace.
  const issues=[];
  const unavailable=()=>issues.push('STATUS_UNAVAILABLE');
  const object=value&&typeof value==='object'&&!Array.isArray(value);
@@ -40,3 +41,4 @@ export async function deliverSyntheticAlert(report,send,{timeoutMs=5000}={}) {
  }catch{return {status:'unconfirmed',delivered:false,recipientReceiptVerified:false};}
  finally {clearTimeout(timer);}
 }
+

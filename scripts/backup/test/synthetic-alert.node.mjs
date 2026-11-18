@@ -31,3 +31,10 @@ test('actual synthetic writer status feeds monitor and receiver without hosted a
  data.delete('synthetic-pilot/2026-11-18/archive.json');
  assert(evaluate(await status(store,cfg,options.now),options).issues.includes('BACKUP_MISSING_OR_UNVERIFIED'));
 });
+
+
+test('status failure classification waits until the exact 13:10 UTC grace boundary',()=>{
+ const manual={...fresh,lastScheduledInvocationAt:null};
+ for(const at of ['13:00:00.000','13:05:00.000','13:09:59.999'])assert.throws(()=>evaluate(manual,{...options,now:Date.parse(`2026-11-18T${at}Z`)}),/expected daily window/);
+ assert.deepEqual(evaluate(manual,{...options,now:Date.parse('2026-11-18T13:10:00.000Z')}).issues,['SCHEDULED_INVOCATION_MISSING']);
+});

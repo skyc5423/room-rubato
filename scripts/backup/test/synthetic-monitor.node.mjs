@@ -15,3 +15,16 @@ test('no path traversal arbitrary message or unsafe destination accepted',async 
 test('healthy status does not touch ledger or prepare chat',async()=>{const status={synthetic:true,status:'fresh',archivePresent:true,lastScheduledInvocationAt:'2026-11-18T12:20:00.000Z',lastSuccessAt:'2026-11-18T12:20:00.000Z',lastFailureAt:null,archiveDigest:'a'.repeat(64),day:opts.expectedDay,restoreVerified:false};assert.equal((await prepare({...opts,status,ledger:{create:()=>assert.fail('no persistence required')}})).state,'healthy');});
 
 test('old incident cannot be claimed without current matching evidence',async t=>{const {ledger}=await fixture(t),r=await prepare({...opts,ledger});await assert.rejects(claim(ledger,r.notice.id));const next={...opts,expectedDay:'2026-11-19',now:Date.parse('2026-11-19T13:15:00.000Z')};assert.equal((await claim(ledger,r.notice.id,next)).state,'superseded');assert.equal(await ledger.read(r.notice.id,'claim'),null);});
+
+
+test('pre-deadline checks never persist or claim an early missing-Cron alert',async t=>{
+ const {ledger}=await fixture(t);let writes=0;
+ const noWrites={create:async()=>{writes++;throw Error('early write');},read:async()=>{throw Error('early read');}};
+ for(const at of ['13:00:00.000','13:05:00.000','13:09:59.999'])await assert.rejects(prepare({...opts,now:Date.parse(`2026-11-18T${at}Z`),ledger:noWrites}),/expected daily window/);
+ assert.equal(writes,0);
+ const ready={...opts,now:Date.parse('2026-11-18T13:10:00.000Z')};
+ const first=await prepare({...ready,ledger});assert.equal(first.state,'prepared');
+ assert.equal((await prepare({...ready,ledger})).state,'existing');
+ assert.equal((await claim(ledger,first.notice.id,ready)).state,'claimed');
+ assert.equal((await claim(ledger,first.notice.id,ready)).state,'reconcile-required');
+});
