@@ -87,3 +87,7 @@ At 06:26:38 UTC a manually authenticated POST created/read back one two-row synt
 `PILOT_RUN_SECRET` was replaced and stored/re-read in the existing private synthetic escrow Vault for subsequent authorized status checks, without requiring another user login. CRON, Blob, receipt-signing and database credentials were not changed. The private recovery key was not sent to Vercel. Synthetic-only=true, production-export=false, November24 expiry and noon daily Cron remain unchanged. Manual success is **not Cron success**: `lastScheduledInvocationAt` remained null before the scheduled window, and the writer intentionally continues to return `restoreVerified:false` because only the independent verifier performed restoration.
 
 Local pilot tests:28/28. These results close the matching-key **new synthetic archive** recovery gap only. They do not enroll an operational key, back up users, prove historical archives recoverable, establish account/provider independence, or validate actual phone delivery.
+
+## Disabled app-data Blob integration candidate
+
+[The candidate exporter and adapter](BLOB_EXPORT_CANDIDATE.md) now connect the existing two-table SQL export to encrypted private Blob archive/receipt readback in offline synthetic tests, including separate-database recovery. They are not wired to a route, scheduler or hosted credentials. The running synthetic pilot is unchanged; no production data has been transmitted.
