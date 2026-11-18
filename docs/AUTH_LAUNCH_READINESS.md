@@ -59,3 +59,11 @@ The next useful configuration evidence is a redacted view of Google's **Audience
 ## Configuration identity recovery, 2026-11-12
 
 A bounded search of repository deployment documents, saved deployment context and the room's historical setup messages found no retained Google Cloud project ID or project-specific Console URL. Historical guidance suggested the display name `room-rubato` but explicitly allowed another name; the user subsequently created the OAuth client on their phone. That display-name suggestion must not be promoted to a verified project identifier. Previously verified Google login/profile persistence does not establish current publishing, branding or redirect-allowlist configuration. No secret-bearing historical attachment was fetched to recover identity. A read-only current Console landing-page check can discover the project only if an already-authorized session exposes it; no new login request or guessed project URL follows from this document.
+
+## Public Auth settings checkpoint, 2026-11-18
+
+A read-only request to Supabase's documented public `GET /auth/v1/settings` endpoint using only the project's publishable client key confirmed Google and email providers enabled, `disable_signup=false`, `mailer_autoconfirm=false`, and anonymous/phone login disabled. No private management/service credential, real-user record, signup/login request or email send was involved. Email auto-confirm being off does not prove SMTP delivery; the app's disabled signup UI remains distinct from provider-wide signup enforcement.
+
+The [public Auth API documentation](https://supabase.github.io/auth/#get-settings) describes this endpoint. Its response does not expose Google Audience/Branding/publishing status/domain ownership/client redirect configuration or Supabase Site URL/redirect allowlist. Those remain unverified.
+
+Read-only environment/session discovery found only the available cloud environment and no existing cloud Chrome tabs. No connected Mac or already-authenticated Console session was available through that inventory; no new login, machine connection or provider setting change was attempted. Existing connectors did not expose the missing management Auth/Google Cloud configuration fields. This is a concrete access boundary, not evidence that the settings are correct or incorrect.

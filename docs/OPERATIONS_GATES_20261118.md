@@ -30,3 +30,19 @@ Estimates below are hands-on time once access/scope is available, not promises t
 7. **Launch governance/account lifecycle: separate unresolved gate, no reliable ETA.** Operator/audience/minimum-age, retention/transfer disclosures, legal review and withdrawal/non-resurrection evidence are not replaced by CI. Keep email signup and withdrawal disabled unless their own gates are met. Google-only launch can avoid SMTP rollout but not privacy or account-access obligations.
 
 The technical path totals approximately 5–10 hours of hands-on work if prerequisites are ready, excluding scheduled runs, external review, access waits, and newly discovered defects. Reporting should identify the next completed gate and the actual blocker, not restart a blanket estimate as if no work had happened.
+
+## Offline independent-monitor outbox prototype
+
+`scripts/backup/synthetic-monitor.mjs` adds a file-backed synthetic outbox and fixed Korean chat text. It creates immutable notice/claim/receipt records, fsyncs file and directory, reserves a notice before any proposed send, and refuses automatic resend after an uncertain attempt or process restart. Concurrent claims yield one proposal. Corrupt/partial records fail closed instead of overwriting evidence. A failed monitor/check must itself be surfaced by the root; the ledger is not a self-running watchdog.
+
+The approved root flow is: obtain authenticated **synthetic** status → prepare notice in an approved private durable location → claim once → resolve `originating-private-chat` to the verified user's current one-to-one conversation → send with the root messaging tool → record its confirmed message ID. This module has no room ID, service token, webhook, messaging-tool invocation or network client. It cannot send or change a destination by itself. The current-chat mapping is private runtime context, never a public source-code constant. The receipt means tool-confirmed send, not that the person saw it.
+
+If a claim exists without a receipt, inspect messaging history for that exact incident before any further action. Do not delete the claim or automatically retry: a timed-out tool may already have delivered. If no safe reconciliation exists, leave it uncertain and surface the uncertainty through the root's existing status exchange.
+
+This is a prototype tested with temporary directories and synthetic message IDs. It is **not activated**. The location still needs a persistence/recovery guarantee independent of the Vercel writer; a transient local workspace is not such a guarantee. Scheduler/authentication integration, receiver-side confirmation, incident recovery/closure policy, quota/expiry handling and a watchdog remain open. The inherited 13:00 UTC daily cutoff is specific to the current pilot schedule and must be reviewed if that schedule changes.
+
+### Additional public authentication evidence
+
+The public Supabase Auth settings endpoint now confirms Google/email enabled, email auto-confirm disabled, global signup not disabled, and phone/anonymous disabled. No authentication attempt or email was sent. See [Auth readiness](AUTH_LAUNCH_READINESS.md). Missing Google management fields and Supabase redirect configuration remain missing; no existing authenticated Console session or connected user Mac appeared in the available inventory.
+
+Before a notice can be claimed, the caller must supply a newly obtained status and check time/day. The monitor recomputes the incident identity; recovered or changed/day-old incidents return `superseded` without claiming or proposing a message. This prevents a queued old incident from being sent based solely on its old journal entry, but authenticity/freshness of the supplied response remains the root connector's responsibility.
