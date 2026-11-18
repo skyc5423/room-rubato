@@ -36,3 +36,9 @@ The separate synthetic escrow rehearsal used a newer key than the existing write
 ## Limits and evidence
 
 This setup persists only small fixed-code synthetic monitor observations outside the Vercel writer. It cannot survive loss of the shared Supabase account, guarantee connector sessions remain authorized forever, establish full log coverage after scheduler outages, prove present Blob retention, or perform a production-data backup. Full incident-delivery integration, source authentication recovery, watchdog and actual matching-key restore remain explicit gates.
+
+## Active writer update after matching-key repair
+
+For the remaining November18 checks use expected deployment **`dpl_79kuDx1XRadPAnXWXAfeWKBRJHAD`**, not the old deployment named in the earlier checkpoint. Project/team, synthetic gates, noon Cron and November24 expiry are unchanged. Key-specific physical storage avoids collision with retained historical objects. The manually verified November18 bundle digest is `60f7edf544a797eeb1568a21ae91c85fabdb4d44369ec594f08df66ca8946908`; its matching-key isolated restore succeeded. Preserve the distinction between this manual success and the still-pending authenticated scheduled marker.
+
+Direct status and archive verification is now possible through an ordinary HTTPS client using the new synthetic-only manual credential recovered from the existing private escrow Vault. The generic Vercel fetch tool still cannot attach the application Authorization header. Never put the credential in a URL, public artifact or chat. The credential is not the Cron secret and must not be used to claim a scheduled invocation. Private root handoff holds the recovery lookup and local verification evidence; no additional user login is required while the authenticated management connector remains available. Temporary local key/credential copies are removed after the drill; the confirmed Vault copies remain.

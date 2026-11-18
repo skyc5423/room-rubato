@@ -75,3 +75,15 @@ Primary references reviewed for the gate decisions:
 ## Synthetic alert contract follow-up
 
 See [the November 18 operational gate matrix](OPERATIONS_GATES_20261118.md) for the current acceptance order, evidence limits and estimates. `scripts/backup/synthetic-alert.mjs` plus 11 synthetic tests now exercise missing/stale evidence, missing scheduled invocation, latest failed attempt and bounded delivery-adapter outcomes, including the real pilot status producer against an in-memory store. This does **not** establish a configured independent monitor or delivery to the user's inbox/device. No external message or actual user data was sent.
+
+## November 18 matching-key synthetic repair
+
+The separate synthetic writer was redeployed as `dpl_79kuDx1XRadPAnXWXAfeWKBRJHAD` (READY). The operating Room Rubato app was not deployed. It now uses the already escrowed synthetic key fingerprint `486401d712f451288e9d7b5cc96d8982208e7c0714f24e88cbe65c19554ef6a3`, verified against the private key recovered from the separate escrow Vault.
+
+Physical objects are now under `synthetic-pilot-keys/<fingerprint>/<day>/...`. Logical pilot paths and receipt/envelope schemas are unchanged. No historical-path fallback, overwrite or delete is implemented. Historical `synthetic-pilot/...` objects were not modified or deleted by this transition; their current bytes were not independently re-inventoried, and this does not recover their missing historical key. Eight new storage tests verify namespace isolation, key matching, path/date denial, size bounds, uncertain writes and actual same-day two-key pilot runs preserving prior bytes.
+
+At 06:26:38 UTC a manually authenticated POST created/read back one two-row synthetic archive in the new namespace. A second POST returned `idempotent:true`, attempt1 and the same digests, not a second archive. A separately recovered escrow private key decrypted it and restored every column into isolated in-memory PostgreSQL/PGlite: one profile and one journal, including Unicode state. Archive digest `b57a784b19b0afb0251b4718fb6d59ae7d0a3b0a203bf2f7e296bc7d0a91c300`; bundle digest `60f7edf544a797eeb1568a21ae91c85fabdb4d44369ec594f08df66ca8946908`. The external restore report is dated 06:26:59 UTC.
+
+`PILOT_RUN_SECRET` was replaced and stored/re-read in the existing private synthetic escrow Vault for subsequent authorized status checks, without requiring another user login. CRON, Blob, receipt-signing and database credentials were not changed. The private recovery key was not sent to Vercel. Synthetic-only=true, production-export=false, November24 expiry and noon daily Cron remain unchanged. Manual success is **not Cron success**: `lastScheduledInvocationAt` remained null before the scheduled window, and the writer intentionally continues to return `restoreVerified:false` because only the independent verifier performed restoration.
+
+Local pilot tests:28/28. These results close the matching-key **new synthetic archive** recovery gap only. They do not enroll an operational key, back up users, prove historical archives recoverable, establish account/provider independence, or validate actual phone delivery.
