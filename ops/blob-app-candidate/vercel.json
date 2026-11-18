@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "framework": null,
+  "functions": {
+    "api/app-backup.mjs": {
+      "maxDuration": 300,
+      "includeFiles": "{ops/blob-app-candidate/config.json,scripts/backup/export.sql,scripts/backup/supabase-ca.pem}"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/app-backup",
+      "dest": "/api/app-backup.mjs"
+    },
+    {
+      "src": "/.*",
+      "status": 404
+    }
+  ]
+}

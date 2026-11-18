@@ -29,6 +29,11 @@ jobs:
         run: |
           npm ci --ignore-scripts --prefix ops/blob-pilot
           npm test --prefix ops/blob-pilot
+      - name: Inactive app-backup package (offline; no deployment or credentials)
+        run: |
+          node scripts/backup/package-app-candidate.mjs "$RUNNER_TEMP/rubato-app-backup-candidate"
+          npm ci --ignore-scripts --prefix "$RUNNER_TEMP/rubato-app-backup-candidate"
+          VERCEL_BLOB_RETRIES=0 node scripts/backup/verify-app-package.mjs "$RUNNER_TEMP/rubato-app-backup-candidate"
       - run: npm run test:backup
       - name: Isolated withdrawal SQL safety checks (no hosted credentials)
         run: node scripts/verify-withdrawal-sql.mjs
