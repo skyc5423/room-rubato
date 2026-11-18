@@ -22,6 +22,6 @@ export function classifySyntheticLogCheck({text,connectorOk,day,now,deployment})
    catch(e){if(e.code!=='NO_EVIDENCE')throw e;state=now<Date.parse(day+'T13:10:00.000Z')?'waiting_window':'missing_evidence';resultCode='NO_MATCHING_LOGS';}
   }catch{state='invalid_evidence';resultCode='INCOMPLETE_OR_INVALID_LOGS';}
  }
- const eventId=createHash('sha256').update(JSON.stringify({day,checkedAt:new Date(now).toISOString(),deployment,state,resultCode,digest})).digest('hex');
+ const eventId=createHash('sha256').update(JSON.stringify({day,checkedAt:new Date(now).toISOString(),deployment,state,resultCode,digest,coverage})).digest('hex');
  return {eventId,day,state,resultCode,bundleDigest:digest,coverage,productionReady:false,restoreVerified:false,currentBlobReadVerified:false,sourceAuthenticationVerifiedOffline:false};
 }
