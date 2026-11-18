@@ -1,3 +1,19 @@
+-- Legacy bootstrap only, not a migration or rollback script.
+-- Reapplying its direct-write grants after CAS cutover would bypass revision checks.
+-- Fail atomically before any grants/policies change. Use reviewed migrations instead.
+begin;
+do $$
+begin
+  if exists (select 1 from pg_catalog.pg_attribute
+      where attrelid=pg_catalog.to_regclass('public.persona_profiles')
+        and attname in ('revision','last_write_id') and not attisdropped)
+    or exists (select 1 from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+      where n.nspname in ('public','room_internal') and p.proname='save_persona_cas') then
+    raise exception 'LEGACY_BOOTSTRAP_BLOCKED_AFTER_CAS';
+  end if;
+end;
+$$;
+
 -- =============================================================================
 -- Room Rubato — Privacy-First Persona DB Schema (Supabase PostgreSQL)
 -- 설계 원칙:
@@ -34,3 +50,5 @@ drop policy if exists "Users can update own persona profile" on public.persona_p
 create policy "Users can update own persona profile" on public.persona_profiles for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 drop policy if exists "Users can delete own persona profile" on public.persona_profiles;
 create policy "Users can delete own persona profile" on public.persona_profiles for delete to authenticated using ((select auth.uid()) = user_id);
+
+commit;

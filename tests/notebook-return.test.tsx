@@ -100,3 +100,54 @@ it('treats a valid explicit empty journal as a normal start',()=>{
  owner='valid-empty';storage.set(journalKey(owner),JSON.stringify(emptyJournal()));let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
  try{expect(JSON.stringify(view!.toJSON())).not.toContain('기록 확인 필요');expect(JSON.stringify(view!.toJSON())).toContain('현재 사용자 기록을 기준');expect(localStorage.setItem).not.toHaveBeenCalled();}finally{act(()=>view!.unmount());}
 });
+
+it('returns to a same-owner unfinished edit ahead of unrelated saved progress without restoring it',async()=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const completed=updateJournal(emptyJournal(),'light',1,{before:'a',after:'b',completedAt:'2026-11-17',memo:'PRIVATE ORIGINAL'},'2026-11-17');
+ const base=completed.entries.light;
+ const journal=updateJournal(completed,'context',1,{before:'a'},'2026-11-18');
+ storage.set(journalKey('guest'),JSON.stringify(journal));
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE UNSAVED EDIT'},stage:2,variation:50});
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('임시 수정 확인하기'))).toBe(true);
+  const text=JSON.stringify(view!.toJSON());expect(text).toContain('저장하지 않은 수정');expect(text).not.toContain('PRIVATE');
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+  owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정 확인하기');
+ }finally{act(()=>view!.unmount());}
+});
+
+it.each(['missing','changed','unreadable'])('offers inspection, not automatic restoration, when the original draft base is %s',async original=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const journal=updateJournal(emptyJournal(),'light',1,{before:'a',completedAt:'2026-11-17'},'2026-11-17'),base=journal.entries.light;
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE EDIT'},stage:2,variation:50});
+ if(original==='changed')storage.set(journalKey('guest'),JSON.stringify(updateJournal(journal,'light',1,{memo:'NEW ORIGINAL'},'2026-11-18')));
+ if(original==='unreadable')storage.set(journalKey('guest'),'{broken');
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  const text=JSON.stringify(view!.toJSON());expect(text).toContain('임시 수정 확인하기');expect(text).toContain('기존 기록은 자동으로 바꾸지');expect(text).not.toContain('PRIVATE EDIT');expect(text).not.toContain('NEW ORIGINAL');
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+ }finally{act(()=>view!.unmount());}
+});
+it.each(['malformed','unreadable'])('warns about %s temporary edits without clearing or exposing their bytes',async kind=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>{if(key!==notebookDraftKey('guest'))return null;if(kind==='unreadable')throw Error('PRIVATE ERROR');return '{PRIVATE BROKEN';},setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{const text=JSON.stringify(view!.toJSON());expect(text).toContain('임시 수정을 확인하지 못했어요');expect(text).not.toContain('PRIVATE');expect(sessionStorage.removeItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(localStorage.setItem).not.toHaveBeenCalled();owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정을 확인하지 못했어요');}finally{act(()=>view!.unmount());}
+});
+it('keeps failed-write recovery first and hides all edit hints until the current owner is ready',async()=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const base=updateJournal(emptyJournal(),'light',1,{completedAt:'2026-11-17'},'2026-11-17').entries.light;
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE EDIT'},stage:2,variation:50});
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ retainPending('guest',{context:{base:undefined,patch:{memo:'PRIVATE FAILED',updatedAt:'2026-11-18'}}});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=context'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('임시 수정 확인하기'))).toBe(true);
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+  hydrated=false;act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력');expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정 확인하기');expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE');
+ }finally{act(()=>view!.unmount());}
+});

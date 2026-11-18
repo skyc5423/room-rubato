@@ -451,7 +451,12 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       if (id !== generation.current) return;
       if (error) setSyncError('서버 저장 실패: ' + error.message);
       else { lastSaved.current = serialized; setSyncError(null); }
-    }).catch(() => { setSyncError('서버 연결에 실패해 변경 내용을 저장하지 못했습니다.'); });
+    }).catch(() => {
+      // A rejected request from an earlier session must not mark a new account
+      // (or the guest profile) as unsaved. The current session still sees errors.
+      if (id !== generation.current || owner.current !== uid) return;
+      setSyncError('서버 연결에 실패해 변경 내용을 저장하지 못했습니다.');
+    });
   }, [state, authUser, isHydrated]);
 
   const loginWithEmail: PersonaContextValue['loginWithEmail'] = async ({ email, password, consentAgreed, mode = 'signin' }) => {

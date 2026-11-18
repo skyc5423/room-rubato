@@ -218,3 +218,25 @@ describe('delayed signout ownership', () => {
     expect(mock.save.mock.calls[0][0].user_id).toBe('alice');
   });
 });
+
+it.each(['bob', null])('does not attribute an old rejected save to the next session %s', async next => {
+  await emit(session('alice'));
+  let reject!: (reason: Error) => void;
+  mock.save.mockImplementationOnce(() => new Promise((_resolve, r) => { reject = r; }));
+  act(() => store.updateDemographics({ occupation: 'research_edu' })); await tick();
+  await emit(next ? session(next) : null);
+  expect(store.syncError).toBeNull();
+  await act(async () => { reject(new Error('old request failed')); }); await tick();
+  expect(store.authUser?.userUuid ?? null).toBe(next);
+  expect(store.syncError).toBeNull();
+});
+
+it('reports a rejected save for the current session and permits retry', async () => {
+  await emit(session('alice'));
+  mock.save.mockRejectedValueOnce(new Error('offline'));
+  act(() => store.updateDemographics({ occupation: 'research_edu' })); await tick();
+  expect(store.syncError).toContain('서버 연결');
+  act(() => store.retrySync()); await tick();
+  expect(store.syncError).toBeNull();
+  expect(mock.save).toHaveBeenCalledTimes(2);
+});
