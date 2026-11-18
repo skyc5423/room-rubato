@@ -9,7 +9,7 @@ import {emitSyntheticDiagnostics} from '../../../ops/blob-pilot/lib/diagnostics.
 import {publicFingerprint} from '../core.mjs';
 import {analyzeLogs,collectEvidence,evaluateMonitoring,WRITER} from '../blob-evidence.mjs';
 import {saveEvidence,readEvidenceInput} from '../collect-blob-evidence.mjs';
-const day=new Date().toISOString().slice(0,10),now=Date.parse(day+'T12:30:00.000Z'),deployment='dpl_test123',requestId='test-request-123';
+const day='2026-11-18',now=Date.parse(day+'T12:30:00.000Z'),deployment='dpl_test123',requestId='test-request-123';
 const keys=generateKeyPairSync('rsa',{modulusLength:3072,publicKeyEncoding:{type:'spki',format:'pem'},privateKeyEncoding:{type:'pkcs8',format:'pem'}}),env={BACKUP_PRODUCTION_ENABLED:'false',PILOT_SYNTHETIC_ONLY:'true',PILOT_DIAGNOSTIC_LOG:'true',PILOT_START_AT:day+'T00:00:00.000Z',PILOT_EXPIRES_AT:day+'T23:59:59.999Z',PILOT_PUBLIC_KEY:keys.publicKey,PILOT_KEY_FINGERPRINT:publicFingerprint(keys.publicKey),PILOT_RECEIPT_SECRET:'test-only-never-log-'.repeat(4)};
 const data=new Map(),store={read:async p=>data.get(p)??null,create:async(p,b)=>{if(data.has(p))return false;data.set(p,b);return true;}};
 const result=await run(store,config(env,now),now),events=[];await emitSyntheticDiagnostics({method:'GET',env,store,result,now,log:l=>events.push(JSON.parse(l))});
@@ -66,4 +66,11 @@ test('input reads reject final and parent symlinks, excess size and broad permis
  const parent=await mkdtemp(join(tmpdir(),'rubato-input-'));
  try{const file=join(parent,'source.txt');await writeFile(file,text(),{mode:0o600});assert.equal((await readEvidenceInput(file,1024*1024)).toString(),text());await assert.rejects(readEvidenceInput(file,10));await symlink(file,join(parent,'file-link'));await assert.rejects(readEvidenceInput(join(parent,'file-link'),1024*1024));await symlink(parent,join(parent,'parent-link'));await assert.rejects(readEvidenceInput(join(parent,'parent-link','source.txt'),1024*1024));await writeFile(join(parent,'public.txt'),'test',{mode:0o644});await assert.rejects(readEvidenceInput(join(parent,'public.txt'),100));}
  finally{await rm(parent,{recursive:true,force:true});}
+});
+
+test('scheduled log monitor keeps complete artifact distinct from restore and live Blob status',async()=>{
+ const {classifySyntheticLogCheck}=await import('../synthetic-log-monitor.mjs');
+ // The schedule is a bounded November pilot, independent of the runner's wall clock.
+ const r=classifySyntheticLogCheck({text:text().replace(`${day}T12:00:00.000Z →`,`${day}T12:01:00.000Z →`),connectorOk:true,day,deployment,now:Date.parse(day+'T13:00:00.000Z')});
+ assert.equal(r.state,'evidence_unverified');assert.equal(r.restoreVerified,false);assert.equal(r.currentBlobReadVerified,false);assert.equal(r.sourceAuthenticationVerifiedOffline,false);
 });
