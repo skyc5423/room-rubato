@@ -26,3 +26,20 @@ The existing notebook browser check now logs route-only failed requests and HTTP
 ## Separate confirmed product defect
 
 The non-login synthetic authentication review found a distinct, reproducible race: a pending old-account `signOut()` could settle after a new account started/finished profile hydration and then overwrite the newer account with guest state. Both cases failed before the fix. The provider now checks the generation again after the await and retains newer session state, while accepting the SDK's normal signed-out event. Five added tests also cover ordinary signed-out hydration and returned/thrown signout errors with write recovery. The full app suite passes 543 tests; typecheck and production build pass. This does not prove real-provider logout semantics or real two-account isolation; those still require actual acceptance testing.
+
+## Follow-up after candidate 61f5696
+
+Run `44244254903` failed the same WebKit no-page-errors gate. All prerequisite suites, Chromium notebook and both Firefox notebook runs passed; WebKit's functional notebook/audio assertions passed before the accumulated five RSC diagnostics failed the job. This was not a logout regression.
+
+Local WebKit 26.0 was subsequently made runnable using official Debian libraries extracted into the temporary browser bundle, without installing OS packages. Its ldconfig-only optional-library validation did not see the private GLES library, so the local diagnostic launch skipped that host inventory check after direct dlopen succeeded. No browser security options or test assertions were disabled. This workaround is local only; CI continues its normal supported dependency installation.
+
+An app-free, same-origin loopback experiment on that exact engine observed:
+- Normal fetch: HTTP 200, one server request.
+- Fetch during held document replacement: a caught TypeError, no second request reached the server, but Playwright emitted the same native Fetch API access-control pageerror.
+- Window error/unhandledrejection observers remained empty for the caught fetch. An intentional genuine throw was detected both by window error and Playwright pageerror.
+
+This verifies the engine diagnostic mechanism, not individual application causation. The maintainer describes the related WebKit cancellation misclassification in https://github.com/microsoft/playwright/issues/43120 (tracked upstream as WebKit 329152). Fifteen fresh-context trials each of privacy→hard notes, API-health fixture→hard notes, and real privacy→notes Link navigation produced no error; the application's natural timing remains intermittent.
+
+The notebook test now seeds completed synthetic records in its current notes document instead of making an assertion-free, short-lived privacy app visit solely to seed storage. The injected download failure is restored in finally. Actual privacy navigation-away and lease-release checks, the isolated WebKit privacy→notes case, reload, hard notes navigation, field-data immutability, audio checks and every pageerror assertion remain. This is fixture isolation, not a browser/app-error fix; no exception filter, prefetch switch, timeout sleep or CORS/security change is introduced.
+
+Local bounded results: original navigation subset 3/3 passed; isolated-fixture subset 3/3 passed, then final try/finally version 1/1 passed. Neither series reproduced the natural CI failure, so these results do not establish that removing the temporary visit cures it. Full audio and multi-engine acceptance remain the unchanged CI job's responsibility.

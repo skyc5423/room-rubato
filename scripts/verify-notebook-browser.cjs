@@ -97,12 +97,18 @@ if(download.suggestedFilename()!=='room-rubato-notes.txt'||await download.failur
 const stream=await download.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);const exported=Buffer.concat(chunks).toString('utf8');
 if(!exported.includes('테스트 감상: 여백과 빛 🌿')||!exported.includes('출처:'))throw Error('Notebook export lost text or sources');
 if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Export modified saved records');
-await b.evaluate(()=>{URL.createObjectURL=()=>{throw Error('synthetic download failure');};});await exportButton.click();
-await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
-if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
+await b.evaluate(()=>{window.__originalCreateObjectURL=URL.createObjectURL;URL.createObjectURL=()=>{throw Error('synthetic download failure');};});
+try {
+ await exportButton.click();
+ await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
+ if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
+} finally {
+ await b.evaluate(()=>{URL.createObjectURL=window.__originalCreateObjectURL;delete window.__originalCreateObjectURL;});
+}
 console.log('PASS UTF-8 notebook download and explicit failure without record loss');
 // Optional field observation reads completed synthetic records without rewriting them.
-await b.goto('http://127.0.0.1:3000/privacy');
+// Seed in the current document: a disposable privacy app visit is not fixture setup.
+// Real navigation-away/reload checks above and the hard notes navigation below remain.
 await b.evaluate(()=>{
  const key='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(key));
  for(const id of ['light','space'])j.entries[id]={lessonId:id,version:1,before:'a',after:'b',memo:'synthetic field observation original',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'};
