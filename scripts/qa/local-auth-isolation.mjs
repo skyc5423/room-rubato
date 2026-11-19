@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import http from 'node:http';
+import https from 'node:https';
+import os from 'node:os';
+import path from 'node:path';
+import {spawn,spawnSync,execFileSync} from 'node:child_process';
 import {createClient} from '@supabase/supabase-js';
 import pg from 'pg';
 import {chromium} from 'playwright-core';
@@ -50,5 +54,60 @@ try{
  await pages[0].evaluate(async({email,password})=>{const r=await window.client.auth.signInWithPassword({email,password});if(r.error)throw Error('switch failed');},{email:b.email,password:b.password});
  assert.deepEqual(await pages[0].evaluate(async()=>(await window.client.from('persona_profiles').select('user_id')).data.map(x=>x.user_id)),[b.id]);
  console.log('PASS Chromium real SDK session persistence after reload, isolated browser contexts, logout and A-to-B switch, unchanged synthetic guest key');
- console.log('LIMIT: SDK harness, not app PersonaProvider integration, Google OAuth, hosted settings or physical-device verification');
+ // Actual shipped app sources, unchanged HTTPS gate. Only the test proxy terminates local TLS.
+ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'rubato-app-'));
+ execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',temp+'/key.pem','-out',temp+'/cert.pem','-days','1','-subj','/CN=127.0.0.1','-addext','subjectAltName=IP:127.0.0.1'],{stdio:'ignore'});
+ const proxy=https.createServer({key:fs.readFileSync(temp+'/key.pem'),cert:fs.readFileSync(temp+'/cert.pem')},(req,res)=>{
+  const upstream=http.request(new URL(req.url,url),{method:req.method,headers:{...req.headers,host:new URL(url).host}},r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
+  upstream.on('error',()=>{res.writeHead(502);res.end();});req.pipe(upstream);
+ });
+ await new Promise(r=>proxy.listen(5443,'127.0.0.1',r));
+ let app;
+ try{
+  const buildLog=fs.openSync(temp+'/build.log','w',0o600);
+  const buildEnv={...process.env,NEXT_PUBLIC_SUPABASE_URL:'https://127.0.0.1:5443',NEXT_PUBLIC_SUPABASE_ANON_KEY:key,NEXT_PUBLIC_PERSONA_CAS_ENABLED:'true',NEXT_PUBLIC_TASTE_CLOUD_SYNC:'true',NEXT_TELEMETRY_DISABLED:'1'};
+  const built=spawnSync('npm',['run','build'],{env:buildEnv,stdio:['ignore',buildLog,buildLog]});fs.closeSync(buildLog);assert.equal(built.status,0,'Actual app build failed (private local log retained only on ephemeral runner)');
+  const appLog=fs.openSync(temp+'/app.log','w',0o600);
+  app=spawn('npm',['run','start','--','-H','127.0.0.1','-p','3000'],{env:buildEnv,stdio:['ignore',appLog,appLog]});
+  for(let i=0;i<120;i++){try{if((await fetch('http://127.0.0.1:3000/privacy')).ok)break;}catch{}await new Promise(r=>setTimeout(r,500));}
+  const appContexts=[];
+  async function signedIn(account){
+   const context=await browser.newContext({ignoreHTTPSErrors:true});appContexts.push(context);
+   await context.route('**/*',route=>{const host=new URL(route.request().url()).hostname;return ['127.0.0.1','localhost'].includes(host)?route.continue():route.abort();});
+   const page=await context.newPage();await page.goto('http://127.0.0.1:3000/privacy');
+   await page.addScriptTag({content:sdk.toString()});
+   await page.evaluate(async({key,email,password})=>{window.testAuth=window.supabase.createClient('https://127.0.0.1:5443',key);const r=await window.testAuth.auth.signInWithPassword({email,password});if(r.error)throw Error('local session seeding failed');},{key,email:account.email,password:account.password});
+   await page.goto('http://127.0.0.1:3000/daily');
+   await page.locator('button[aria-controls="account-panel"]').click();
+   await page.getByText(account.id,{exact:true}).waitFor();
+   await page.getByRole('button',{name:'닫기 ✕',exact:true}).click();
+   return page;
+  }
+  const alicePage=await signedIn(a);
+  await alicePage.getByRole('button',{name:/이 답변 선택하기/}).first().click();
+  await alicePage.getByRole('button',{name:/처음 고른 A 유지하기/}).click();
+  await alicePage.locator('[data-daily-step-heading="result"]').waitFor();
+  let savedRow;
+  for(let i=0;i<50;i++){const result=await a.client.from('persona_profiles').select('state').eq('user_id',a.id).single();savedRow=result.data?.state;if(savedRow?.dailyShiftLog?.length===1)break;await new Promise(r=>setTimeout(r,200));}
+  assert.equal(savedRow?.dailyShiftLog?.length,1,'Real UI did not persist through PersonaProvider CAS');
+  const aliceSecond=await signedIn(a);await aliceSecond.locator('[data-daily-step-heading="result"]').waitFor();
+  await alicePage.reload();await alicePage.locator('[data-daily-step-heading="result"]').waitFor();
+  const bobPage=await signedIn(b);await bobPage.getByRole('button',{name:/이 답변 선택하기/}).first().waitFor();assert.equal(await bobPage.locator('[data-daily-step-heading="result"]').count(),0);
+  // Actual app logout must restore guest state rather than carry Alice's completed daily response.
+  await alicePage.locator('button[aria-controls="account-panel"]').click();await alicePage.getByRole('button',{name:'로그아웃',exact:true}).click();
+  await alicePage.getByRole('button',{name:/로그인 · 내 방 저장/}).waitFor();
+  await alicePage.goto('http://127.0.0.1:3000/daily');await alicePage.getByRole('button',{name:/이 답변 선택하기/}).first().waitFor();
+  assert.equal(await alicePage.locator('[data-daily-step-heading="result"]').count(),0);
+  // Seed Bob's genuine local session into the same context; app handles INITIAL_SESSION on reload.
+  await alicePage.addScriptTag({content:sdk.toString()});
+  await alicePage.evaluate(async({key,email,password})=>{const c=window.supabase.createClient('https://127.0.0.1:5443',key);const r=await c.auth.signInWithPassword({email,password});if(r.error)throw Error('local account switch failed');},{key,email:b.email,password:b.password});
+  await alicePage.reload();await alicePage.locator('button[aria-controls="account-panel"]').click();await alicePage.getByText(b.id,{exact:true}).waitFor();
+  await alicePage.getByRole('button',{name:'닫기 ✕',exact:true}).click();await alicePage.getByRole('button',{name:/이 답변 선택하기/}).first().waitFor();
+  assert.equal(await alicePage.locator('[data-daily-step-heading="result"]').count(),0);
+  const other=await b.client.from('persona_profiles').select('state').single();assert.equal(other.data?.state?.dailyShiftLog?.length||0,0);
+  console.log('PASS actual Room Rubato build/PersonaProvider/UI: account restore, daily response CAS save, reload, second-context same-owner restore, other-owner isolation, UI logout to guest and same-context Bob restore');
+  console.log('LIMIT: synthetic local GoTrue, not real Google OAuth or physical-device/cross-device networking');
+  for(const context of appContexts)await context.close();
+ }finally{app?.kill('SIGTERM');await new Promise(r=>proxy.close(r));}
+
 }finally{await browser.close();await new Promise(r=>server.close(r));await db.end();}
