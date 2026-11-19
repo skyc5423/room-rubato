@@ -1,0 +1,47 @@
+name: QA only local auth isolation
+on:
+  push:
+    branches: [qa/local-auth-isolation-20261119]
+permissions:
+  contents: read
+jobs:
+  isolated-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Install pinned local tools
+        run: |
+          npm ci
+          mkdir -p "$RUNNER_TEMP/local-auth"
+          cd "$RUNNER_TEMP/local-auth"
+          npm install --save-exact supabase@3.2.0
+          ./node_modules/.bin/supabase init
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/config.toml')
+          t=p.read_text().replace('enable_confirmations = true','enable_confirmations = false')
+          p.write_text(t)
+          PY
+      - name: Start ephemeral loopback services
+        run: |
+          cd "$RUNNER_TEMP/local-auth"
+          umask 077
+          ./node_modules/.bin/supabase start --exclude realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit > "$RUNNER_TEMP/local-auth-start.log" 2>&1 || { echo 'Local Supabase startup failed; no credential-bearing logs published'; exit 1; }
+          ./node_modules/.bin/supabase status -o json > "$RUNNER_TEMP/local-auth-status.json"
+      - name: Real local auth and RLS plus browser session checks
+        run: |
+          npx --no-install playwright-core install chromium
+          node scripts/qa/local-auth-isolation.mjs "$RUNNER_TEMP/local-auth-status.json"
+      - name: Stop local services without exporting credentials
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/local-auth"
+          if [ -x ./node_modules/.bin/supabase ]; then ./node_modules/.bin/supabase stop > "$RUNNER_TEMP/local-auth-stop.log" 2>&1; fi
