@@ -1,0 +1,53 @@
+name: Content contingency QA only
+on:
+  push:
+    branches: [qa/content-contingency-20261119]
+permissions:
+  contents: read
+jobs:
+  public-content:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci && npm test && npm run typecheck && npm run build
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ef3d6666973fc224856cf092cc099ab5b02a5371
+          path: qa-harness
+          persist-credentials: false
+      - run: |
+          npm ci --ignore-scripts --prefix qa-harness
+          node qa-harness/node_modules/playwright-core/cli.js install --with-deps chromium
+      - name: Isolated public routes and accessibility; no hosted credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- -H 127.0.0.1 > /tmp/rubato-content-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/explore >/dev/null; then READY=1; break; fi
+            sleep 1
+          done
+          test "$READY" = 1
+          export CHROME_BIN=$(node -e 'console.log(require("./qa-harness/node_modules/playwright-core").chromium.executablePath())')
+          node qa-harness/scripts/verify-explore-browser.cjs
+          node qa-harness/scripts/verify-fibre-weave-browser.cjs
+          cd qa-harness
+          node - <<'JS'
+          const fs=require('node:fs');
+          let source=fs.readFileSync('scripts/verify-flavor-browser.cjs','utf8');
+          const before="await page.goto('http://127.0.0.1:3000/notes');";
+          if(source.split(before).length!==2)throw Error('Unexpected harness revision');
+          source=source.replace(before,"await page.goto('http://127.0.0.1:3000/explore');");
+          eval(source);
+          JS
