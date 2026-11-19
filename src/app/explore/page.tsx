@@ -13,6 +13,13 @@ export default function ExplorePage(){
    <p className="mt-5 text-base leading-7">취향을 먼저 정하지 않아도 괜찮아요. 작품 한 쌍, 움직이는 도식, 짧은 예문 중 마음이 가는 곳에서 시작해보세요.</p>
    <p className="mt-3 text-sm leading-6">목차는 로그인 없이 볼 수 있어요. 예상 시간은 읽는 속도에 따라 달라집니다. 각 활동의 출처와 한계는 해당 화면에서 확인할 수 있어요.</p>
   </header>
+  <section aria-labelledby="first-visit-title" className="my-6 rounded-2xl border border-[#0042AF]/25 bg-[#FFFDF7] p-5 sm:p-6">
+   <p className="text-sm font-semibold text-[#0042AF]">처음이라면 · 약 3분</p>
+   <h2 id="first-visit-title" className="mt-2 text-xl font-semibold">빛을 바꾸며 한 가지 차이부터 찾아보세요</h2>
+   <p className="mt-3 max-w-2xl text-sm leading-6">같은 형태도 빛이 달라지면 어떻게 보일까요? 로그인 없이 도식을 비교하고 마음이 가는 쪽을 골라보세요. 정답이나 준비물은 없어요.</p>
+   <Link href="/notes?lesson=light" className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#0042AF] px-5 py-3 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">명암 직접 바꿔 보기 →</Link>
+   <p className="mt-3 text-xs leading-6">선택과 메모의 기본 저장 위치는 이 브라우저예요. 이 링크를 여는 것만으로 활동이 완료되거나 계정에 저장되지는 않아요.</p>
+  </section>
   <nav aria-label="콘텐츠 종류" className="my-6 flex flex-wrap gap-x-6 gap-y-2">
    <Link className={linkStyle} href="/explore#compare-content">작품을 나란히</Link><Link className={linkStyle} href="/explore#try-content">직접 바꿔 보기</Link><Link className={linkStyle} href="/explore#read-content">말을 자세히</Link>
   </nav>
