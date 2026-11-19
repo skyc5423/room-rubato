@@ -7,7 +7,7 @@ const mock = vi.hoisted(() => {
 });
 vi.mock('../src/lib/supabase', () => ({ supabase: {
   auth: { onAuthStateChange: (cb: any) => { mock.callback=cb; return {data:{subscription:{unsubscribe:vi.fn()}}}; }, signOut: () => mock.signout(), updateUser: vi.fn() },
-  from: () => ({select:()=>({eq:()=>({maybeSingle:()=>mock.read()})})}), rpc: (...args:any[])=>mock.rpc(...args),
+  from: () => ({select:()=>({eq:(_column:string,uid:string)=>({maybeSingle:()=>mock.read(uid)})})}), rpc: (...args:any[])=>mock.rpc(...args),
 } }));
 import { PersonaProvider, usePersonaStore } from '../src/lib/persona-store';
 let store: ReturnType<typeof usePersonaStore>; let root:ReactTestRenderer;
@@ -41,4 +41,28 @@ it('does not erase a new owner when an old CAS reset completes',async()=>{
  mock.read.mockResolvedValueOnce({data:{state:{demographics:{occupation:'research_edu'}},revision:'bob-r1',consent_agreed_at:'2026-11-10T00:00:00Z'},error:null});await emit('bob');
  await act(async()=>{resolve({data:'alice-r2',error:null});expect((await deletion).ok).toBe(false);});
  expect(store.authUser?.userUuid).toBe('bob');expect(store.state.demographics?.occupation).toBe('research_edu');
+});
+
+// Synthetic SDK-event integration only: no account, token, network, or OAuth endpoint.
+it('reloads a confirmed account save through INITIAL_SESSION without borrowing another owner or guest state',async()=>{
+ const rows=new Map<string,any>([['alice',{state:{},revision:'alice-r1',consent_agreed_at:'2026-11-10T00:00:00Z'}],['bob',{state:{demographics:{occupation:'office_admin'}},revision:'bob-r1',consent_agreed_at:'2026-11-10T00:00:00Z'}]]);
+ mock.read.mockImplementation(async(uid:string)=>({data:rows.get(uid),error:null}));
+ mock.rpc.mockImplementation(async(_name:string,p:any)=>{rows.set('alice',{...rows.get('alice'),state:structuredClone(p.p_state),revision:'alice-r2'});return {data:'alice-r2',error:null};});
+ await emit('alice');act(()=>store.updateDemographics({occupation:'research_edu'}));await tick();
+ expect(mock.rpc).toHaveBeenCalledTimes(1);expect(rows.get('alice').state.demographics.occupation).toBe('research_edu');
+ act(()=>root.unmount());act(()=>{root=create(<PersonaProvider><Probe/></PersonaProvider>);});
+ expect(store.authUser).toBeNull();expect(store.isHydrated).toBe(false);
+ act(()=>mock.callback('INITIAL_SESSION',session('alice')));await tick();
+ expect(store.authUser?.userUuid).toBe('alice');expect(store.state.demographics?.occupation).toBe('research_edu');expect(mock.rpc).toHaveBeenCalledTimes(1);
+ await emit('bob');expect(store.authUser?.userUuid).toBe('bob');expect(store.state.demographics?.occupation).toBe('office_admin');expect(store.recoveryDraft).toBeNull();expect(mock.rpc).toHaveBeenCalledTimes(1);
+ act(()=>mock.callback('SIGNED_OUT',null));await tick();
+ expect(store.authUser).toBeNull();expect(store.state.demographics?.occupation).toBe('unspecified');expect(mock.rpc).toHaveBeenCalledTimes(1);
+ act(()=>mock.callback('INITIAL_SESSION',session('alice')));await tick();
+ expect(store.state.demographics?.occupation).toBe('research_edu');expect(mock.read).toHaveBeenLastCalledWith('alice');expect(mock.rpc).toHaveBeenCalledTimes(1);
+});
+it('keeps confirmed account state across same-owner refresh and repeated sign-in without rereading or resaving',async()=>{
+ await emit('alice');act(()=>store.updateDemographics({occupation:'research_edu'}));await tick();
+ const reads=mock.read.mock.calls.length,writes=mock.rpc.mock.calls.length;
+ for(const event of ['TOKEN_REFRESHED','USER_UPDATED','SIGNED_IN']){act(()=>mock.callback(event,session('alice')));await tick();}
+ expect(store.authUser?.userUuid).toBe('alice');expect(store.isHydrated).toBe(true);expect(store.state.demographics?.occupation).toBe('research_edu');expect(mock.read).toHaveBeenCalledTimes(reads);expect(mock.rpc).toHaveBeenCalledTimes(writes);
 });
