@@ -1,0 +1,1 @@
+{"version":2,"framework":null,"functions":{"api/*.mjs":{"maxDuration":60}},"crons":[{"path":"/api/run","schedule":"0 12 * * *"}]}

@@ -97,3 +97,23 @@ it('stops active reference playback manually and on unmount',async()=>{
  click('기준 박만 듣기');const second=instances[1];await resolve(second);act(()=>view.unmount());
  expect(second.close).toHaveBeenCalledTimes(1);expect(vi.getTimerCount()).toBe(0);
 });
+
+
+it('describes pending audio honestly instead of claiming it is already playing',async()=>{
+ click('A 듣기');expect(JSON.stringify(view.toJSON())).toContain('소리 준비 중');
+ expect(JSON.stringify(view.toJSON())).not.toContain('A 재생 중');
+ await resolve(instances[0]);expect(JSON.stringify(view.toJSON())).toContain('A 재생 중');
+});
+it('cancels pending audio when the page hides and does not autoplay on return',async()=>{
+ act(()=>view.unmount());
+ const doc=new EventTarget() as EventTarget&{hidden:boolean};doc.hidden=false;
+ const win=new EventTarget();vi.stubGlobal('document',doc);vi.stubGlobal('window',win);
+ act(()=>{view=create(<RhythmListening/>);});click('A 듣기');const audio=instances[0];
+ act(()=>{doc.hidden=true;doc.dispatchEvent(new Event('visibilitychange'));});
+ expect(audio.close).toHaveBeenCalledTimes(1);await resolve(audio);
+ expect(audio.createOscillator).not.toHaveBeenCalled();expect(button('정지').props.disabled).toBe(true);
+ act(()=>{doc.hidden=false;doc.dispatchEvent(new Event('visibilitychange'));});
+ expect(instances).toHaveLength(1);expect(vi.getTimerCount()).toBe(0);
+ click('B 듣기');await resolve(instances[1]);expect(instances[1].createOscillator).toHaveBeenCalledTimes(16);
+ act(()=>{win.dispatchEvent(new Event('pagehide'));});expect(instances[1].close).toHaveBeenCalledTimes(1);expect(vi.getTimerCount()).toBe(0);
+});

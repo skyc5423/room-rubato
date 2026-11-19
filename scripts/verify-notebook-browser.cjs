@@ -1,0 +1,172 @@
+const engines=require('playwright-core');
+const engine=process.env.BROWSER_ENGINE||'chromium';
+if(!['chromium','firefox','webkit'].includes(engine))throw Error('Unsupported browser engine');
+(async()=>{
+const browser=await engines[engine].launch(engine==='chromium'?{executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']}:{headless:true});
+console.log(`ENGINE ${engine} ${browser.version()} (Linux CI, not a device Safari test)`);
+const errors=[];let pageSequence=0;
+// Diagnostics contain routes and error metadata only, never DOM/storage contents.
+function routeOnly(value){try{const u=new URL(value);return u.origin+u.pathname;}catch{return 'unavailable';}}
+function observePage(page){
+ const label=`page-${++pageSequence}`;
+ const metadata=()=>({page:label,route:routeOnly(page.url()),at:new Date().toISOString()});
+ page.on('pageerror',error=>{
+  errors.push(error.message);
+  console.error('PAGE ERROR',JSON.stringify({...metadata(),message:error.message,stack:error.stack}));
+ });
+ page.on('console',message=>{
+  // React errors carry useful hydration arguments; do not serialize arbitrary app console payloads.
+  if(message.type()==='error'&&/Minified React error #\d+/.test(message.text()))console.error('REACT CONSOLE ERROR',JSON.stringify({...metadata(),message:message.text()}));
+ });
+ // Correlate natural navigation failures without filtering/weakening pageerror checks.
+ page.on('requestfailed',request=>console.log('REQUEST FAILED',JSON.stringify({...metadata(),requestRoute:routeOnly(request.url()),navigation:request.isNavigationRequest(),error:request.failure()?.errorText})));
+ page.on('response',response=>{if(response.status()>=400)console.log('HTTP ERROR',JSON.stringify({...metadata(),requestRoute:routeOnly(response.url()),status:response.status()}));});
+ page.on('framenavigated',frame=>{if(frame===page.mainFrame())console.log('PAGE NAVIGATION',JSON.stringify(metadata()));});
+}
+function observeContext(context){context.on('page',observePage);}
+
+// Isolate direct-entry rendering from the later completed-record navigation journey.
+const directContext=await browser.newContext();observeContext(directContext);const direct=await directContext.newPage();
+await direct.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+await direct.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+if(await direct.locator('[data-field-observation]').count())throw Error('Fresh unfinished lesson displays field card');
+console.log('PASS fresh-context perspective direct entry');await directContext.close();
+if(engine==='webkit'){
+ const isolated=await browser.newContext();observeContext(isolated);const page=await isolated.newPage();
+ await page.goto('http://127.0.0.1:3000/privacy');
+ await page.evaluate(()=>localStorage.setItem('rubato_taste_journal_v1:guest',JSON.stringify({version:1,entries:{space:{lessonId:'space',version:1,before:'a',after:'b',memo:'isolated synthetic',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'}}})));
+ await page.goto('http://127.0.0.1:3000/notes?lesson=space');
+ await page.locator('[data-field-observation="space"] summary').click();await page.reload();
+ await page.locator('[data-field-observation="space"]').waitFor();
+ await page.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+ await page.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+ console.log('PASS isolated completed space card/reload to unfinished perspective');await isolated.close();
+}
+
+const context=await browser.newContext();observeContext(context);
+await context.addInitScript(()=>{
+ window.__writerTrace=[];
+ const request=navigator.locks?.request.bind(navigator.locks);
+ if(request)navigator.locks.request=(name,options,callback)=>request(name,options,lock=>{
+  window.__writerTrace.push({name,granted:!!lock,at:performance.now()});
+  return callback(lock);
+ });
+});
+const a=await context.newPage();
+await a.goto('http://127.0.0.1:3000/notes?lesson=light');
+await a.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+await a.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='A 쪽'&&!b.disabled));
+await a.getByRole('button',{name:'A 쪽',exact:true}).click();
+const b=await context.newPage();await b.goto('http://127.0.0.1:3000/notes?lesson=light');
+await b.getByText('다른 탭에서 관찰실을 편집 중이에요.',{exact:false}).waitFor();
+if(!await b.getByRole('button',{name:'＋ 다시 볼 단서에 저장',exact:true}).isDisabled())throw Error('second tab writable');
+const titleBox=await b.getByRole('heading',{level:1}).boundingBox();const noticeBox=await b.getByRole('status').filter({hasText:'다른 탭에서 관찰실을 편집 중'}).boundingBox();if(!titleBox||!noticeBox||noticeBox.y-titleBox.y-titleBox.height>48)throw Error('Read-only explanation is detached from the lesson heading');
+console.log('PASS second tab blocked with near-heading explanation, first tab saved');
+await a.close();await b.getByRole('button',{name:'이 탭에서 편집 다시 시도'}).click();
+await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
+await b.getByRole('button',{name:'＋ 다시 볼 단서에 저장',exact:true}).click();
+if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.light.bookmarked))throw Error('takeover save failed');
+console.log('PASS tab close releases lease and retry persists');
+await b.reload();await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='✓ 다시 볼 단서에 저장됨'&&!b.disabled));console.log('PASS reload reacquires lease and preserves data');
+const legacy=await context.newPage();await legacy.goto('http://127.0.0.1:3000/privacy');
+await legacy.evaluate(()=>{const k='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(k));j.entries.space={lessonId:'space',version:1,memo:'테스트 감상: 여백과 빛 🌿',bookmarked:false,updatedAt:'2026-11-16T00:00:00Z'};localStorage.setItem(k,JSON.stringify(j));});
+await b.getByRole('button',{name:'✓ 다시 볼 단서에 저장됨',exact:true}).click();
+if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('legacy different record lost');
+console.log('PASS external non-locking write preserved by fresh read (not atomic CAS)');
+await b.goto('http://127.0.0.1:3000/privacy');await legacy.goto('http://127.0.0.1:3000/notes?lesson=light');
+await legacy.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));console.log('PASS navigation away releases lease');
+if(engine==='chromium'){
+const crash=await context.newCDPSession(legacy);
+const crashed=legacy.waitForEvent('crash');
+void crash.send('Page.crash').catch(()=>{});
+await crashed; // Confirm the injected event, never assume a 1.5s sleep means a crash.
+await b.goto('http://127.0.0.1:3000/notes?lesson=light');
+await legacy.close();
+await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='이 탭에서 편집 다시 시도'||b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));
+const retry=b.getByRole('button',{name:'이 탭에서 편집 다시 시도'});if(await retry.isVisible())await retry.click();
+try {await b.waitForFunction(()=>[...document.querySelectorAll('button')].some(b=>b.textContent==='＋ 다시 볼 단서에 저장'&&!b.disabled));}
+catch(error){console.error('CRASH RECOVERY DIAGNOSTIC',await b.evaluate(async()=>({trace:window.__writerTrace,locks:await navigator.locks.query(),status:[...document.querySelectorAll('[role=status]')].map(el=>el.textContent)})));throw error;}
+if(!await b.evaluate(()=>JSON.parse(localStorage.getItem('rubato_taste_journal_v1:guest')).entries.space))throw Error('crash recovery lost saved record');
+console.log('PASS crashed-tab close and retry recover editing with saved records intact');
+}else console.log('SKIP renderer crash injection: Chromium CDP only');
+await b.goto('http://127.0.0.1:3000/notes');
+const exportButton=b.getByRole('button',{name:'기록 내보내기',exact:true});await exportButton.waitFor();
+const beforeExport=await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+const downloadEvent=b.waitForEvent('download');await exportButton.click();const download=await downloadEvent;
+if(download.suggestedFilename()!=='room-rubato-notes.txt'||await download.failure())throw Error('Notebook export failed');
+const stream=await download.createReadStream();const chunks=[];for await(const chunk of stream)chunks.push(chunk);const exported=Buffer.concat(chunks).toString('utf8');
+if(!exported.includes('테스트 감상: 여백과 빛 🌿')||!exported.includes('출처:'))throw Error('Notebook export lost text or sources');
+if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Export modified saved records');
+await b.evaluate(()=>{window.__originalCreateObjectURL=URL.createObjectURL;URL.createObjectURL=()=>{throw Error('synthetic download failure');};});
+try {
+ await exportButton.click();
+ await b.getByText('기록 파일을 내보내지 못했어요.',{exact:false}).waitFor();
+ if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeExport)throw Error('Failed export modified saved records');
+} finally {
+ await b.evaluate(()=>{URL.createObjectURL=window.__originalCreateObjectURL;delete window.__originalCreateObjectURL;});
+}
+console.log('PASS UTF-8 notebook download and explicit failure without record loss');
+// Optional field observation reads completed synthetic records without rewriting them.
+// Seed in the current document: a disposable privacy app visit is not fixture setup.
+// Real navigation-away/reload checks above and the hard notes navigation below remain.
+await b.evaluate(()=>{
+ const key='rubato_taste_journal_v1:guest',j=JSON.parse(localStorage.getItem(key));
+ for(const id of ['light','space'])j.entries[id]={lessonId:id,version:1,before:'a',after:'b',memo:'synthetic field observation original',bookmarked:false,completedAt:'2026-11-16T00:00:00Z',updatedAt:'2026-11-16T00:00:00Z'};
+ localStorage.setItem(key,JSON.stringify(j));
+});
+const beforeField=await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'));
+await b.goto('http://127.0.0.1:3000/notes?lesson=light');
+const field=b.locator('[data-field-observation="light"]');await field.waitFor();
+if(await field.evaluate(el=>el.open))throw Error('Field observation unexpectedly starts expanded');
+await field.locator('summary').focus();await b.keyboard.press('Enter');
+await b.waitForFunction(()=>document.querySelector('[data-field-observation="light"]')?.open===true);
+if(!await b.locator('#observation-memo').evaluate(el=>el.readOnly))throw Error('Field observation made completed memo writable');
+await b.setViewportSize({width:320,height:760});
+if(await b.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1))throw Error('Expanded field observation overflows narrow viewport');
+if(engine==='chromium'){
+ await b.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+ const audit=await b.evaluate(()=>axe.run(document.querySelector('[data-field-observation="light"]'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));
+ if(audit.violations.length)throw Error('Field observation accessibility violations: '+JSON.stringify(audit.violations.map(v=>({id:v.id,impact:v.impact}))));
+}
+await b.setViewportSize({width:1280,height:720});
+await b.keyboard.press('Enter');
+await b.waitForFunction(()=>document.querySelector('[data-field-observation="light"]')?.open===false);
+await b.keyboard.press('Enter');
+await b.getByRole('button',{name:'← 목록으로',exact:true}).click();
+await b.getByRole('button',{name:'내 기록',exact:true}).click();
+await b.locator('article').filter({hasText:'나누면서 열어두기'}).getByRole('button',{name:'다시 살펴보기 →',exact:true}).click();
+const spaceField=b.locator('[data-field-observation="space"]');await spaceField.waitFor();
+if(await spaceField.evaluate(el=>el.open))throw Error('Expanded field state carried to another lesson');
+await spaceField.locator('summary').click();await b.reload();await spaceField.waitFor();
+if(await spaceField.evaluate(el=>el.open))throw Error('Field observation persisted expansion');
+if(await b.evaluate(()=>localStorage.getItem('rubato_taste_journal_v1:guest'))!==beforeField)throw Error('Field observation changed original records');
+console.log('FIELD completed lesson reopen, narrow reflow, reset and immutable journal verified; navigating to unfinished perspective');
+b.on('crash',()=>console.log('FIELD page crash event'));
+b.on('domcontentloaded',()=>console.log('FIELD DOMContentLoaded',b.url()));
+b.on('response',response=>{if(response.request().isNavigationRequest())console.log('FIELD navigation response',response.status(),response.url());});
+b.on('dialog',async dialog=>{errors.push('Unexpected field navigation dialog: '+dialog.type());console.log('FIELD unexpected dialog',dialog.type());await dialog.dismiss();});
+console.log('FIELD prior state',await b.evaluate(async()=>({url:location.href,locks:navigator.locks?await navigator.locks.query():null,temporaryKeys:Object.keys(sessionStorage).filter(k=>k.includes('pending')||k.includes('draft'))})));
+
+await b.goto('http://127.0.0.1:3000/notes?lesson=perspective');
+await b.getByRole('button',{name:'A 쪽',exact:true}).waitFor();
+if(await b.locator('[data-field-observation]').count())throw Error('Unfinished lesson offered completed-record field observation');
+console.log('PASS optional field observation keyboard/revisit/reset and unchanged original records');
+// Real Web Audio context, synthetic background visibility; not physical-device audibility.
+// Do not fake pagehide/pageshow in a live document: Next uses them to abort RSC fetches.
+// The pagehide stop handler remains independently covered by rhythm-listening.test.tsx.
+await b.addInitScript(()=>{const Audio=window.AudioContext;if(Audio)window.AudioContext=class extends Audio{constructor(...args){super(...args);window.__studyAudio=this;}};});
+await b.goto('http://127.0.0.1:3000/notes?lesson=syncopation');
+await b.getByRole('button',{name:'A 듣기',exact:true}).click();
+try{await b.getByText('A 재생 중',{exact:true}).waitFor();}catch(error){console.error('AUDIO START DIAGNOSTIC',await b.evaluate(()=>({state:window.__studyAudio?.state,visibility:document.visibilityState,status:[...document.querySelectorAll('[role=status]')].map(el=>el.textContent)})));throw error;}
+await b.evaluate(()=>{window.__originalHiddenDescriptor=Object.getOwnPropertyDescriptor(document,'hidden');Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
+await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
+if(!await b.getByRole('button',{name:'정지',exact:true}).isDisabled())throw Error('Hidden-page audio remained active');
+await b.evaluate(()=>{if(window.__originalHiddenDescriptor)Object.defineProperty(document,'hidden',window.__originalHiddenDescriptor);else delete document.hidden;delete window.__originalHiddenDescriptor;document.dispatchEvent(new Event('visibilitychange'));});
+if(await b.evaluate(()=>window.__studyAudio?.state)!=='closed')throw Error('Returning to page unexpectedly resumed audio');
+await b.getByRole('button',{name:'B 듣기',exact:true}).click();await b.getByText('B 재생 중',{exact:true}).waitFor();
+await b.getByRole('button',{name:'정지',exact:true}).click();
+await b.waitForFunction(()=>window.__studyAudio?.state==='closed');
+console.log('PASS Web Audio background cancellation, no auto-resume, explicit replay (synthetic visibility event)');
+if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS no page errors');
+await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});

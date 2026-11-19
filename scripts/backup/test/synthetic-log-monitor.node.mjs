@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {classifySyntheticLogCheck as check,MONITOR_SLOTS} from '../synthetic-log-monitor.mjs';
+import {WRITER} from '../blob-evidence.mjs';
+const day='2026-11-18',deployment='dpl_test123';
+const empty=(from,to)=>`## Runtime Logs\n\n**Project:** ${WRITER}\n**Deployment:** ${deployment}\n**Time range:** ${from} → ${to}\n\nNo logs found for the specified criteria.`;
+const input=(time)=>{const now=Date.parse(day+'T'+time+':00.000Z');return {day,deployment,now,connectorOk:true,text:empty(new Date(now-59*60000).toISOString(),new Date(now).toISOString())};};
+test('empty before deadline is pending, afterward only missing evidence not failed backup',()=>{assert.equal(check(input('12:40')).state,'waiting_window');const r=check(input('13:10'));assert.equal(r.state,'missing_evidence');assert.equal(r.restoreVerified,false);assert.equal(r.currentBlobReadVerified,false);});
+test('connector failure never becomes absence or success',()=>{const r=check({...input('13:10'),connectorOk:false,text:'No logs found'});assert.equal(r.state,'source_unavailable');});
+test('stale future wrong-source malformed and over-retention responses fail closed',()=>{const i=input('13:10');for(const text of [i.text.replace(WRITER,'prj_other'),'garbage',empty(day+'T12:00:00.000Z',day+'T12:30:00.000Z'),empty(day+'T12:30:00.000Z',day+'T14:00:00.000Z'),empty(day+'T11:00:00.000Z',day+'T13:10:00.000Z'),empty(day+'T13:10:00.000Z',day+'T13:10:00.000Z'),empty(day+'T12:30:00.000Z',day+'T13:10:00.000Z')])assert.equal(check({...i,text}).state,'invalid_evidence');});
+test('bounded schedule covers each cron minute and stops at pilot expiry',()=>{for(let minute=0;minute<60;minute++){const at=Date.parse(day+`T12:${String(minute).padStart(2,'0')}:59.000Z`);assert(MONITOR_SLOTS.some(s=>{const t=Date.parse(day+'T'+s+':00.000Z');return t>=at&&t-at<=59*60000;}));}assert.equal(check({...input('13:10'),day:'2026-11-24',now:Date.parse('2026-11-24T12:10:00Z')}).state,'stopped');});
+test('same observation idempotence and day identity are explicit',()=>{const i=input('13:10');assert.equal(check(i).eventId,check(i).eventId);assert.throws(()=>check({...i,day:'2026-11-19'}));assert.throws(()=>check({...i,now:NaN}));});
+
+test('different valid coverage has different durable observation identity',()=>{const i=input('13:10'),short={...i,text:empty(day+'T12:12:00.000Z',day+'T13:10:00.000Z')};assert.notEqual(check(i).eventId,check(short).eventId);assert.equal(check(short).state,'missing_evidence');});

@@ -8,6 +8,7 @@ export function RhythmListening() {
   const generation = useRef(0);
   const [playing,setPlaying]=useState<RhythmPlayback|null>(null);
   const [error,setError]=useState('');
+  const [preparing,setPreparing]=useState(false);
   function release() {
     generation.current++;
     if(timer.current) clearTimeout(timer.current);
@@ -16,10 +17,22 @@ export function RhythmListening() {
     // Detach before closing: pending resume callbacks must not own this player.
     if(audio) {try {void audio.close().catch(()=>{});} catch { /* Already unavailable. */ }}
   }
-  function stop() {release();setPlaying(null);}
-  useEffect(()=>()=>release(),[]);
+  function stop() {release();setPlaying(null);setPreparing(false);}
+  useEffect(()=>{
+    const doc=typeof document==='undefined'?undefined:document;
+    const win=typeof window==='undefined'?undefined:window;
+    const hide=()=>{if(doc?.hidden)stop();};
+    const leave=()=>stop();
+    doc?.addEventListener?.('visibilitychange',hide);
+    win?.addEventListener?.('pagehide',leave);
+    return()=>{
+      doc?.removeEventListener?.('visibilitychange',hide);
+      win?.removeEventListener?.('pagehide',leave);
+      release();
+    };
+  },[]);
   async function play(pattern:RhythmPlayback) {
-    stop();setError('');
+    stop();setError('');setPreparing(true);
     const request=generation.current;
     setPlaying(pattern); // Stop remains available while the browser resumes audio.
     try {
@@ -32,7 +45,7 @@ export function RhythmListening() {
         if(RHYTHM_PULSE_STEPS.includes(i)) tone(audio,time,160,0.035);
         if(patternSteps.includes(i)) tone(audio,time,660,0.07);
       }
-      setPlaying(pattern);timer.current=setTimeout(()=>{if(context.current===audio)stop();},RHYTHM_PLAYBACK_MS);
+      setPreparing(false);setPlaying(pattern);timer.current=setTimeout(()=>{if(context.current===audio)stop();},RHYTHM_PLAYBACK_MS);
     } catch {if(generation.current!==request)return;stop();setError('이 브라우저에서 소리를 재생하지 못했어요. 도식의 점 위치로 비교할 수 있어요.');}
   }
   function tone(audio:AudioContext,time:number,hz:number,volume:number) {
@@ -47,8 +60,8 @@ export function RhythmListening() {
       {(['a','b'] as const).map(p=><button type="button" key={p} onClick={()=>void play(p)} className="min-h-11 rounded-xl bg-[#0042AF] px-4 text-sm text-white" aria-pressed={playing===p}>{p.toUpperCase()} 듣기</button>)}
       <button type="button" onClick={stop} disabled={!playing} className="min-h-11 rounded-xl border border-[#0042AF]/30 px-4 text-sm disabled:opacity-40">정지</button>
     </div>
-    <p role="status" className="mt-2 text-xs">{error|| (playing?`${playing==='pulse'?'기준 박':playing.toUpperCase()} 재생 중`:'직접 만든 합성음입니다. 음원이나 음성은 수집하지 않습니다.')}</p>
-    <p className="mt-3 text-xs leading-5">기준 박은 비교를 돕는 소리이며 세 번째 선택지가 아닙니다. 듣기 동작은 기록에 저장하지 않아요.</p>
+    <p role="status" className="mt-2 text-xs">{error|| (playing?preparing?'소리 준비 중 · 정지로 취소할 수 있어요.':`${playing==='pulse'?'기준 박':playing.toUpperCase()} 재생 중`:'직접 만든 합성음입니다. 음원이나 음성은 수집하지 않습니다.')}</p>
+    <p className="mt-3 text-xs leading-5">기준 박은 비교를 돕는 소리이며 세 번째 선택지가 아닙니다. 듣기 동작은 기록에 저장하지 않아요. 다른 탭이나 화면으로 이동하면 정지하며, 돌아와도 자동 재생하지 않아요.</p>
     <details className="mt-3 text-sm leading-6"><summary className="min-h-11 cursor-pointer">소리 없이 위치 읽기</summary><p>{RHYTHM_NO_SOUND_READING}</p></details>
   </div>;
 }

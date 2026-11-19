@@ -1,6 +1,7 @@
 import React from 'react';
 import {act,create,ReactTestRenderer} from 'react-test-renderer';
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {retainPending,pendingKey} from '../src/lib/notebook-pending';
 import {NotebookReturn} from '../src/components/NotebookReturn';
 import {notebookReturn} from '../src/lib/notebook-return';
 import {emptyJournal,updateJournal,journalKey} from '../src/lib/taste-journal';
@@ -9,7 +10,7 @@ let hydrated=true;
 let storage:Map<string,string>;
 vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:owner?{userUuid:owner}:null,isHydrated:hydrated})}));
 vi.mock('next/link',()=>({default:({children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=><a {...props}>{children}</a>}));
-beforeEach(()=>{owner=null;hydrated=true;storage=new Map();vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});});
+beforeEach(()=>{owner=null;hydrated=true;storage=new Map();vi.stubGlobal('sessionStorage',{getItem:()=>null,setItem:vi.fn(),removeItem:vi.fn()});vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener:vi.fn(),removeEventListener:vi.fn()});});
 afterEach(()=>vi.unstubAllGlobals());
 it('prioritizes latest unfinished, then bookmark, then completed without using response content',()=>{
  let journal=updateJournal(emptyJournal(),'light',1,{before:'a'},'2026-11-10');
@@ -52,4 +53,101 @@ it('keeps the activity entry without duplicating the integrated artwork comparis
  expect(links.some(a=>a.props.href==='/compare')).toBe(false);
  expect(links.filter(a=>a.props.href==='/notes')).toHaveLength(1);
  expect(localStorage.setItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+});
+
+it('resumes memo-only and after-only observations without treating bookmarks as started',()=>{
+ const memo=updateJournal(emptyJournal(),'light',1,{memo:'PRIVATE unfinished observation'});
+ expect(notebookReturn(memo).kind).toBe('continue');expect(notebookReturn(memo).target?.id).toBe('light');
+ const after=updateJournal(emptyJournal(),'context',1,{after:'unsure'});
+ expect(notebookReturn(after).kind).toBe('continue');
+ const bookmark=updateJournal(emptyJournal(),'light',1,{memo:'   ',bookmarked:true});
+ expect(notebookReturn(bookmark).kind).toBe('bookmark');
+});
+
+it('prioritizes same-owner failed input without displaying its text or claiming it was saved',()=>{
+ storage.set(journalKey('guest'),JSON.stringify(updateJournal(emptyJournal(),'context',1,{before:'a'})));
+ retainPending('guest',{light:{base:undefined,patch:{memo:'PRIVATE FAILED MEMO',updatedAt:'2026-11-16'}}});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ const text=JSON.stringify(view!.toJSON());
+ expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);
+ expect(text).toContain('아직 원본에 저장되지');expect(text).not.toContain('PRIVATE FAILED MEMO');
+ owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력 확인하기');
+ expect(localStorage.setItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+});
+it('finds memory-only pending input and never overwrites unreadable temporary storage',()=>{
+ const raw='{malformed-pending';
+ vi.stubGlobal('sessionStorage',{getItem:()=>raw,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ expect(JSON.stringify(view!.toJSON())).toContain('임시 입력을 확인하지 못했어요');
+ expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();act(()=>view!.unmount());
+ retainPending('guest',{context:{base:undefined,patch:{memo:'PRIVATE MEMORY',updatedAt:'2026-11-16'}}});
+ act(()=>{view=create(<NotebookReturn/>);});
+ expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=context')).toBe(true);
+ expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE MEMORY');act(()=>view!.unmount());
+});
+
+it.each(['{broken',JSON.stringify(updateJournal(emptyJournal(),'light',1,{before:'a',completedAt:'2026-11-16',bookmarked:'invalid' as any}))])('shows recovery rather than normal progress for unreadable original: %s',raw=>{
+ owner='unread-health';storage.set(journalKey(owner),raw);const get=vi.spyOn(localStorage,'getItem');let view:ReactTestRenderer;
+ act(()=>{view=create(<NotebookReturn withArtworkPreview/>);});
+ try{const text=JSON.stringify(view!.toJSON());expect(text).toContain('기록 확인 필요');expect(text).not.toContain('개 탐색을 마쳤어요');expect(text).not.toContain('현재 사용자 기록을 기준');expect(text).not.toContain('직접 바꾸며 관찰하기');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes'&&a.children.join('').includes('기록 확인'))).toBe(true);expect(get.mock.calls.filter(([key])=>key===journalKey(owner!))).toHaveLength(1);expect(storage.get(journalKey(owner!))).toBe(raw);expect(localStorage.setItem).not.toHaveBeenCalled();}finally{act(()=>view!.unmount());}
+});
+it('keeps valid same-owner pending recovery ahead of unreadable journal and clears warning on owner switch',()=>{
+ owner='pending-health';storage.set(journalKey(owner),'{broken');retainPending(owner,{space:{base:undefined,patch:{memo:'PRIVATE PENDING',updatedAt:'2026-11-16'}}});let view:ReactTestRenderer;
+ act(()=>{view=create(<NotebookReturn/>);});
+ try{expect(JSON.stringify(view!.toJSON())).toContain('기록 확인 필요');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=space'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE PENDING');owner='healthy-empty';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('기록 확인 필요');expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력 확인하기');expect(view!.root.findAllByType('a').some(a=>a.props.href==='/compare')).toBe(true);expect(storage.get(journalKey('pending-health'))).toBe('{broken');}finally{act(()=>view!.unmount());}
+});
+it('treats a valid explicit empty journal as a normal start',()=>{
+ owner='valid-empty';storage.set(journalKey(owner),JSON.stringify(emptyJournal()));let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{expect(JSON.stringify(view!.toJSON())).not.toContain('기록 확인 필요');expect(JSON.stringify(view!.toJSON())).toContain('현재 사용자 기록을 기준');expect(localStorage.setItem).not.toHaveBeenCalled();}finally{act(()=>view!.unmount());}
+});
+
+it('returns to a same-owner unfinished edit ahead of unrelated saved progress without restoring it',async()=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const completed=updateJournal(emptyJournal(),'light',1,{before:'a',after:'b',completedAt:'2026-11-17',memo:'PRIVATE ORIGINAL'},'2026-11-17');
+ const base=completed.entries.light;
+ const journal=updateJournal(completed,'context',1,{before:'a'},'2026-11-18');
+ storage.set(journalKey('guest'),JSON.stringify(journal));
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE UNSAVED EDIT'},stage:2,variation:50});
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('임시 수정 확인하기'))).toBe(true);
+  const text=JSON.stringify(view!.toJSON());expect(text).toContain('저장하지 않은 수정');expect(text).not.toContain('PRIVATE');
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+  owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정 확인하기');
+ }finally{act(()=>view!.unmount());}
+});
+
+it.each(['missing','changed','unreadable'])('offers inspection, not automatic restoration, when the original draft base is %s',async original=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const journal=updateJournal(emptyJournal(),'light',1,{before:'a',completedAt:'2026-11-17'},'2026-11-17'),base=journal.entries.light;
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE EDIT'},stage:2,variation:50});
+ if(original==='changed')storage.set(journalKey('guest'),JSON.stringify(updateJournal(journal,'light',1,{memo:'NEW ORIGINAL'},'2026-11-18')));
+ if(original==='unreadable')storage.set(journalKey('guest'),'{broken');
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  const text=JSON.stringify(view!.toJSON());expect(text).toContain('임시 수정 확인하기');expect(text).toContain('기존 기록은 자동으로 바꾸지');expect(text).not.toContain('PRIVATE EDIT');expect(text).not.toContain('NEW ORIGINAL');
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+ }finally{act(()=>view!.unmount());}
+});
+it.each(['malformed','unreadable'])('warns about %s temporary edits without clearing or exposing their bytes',async kind=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>{if(key!==notebookDraftKey('guest'))return null;if(kind==='unreadable')throw Error('PRIVATE ERROR');return '{PRIVATE BROKEN';},setItem:vi.fn(),removeItem:vi.fn()});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{const text=JSON.stringify(view!.toJSON());expect(text).toContain('임시 수정을 확인하지 못했어요');expect(text).not.toContain('PRIVATE');expect(sessionStorage.removeItem).not.toHaveBeenCalled();expect(sessionStorage.setItem).not.toHaveBeenCalled();expect(localStorage.setItem).not.toHaveBeenCalled();owner='other';act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정을 확인하지 못했어요');}finally{act(()=>view!.unmount());}
+});
+it('keeps failed-write recovery first and hides all edit hints until the current owner is ready',async()=>{
+ const {notebookDraftKey}=await import('../src/lib/notebook-draft');
+ const base=updateJournal(emptyJournal(),'light',1,{completedAt:'2026-11-17'},'2026-11-17').entries.light;
+ const raw=JSON.stringify({version:1,base,entry:{...base,memo:'PRIVATE EDIT'},stage:2,variation:50});
+ vi.stubGlobal('sessionStorage',{getItem:(key:string)=>key===notebookDraftKey('guest')?raw:null,setItem:vi.fn(),removeItem:vi.fn()});
+ retainPending('guest',{context:{base:undefined,patch:{memo:'PRIVATE FAILED',updatedAt:'2026-11-18'}}});
+ let view:ReactTestRenderer;act(()=>{view=create(<NotebookReturn/>);});
+ try{
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=context'&&a.children.join('').includes('저장 실패 입력'))).toBe(true);
+  expect(view!.root.findAllByType('a').some(a=>a.props.href==='/notes?lesson=light'&&a.children.join('').includes('임시 수정 확인하기'))).toBe(true);
+  expect(localStorage.setItem).not.toHaveBeenCalled();expect(sessionStorage.removeItem).not.toHaveBeenCalled();
+  hydrated=false;act(()=>view!.update(<NotebookReturn/>));expect(JSON.stringify(view!.toJSON())).not.toContain('저장 실패 입력');expect(JSON.stringify(view!.toJSON())).not.toContain('임시 수정 확인하기');expect(JSON.stringify(view!.toJSON())).not.toContain('PRIVATE');
+ }finally{act(()=>view!.unmount());}
 });

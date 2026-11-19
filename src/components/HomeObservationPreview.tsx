@@ -48,6 +48,7 @@ export function HomeObservationPreview({embedded=false}:{embedded?:boolean}={}) 
           ))}
         </div>
         <p className="mt-5 max-w-3xl text-sm leading-6 text-[#010D6E]/80">작품 전체를 원본 비율로 보여드려요. 두 이미지의 화면 크기는 실제 작품 크기를 뜻하지 않아요.</p>
+        <Link href="/explore" className={`${textLink} mt-4`}>그림·음악·공간·풍미, 다른 콘텐츠 둘러보기 →</Link>
       </div>
     </section>
   );

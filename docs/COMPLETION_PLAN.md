@@ -1,5 +1,13 @@
 # Room Rubato: service-quality completion criteria
 
+## Current candidate and stop gate — 2026-11-16
+
+See [the consolidated acceptance review](ACCEPTANCE_REVIEW_20261116.md) for current six-category evidence, remaining gates and conditional estimates. Latest verified PR baseline: `d07e3db6497bd50538e6f0fe1821e03ca0705a2c`, CI43844498279 successful, 491 application tests. This is a **draft, undeployed candidate**, not the production checkpoint below. Follow-up verification is reported against its exact commit.
+
+**Current instruction: preserve prior work, PR-only; no merge, production deployment or repeated login requests.** Historical release/deployment steps below are conditional future gates, not current authorization. Historical viewport/incognito limitations must be read alongside the current 320/390 CSS-pixel and isolated-browser evidence in the review. Physical-device and live operational gates remain separate.
+
+## Historical checkpoints
+
 Latest verified checkpoint: production bb26b14cd434d9ff83380cd59c948bb856daf701, 2026-11-12. Earlier checkpoint counts below are historical. This is a progress record, not overall acceptance.
 
 ## Scope and stop rule

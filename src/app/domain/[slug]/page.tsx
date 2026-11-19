@@ -4,6 +4,7 @@ import { recordedChoice } from '@/lib/recorded-choice';
 import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
+import {ResultObservationBridge} from '@/components/ResultObservationBridge';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import { recordedAxisScore } from '@/lib/result-evidence';
 import React, { useEffect, useRef, useState } from 'react';
@@ -38,6 +39,12 @@ export default function DomainDetailPage() {
   >([]);
   const [viewMode, setViewMode] = useState<'questions' | 'result'>('questions');
 
+  const surveyStepHeading=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{
+    if(!isHydrated)return;
+    surveyStepHeading.current?.focus({preventScroll:true});
+    surveyStepHeading.current?.scrollIntoView?.({block:'nearest'});
+  },[currentIdx,viewMode,params.slug,isHydrated]);
   const questionStartRef = useRef<number>(Date.now());
   const selectingRef = useRef(false);
 
@@ -199,11 +206,11 @@ export default function DomainDetailPage() {
             <span className="inline-block px-3 py-0.5 rounded-full bg-[#FEF1D0]/90 border border-[#0042AF]/20 text-[12px] font-semibold text-[#0042AF] mb-2">
               {currentQuestion.contextHint}
             </span>
-            <h2 className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.45] mb-1.5">
+            <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="question" className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.45] mb-1.5">
               Q{currentIdx + 1}. {currentQuestion.prompt}
             </h2>
             <p className="text-[13.5px] text-[#0042AF]/85">
-              {domain.shortTitle} 전문 용어를 몰라도 괜찮습니다. 두 가지 실제 장면·아이템 중 평소 더 손이 가는 쪽을 골라 주세요.
+              {domain.shortTitle} 전문 용어를 몰라도 괜찮습니다. 두 선택지의 설명을 읽고 더 마음이 가는 쪽을 골라 주세요.
             </p>
           </div>
 
@@ -267,10 +274,11 @@ export default function DomainDetailPage() {
                     {matchedPhenotype.englishCode}
                   </span>
                 </div>
-                <h1 className="font-editorial text-[24px] md:text-[28px] text-[#010D6E] leading-[1.35] mb-3">
+                <h1 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="result" className="font-editorial text-[24px] md:text-[28px] text-[#010D6E] leading-[1.35] mb-3">
                   “{matchedPhenotype.name}”
                 </h1>
                 <ResultEvidence domain={domain} scores={existingCompletion?.axisScores}/>
+                      <ResultObservationBridge slug={domain.slug}/>
               </div>
             </div>
 
@@ -348,7 +356,7 @@ export default function DomainDetailPage() {
                       className={`rounded-xl p-3 border transition-all ${
                         isMine
                           ? 'bg-[#0042AF] text-[#FEF1D0] border-[#0042AF] shadow-sm'
-                          : 'bg-[#FFFDF7] text-[#010D6E] border-[#0042AF]/15 opacity-80'
+                          : 'bg-[#FFFDF7] text-[#010D6E] border-[#0042AF]/15'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1 mb-1">

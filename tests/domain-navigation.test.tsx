@@ -94,3 +94,10 @@ it('does not replace an unknown saved type with the first type',async()=>{
  const retry=view.root.findAllByType('button').find((b:any)=>b.findAllByType('span').some((span:any)=>span.children.includes('질문 다시 선택하기')));act(()=>retry.props.onClick());expect(store.recordQuestionChoice).not.toHaveBeenCalled();expect(JSON.stringify(store.state)).toBe(before);
  }finally{act(()=>view?.unmount());store.state.completedDomains={};store.state.choiceTelemetryLog=[];}
 });
+it('focuses the next question heading on standalone survey transitions',()=>{
+ const focus=vi.fn();let view:any;
+ try{
+ act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-survey-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ focus.mockClear();act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());expect(focus).toHaveBeenCalledOnce();
+ }finally{act(()=>view?.unmount());}
+});

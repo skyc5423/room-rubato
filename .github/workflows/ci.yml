@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       NEXT_PUBLIC_PERSONA_CAS_ENABLED: 'true'
@@ -25,13 +25,30 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - name: Synthetic Blob pilot tests (no hosted credentials)
+        run: |
+          npm ci --ignore-scripts --prefix ops/blob-pilot
+          npm test --prefix ops/blob-pilot
+      - name: Inactive app-backup package (offline; no deployment or credentials)
+        run: |
+          node scripts/backup/package-app-candidate.mjs "$RUNNER_TEMP/rubato-app-backup-candidate"
+          npm ci --ignore-scripts --prefix "$RUNNER_TEMP/rubato-app-backup-candidate"
+          VERCEL_BLOB_RETRIES=0 node scripts/backup/verify-app-package.mjs "$RUNNER_TEMP/rubato-app-backup-candidate"
       - run: npm run test:backup
       - name: Isolated withdrawal SQL safety checks (no hosted credentials)
         run: node scripts/verify-withdrawal-sql.mjs
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      - name: Public-route smoke test on local production build
+      - name: Install Firefox and WebKit test engines
+        run: node node_modules/playwright-core/cli.js install --with-deps firefox webkit
+      - name: Virtual audio output for headless Web Audio checks
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=rubato_test
+          pactl set-default-sink rubato_test
+      - name: Public-route and multi-engine notebook tests on local production build
         shell: bash
         run: |
           npm start -- -H 127.0.0.1 > /tmp/room-rubato-start.log 2>&1 &
@@ -44,3 +61,27 @@ jobs:
           done
           test "$READY" = 1
           node scripts/smoke.mjs http://127.0.0.1:3000
+          node scripts/capture-design-review.cjs
+          node scripts/verify-explore-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-explore-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-explore-browser.cjs
+          node scripts/diagnose-crash-lock.cjs
+          node scripts/verify-notebook-browser.cjs
+          for trial in 1 2; do BROWSER_ENGINE=firefox node scripts/verify-notebook-browser.cjs; done
+          BROWSER_ENGINE=webkit node scripts/verify-notebook-browser.cjs
+          node scripts/verify-flavor-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-flavor-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-flavor-browser.cjs
+          node scripts/verify-fibre-weave-browser.cjs
+          BROWSER_ENGINE=firefox node scripts/verify-fibre-weave-browser.cjs
+          BROWSER_ENGINE=webkit node scripts/verify-fibre-weave-browser.cjs
+          node scripts/audit-accessibility.cjs
+      - name: Preserve public-only design review screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: public-design-review
+          path: design-review/
+          retention-days: 7
+          if-no-files-found: error
+

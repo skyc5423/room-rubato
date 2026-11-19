@@ -26,3 +26,9 @@ Final local verification: 244/244 tests across 41 files, TypeScript, CAS/cloud-f
 ## Live keyboard follow-up
 
 Read-only production QA found that native disabled Next at the fourth cut dropped focus to the document. Endpoint navigation buttons now remain native focusable buttons with `aria-disabled` and explicitly guarded no-op handlers. This preserves the action's focus context while exposing unavailable direction; previous/next cannot exceed the four-cut bounds. WAI's button pattern (https://www.w3.org/WAI/ARIA/apg/patterns/button/, read2026-11-12) supports retaining focus when the context is not dismissed and announcing unavailable actions with aria-disabled. Synthetic tests verify endpoint semantics/no-op bounds; actual keyboard focus remains a separate browser check.
+
+## Creator-credit correction (2026-11-16)
+
+Read the original [2017 postmortem](https://medium.com/@tonyszhou/postmortem-1b338537fabc), including the jointly voiced script and explicit credit correction. The earlier optional channel description named only Tony Zhou. The UI now credits **Taylor Ramos and Tony Zhou**, links the dated account, and distinguishes the makers' form-focused approach from this service's independently authored observation prompt. It neither claims to summarize a particular video nor treats the 2017 channel-status statement as current. No footage, script passage, creator imagery or characteristic narration is copied. See CREATOR_PRIMARY_REVIEW_20261116.md for the bounded domestic/overseas research and inaccessible named reference.
+
+The same correction pass adds an original visible-description versus imagined-story prompt and an optional link to 예술호근미학's own essay about image/word relations. Its interpretation is not represented as a validated scientific rule or the source of this independently drawn sequence. No new user response is collected.

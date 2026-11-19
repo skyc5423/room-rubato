@@ -1,0 +1,40 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluateSyntheticStatus as evaluate,deliverSyntheticAlert as deliver} from '../synthetic-alert.mjs';
+const options={now:Date.parse('2026-11-18T13:15:00.000Z'),expectedDay:'2026-11-18'};
+const fresh={synthetic:true,status:'fresh',archivePresent:true,lastScheduledInvocationAt:'2026-11-18T12:50:00.000Z',lastSuccessAt:'2026-11-18T12:50:01.000Z',lastFailureAt:null,archiveDigest:'a'.repeat(64),day:'2026-11-18',restoreVerified:false};
+test('healthy synthetic status is silent and never production ready',async()=>{const r=evaluate(fresh,options);assert.deepEqual(r.issues,[]);assert.equal(r.productionReady,false);assert.equal((await deliver(r,()=>assert.fail('no message needed'))).status,'not-needed');});
+test('manual success does not conceal missing cron invocation',()=>{assert.deepEqual(evaluate({...fresh,lastScheduledInvocationAt:null},options).issues,['SCHEDULED_INVOCATION_MISSING']);});
+test('yesterday fresh archive cannot satisfy todays run',()=>{assert(evaluate({...fresh,day:'2026-11-17',lastSuccessAt:'2026-11-17T12:50:01.000Z'},options).issues.includes('BACKUP_MISSING_OR_UNVERIFIED'));});
+test('failed latest attempt and missing archive alert; prior recovered failure does not',()=>{assert(evaluate({...fresh,lastFailureAt:'2026-11-18T13:00:00.000Z',archivePresent:false},options).issues.includes('LATEST_ATTEMPT_FAILED'));assert.deepEqual(evaluate({...fresh,lastFailureAt:'2026-11-18T12:00:00.000Z'},options).issues,[]);});
+test('unavailable malformed future extra and production input all fail closed',()=>{for(const x of [null,{},'error', {...fresh,secret:'never-forward'}, {...fresh,synthetic:false}, {...fresh,lastSuccessAt:'2099-01-01T00:00:00.000Z'}, {...fresh,lastFailureAt:'bad'}, {...fresh,restoreVerified:true}])assert.deepEqual(evaluate(x,options).issues,['STATUS_UNAVAILABLE']);});
+test('window gate rejects early check impossible day and invalid clock',()=>{for(const x of [{...options,now:Date.parse('2026-11-18T12:59:00Z')},{...options,expectedDay:'2026-02-30'},{...options,now:NaN}])assert.throws(()=>evaluate(fresh,x));});
+test('synthetic receiver acceptance is not a claim of device delivery',async()=>{const inbox=[],r=evaluate(null,options);const result=await deliver(r,async p=>{inbox.push(p);return {accepted:true,id:p.id};});assert.equal(inbox.length,1);assert.deepEqual(Object.keys(inbox[0]),['version','synthetic','id','expectedDay','issues']);assert.equal(result.status,'adapter-accepted');assert.equal(result.delivered,false);assert.equal(result.recipientReceiptVerified,false);});
+test('delivery rejection mismatched receipt and errors never report success or leak text',async()=>{const r=evaluate(null,options);for(const send of [async()=>({accepted:false,id:r.id}),async()=>({accepted:true,id:'wrong'}),async()=>{throw Error('secret-token');}]){const out=await deliver(r,send);assert.equal(out.status,'unconfirmed');assert(!JSON.stringify(out).includes('secret-token'));}});
+test('bounded timeout aborts adapter and does not retry or claim delivery',async()=>{let calls=0,signal;const r=await deliver(evaluate(null,options),async(_,o)=>{calls++;signal=o.signal;return new Promise(()=>{});},{timeoutMs:5});assert.equal(calls,1);assert.equal(signal.aborted,true);assert.equal(r.status,'unconfirmed');});
+test('stable id supports caller deduplication; tampered reports rejected',async()=>{const r=evaluate(null,options);assert.equal(r.id,evaluate(null,options).id);await assert.rejects(deliver({...r,issues:['arbitrary-secret']},async()=>{}));});
+
+test('actual synthetic writer status feeds monitor and receiver without hosted access',async()=>{
+ const {generateKeyPairSync}=await import('node:crypto');
+ const {run,status,recordScheduled}=await import('../../../ops/blob-pilot/lib/pilot.mjs');
+ const {publicFingerprint}=await import('../core.mjs');
+ const {publicKey}=generateKeyPairSync('rsa',{modulusLength:3072,publicKeyEncoding:{type:'spki',format:'pem'}});
+ const cfg={publicKey,fingerprint:publicFingerprint(publicKey),secret:'synthetic-test-only'.repeat(4)};
+ const data=new Map(),store={read:async p=>data.get(p)??null,create:async(p,b)=>{if(data.has(p))return false;data.set(p,b);return true;}};
+ const execution=Date.parse('2026-11-18T12:30:00.000Z');
+ await run(store,cfg,execution);
+ const manual=evaluate(await status(store,cfg,options.now),options);
+ assert.deepEqual(manual.issues,['SCHEDULED_INVOCATION_MISSING']);
+ const received=[];await deliver(manual,async p=>{received.push(p);return {accepted:true,id:p.id};});assert.equal(received.length,1);
+ await recordScheduled(store,cfg,execution+1000);
+ assert.deepEqual(evaluate(await status(store,cfg,options.now),options).issues,[]);
+ data.delete('synthetic-pilot/2026-11-18/archive.json');
+ assert(evaluate(await status(store,cfg,options.now),options).issues.includes('BACKUP_MISSING_OR_UNVERIFIED'));
+});
+
+
+test('status failure classification waits until the exact 13:10 UTC grace boundary',()=>{
+ const manual={...fresh,lastScheduledInvocationAt:null};
+ for(const at of ['13:00:00.000','13:05:00.000','13:09:59.999'])assert.throws(()=>evaluate(manual,{...options,now:Date.parse(`2026-11-18T${at}Z`)}),/expected daily window/);
+ assert.deepEqual(evaluate(manual,{...options,now:Date.parse('2026-11-18T13:10:00.000Z')}).issues,['SCHEDULED_INVOCATION_MISSING']);
+});

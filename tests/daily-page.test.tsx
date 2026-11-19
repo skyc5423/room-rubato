@@ -82,3 +82,67 @@ it('preserves an actual saved zero duration',()=>{
  store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B',phase1ResponseTimeMs:0}];let view:any;
  try{act(()=>{view=create(<Page/>);});expect(view.root.findAllByType('p').some((p:any)=>p.children.join('').includes('처음 고르기까지 0.0초'))).toBe(true);expect(store.state.dailyShiftLog[0].phase1ResponseTimeMs).toBe(0);}finally{act(()=>view?.unmount());}
 });
+it('records a rapid repeated final choice only once',()=>{
+ store.recordDailyPulseShift.mockClear();let view:any;act(()=>{view=create(<Page/>);});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ const keep=view.root.findAllByType('button').find((b:any)=>JSON.stringify(b.children).includes('유지하기'));
+ act(()=>{keep.props.onClick();keep.props.onClick();});expect(store.recordDailyPulseShift).toHaveBeenCalledTimes(1);act(()=>view.unmount());store.recordDailyPulseShift.mockClear();
+});
+it('returns to a fresh question after the completed daily record is reset',()=>{
+ let view:any;act(()=>{view=create(<Page/>);});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ act(()=>view.root.findAllByType('button').find((b:any)=>JSON.stringify(b.children).includes('유지하기')).props.onClick());
+ store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'A',phase1ResponseTimeMs:1000}];act(()=>view.update(<Page/>));
+ store.state.dailyShiftLog=[];act(()=>view.update(<Page/>));
+ expect(JSON.stringify(view.toJSON())).toContain('이 답변 선택하기');act(()=>view.unmount());store.recordDailyPulseShift.mockClear();
+});
+
+// Stored records are untrusted display input, not permission to repair or re-answer them.
+it('survives malformed daily log members without rewriting saved records', () => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [null, false, 42, {}, {timestamp: {}, pulseId: DAILY_PULSE_QUESTIONS[0].id}, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'B' }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); expect(JSON.stringify(view.toJSON())).not.toContain('저장된 선택을 확인할 수 없어요'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});
+it.each([[null, 'B'], ['A', undefined], ['C', 'B'], [{}, 'A'], ['B', 'b']])('does not invent a daily result for invalid choices %s / %s', (first, second) => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [{ timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'A' }, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: first, phase2ChoiceAfterSocialProof: second }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); const text=JSON.stringify(view.toJSON()); expect(text).toContain('저장된 선택을 확인할 수 없어요'); expect(text).not.toContain('유지하셨'); expect(text).not.toContain('바꾸셨'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});
+
+it('moves focus to the situation and result after explicit daily choices only',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];store.recordDailyPulseShift.mockClear();
+ try{
+  act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+  expect(focus).not.toHaveBeenCalled();
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(1);
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(2);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
+});
+it('does not steal focus when a completed daily response loads',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B'}];
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});expect(focus).not.toHaveBeenCalled();}
+ finally{act(()=>view?.unmount());}
+});
+
+it('keeps result focus when persistence immediately supplies the saved daily entry',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];
+ store.recordDailyPulseShift.mockImplementation((payload:any)=>{store.state.dailyShiftLog=[{...payload,timestamp:new Date().toISOString()}];});
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());focus.mockClear();
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+ expect(focus).toHaveBeenCalledTimes(1);expect(view.root.findByProps({'data-daily-step-heading':'result'}).props.tabIndex).toBe(-1);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockReset();}
+});
+it('does not focus a previous owner daily step after an account change',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];const original=store.currentUserId;
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>{view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick();store.currentUserId='new-owner';view.update(<Page/>);});
+ expect(focus).not.toHaveBeenCalled();
+ }finally{act(()=>view?.unmount());store.currentUserId=original;}
+});

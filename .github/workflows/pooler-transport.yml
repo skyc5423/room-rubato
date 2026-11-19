@@ -1,0 +1,28 @@
+name: Public pooler transport probe
+on:
+  push:
+    branches: [fix/readiness-guards-20261116]
+    paths:
+      - '.github/workflows/pooler-transport.yml'
+      - 'scripts/backup/probe-pooler-tls.py'
+      - 'scripts/backup/test/pooler-tls.test.py'
+      - 'scripts/backup/supabase-ca.pem'
+permissions:
+  contents: read
+jobs:
+  transport-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/backup/probe-pooler-tls.py
+            scripts/backup/test/pooler-tls.test.py
+            scripts/backup/supabase-ca.pem
+          sparse-checkout-cone-mode: false
+      - name: Offline protocol and fail-closed tests
+        run: python3 scripts/backup/test/pooler-tls.test.py
+      - name: Public regional pooler TLS only (no authentication or SQL)
+        run: timeout --signal=TERM --kill-after=5s 45s python3 scripts/backup/probe-pooler-tls.py

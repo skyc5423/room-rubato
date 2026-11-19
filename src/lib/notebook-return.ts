@@ -9,7 +9,7 @@ export function notebookReturn(journal:TasteJournal) {
   const time=(value:string)=>Number.isFinite(Date.parse(value))?Date.parse(value):0;
   return time(b.entry.updatedAt)-time(a.entry.updatedAt);
  });
- const unfinished=saved.find(({entry})=>entry.before&&!entry.completedAt);
+ const unfinished=saved.find(({entry})=>(entry.before||entry.after||entry.memo.trim())&&!entry.completedAt);
  const bookmarked=saved.find(({entry})=>entry.bookmarked);
  const recent=saved.find(({entry})=>entry.completedAt);
  const target=unfinished||bookmarked||recent;

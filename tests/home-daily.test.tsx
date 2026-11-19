@@ -180,3 +180,121 @@ it('preserves an actual zero duration and rejects coercive common-trait summarie
  const previous=store.state.layer3Vector;store.state.layer3Vector={complexity:'0.8',conceptualism:Infinity,novelty:null} as any;let view:any;
  try{act(()=>{view=create(<Page/>);});act(()=>view.root.findByType(DomainExplorer).props.onSelect(domain.id));const text=JSON.stringify(view.toJSON());expect(text).toContain('문항당 평균 0.0초');expect(text).not.toContain('이번 응답에서는 질감과 디테일이 많은 쪽을 더 골랐어요.');expect(text).not.toContain('이번 응답에서는 원리와 배경을 강조한 쪽을 더 골랐어요.');expect((store.state.layer3Vector as any).complexity).toBe('0.8');}finally{act(()=>view?.unmount());store.state.completedDomains={};store.state.layer3Vector=previous;}
 });
+it('moves focus to the new survey question after an answer instead of leaving it on a changed option',()=>{
+ vi.useFakeTimers();const focus=vi.fn();let view:any;
+ try{
+  act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-survey-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+  act(()=>view.root.findByType(DomainExplorer).props.onSelect(ALL_MASTER_DOMAINS[0].id));
+  focus.mockClear();
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+  act(()=>{vi.advanceTimersByTime(360);});expect(focus).toHaveBeenCalledOnce();
+ }finally{act(()=>view?.unmount());vi.useRealTimers();}
+});
+
+it('grounds the completed room preview in recorded scores rather than prototype claims', () => {
+  const domain=ALL_MASTER_DOMAINS[0];
+  const original=store.state.completedDomains;
+  store.state.completedDomains={ [domain.id]: { matchedPhenotypeId:domain.phenotypes[0].id, axisScores:{} } };
+  let view:any;
+  try {
+    act(()=>{view=create(<Page/>);});
+    act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(domain.id));
+    const text=JSON.stringify(view.toJSON());
+    expect(text).toContain('저장된 축 점수가 없어 답변 방향을 요약할 수 없어요');
+    expect(text).not.toContain(domain.phenotypes[0].summary);
+  } finally {act(()=>view?.unmount());store.state.completedDomains=original;}
+});
+it('uses the reviewed task description for every first-visit room preview',()=>{
+ const original=store.state.completedDomains;store.state.completedDomains={};let view:any;
+ try{act(()=>{view=create(<Page/>);});for(const domain of ALL_MASTER_DOMAINS){act(()=>view.root.findByType(RoomCanvas).props.onHoverObject(domain.id));expect(JSON.stringify(view.toJSON())).toContain(domain.subtitle);}}
+ finally{act(()=>view?.unmount());store.state.completedDomains=original;}
+});
+it('ignores repeated daily final clicks before the UI rerenders',()=>{
+ store.state.dailyShiftLog=[];store.recordDailyPulseShift.mockClear();let view:any;
+ try{act(()=>{view=create(<Page/>);});act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+ const keep=view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기')));
+ act(()=>{keep.props.onClick();keep.props.onClick();});expect(store.recordDailyPulseShift).toHaveBeenCalledTimes(1);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
+});
+
+it('opens a recommended survey immediately and cannot reopen it after dismissal', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('document', { getElementById: () => ({ scrollIntoView: vi.fn() }) });
+  let view: any;
+  try {
+    act(() => { view = create(<Page />); });
+    const start = view.root.findAllByType('button').find((b:any) => b.findAllByType('span').some((s:any) => s.children.some((c:any) => typeof c === 'string' && c.includes('문항으로 직접 해보기'))));
+    act(() => start.props.onClick());
+    const close = view.root.findAllByType('button').find((b:any) => b.children.includes('방으로 돌아가기 ✕'));
+    expect(close).toBeDefined();
+    act(() => close.props.onClick());
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(view.root.findAllByType('button').some((b:any) => b.children.includes('방으로 돌아가기 ✕'))).toBe(false);
+  } finally { act(() => view?.unmount()); vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
+
+it('does not open a previous account survey after switching accounts', () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('document', { getElementById: () => ({ scrollIntoView: vi.fn() }) });
+  let view: any;
+  const originalOwner = store.currentUserId;
+  try {
+    act(() => { view = create(<Page />); });
+    const start = view.root.findAllByType('button').find((b:any) => b.findAllByType('span').some((s:any) => s.children.some((c:any) => typeof c === 'string' && c.includes('문항으로 직접 해보기'))));
+    act(() => start.props.onClick());
+    store.currentUserId = 'another-owner';
+    act(() => view.update(<Page />));
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(view.root.findAllByType('button').some((b:any) => b.children.includes('방으로 돌아가기 ✕'))).toBe(false);
+  } finally { act(() => view?.unmount()); store.currentUserId = originalOwner; vi.useRealTimers(); vi.unstubAllGlobals(); }
+});
+
+// Stored records are untrusted display input, not permission to repair or re-answer them.
+it('survives malformed daily log members without rewriting saved records', () => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [null, false, 42, {}, {timestamp: {}, pulseId: DAILY_PULSE_QUESTIONS[0].id}, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'B' }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); expect(JSON.stringify(view.toJSON())).not.toContain('저장된 선택을 확인할 수 없어요'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});
+it.each([[null, 'B'], ['A', undefined], ['C', 'B'], [{}, 'A'], ['B', 'b']])('does not invent a daily result for invalid choices %s / %s', (first, second) => {
+  store.recordDailyPulseShift.mockClear();
+  store.state.dailyShiftLog = [{ timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: 'A', phase2ChoiceAfterSocialProof: 'A' }, { timestamp: new Date().toISOString(), pulseId: DAILY_PULSE_QUESTIONS[0].id, phase1Choice: first, phase2ChoiceAfterSocialProof: second }];
+  const before = JSON.stringify(store.state.dailyShiftLog); let view:any;
+  try { act(() => { view=create(<Page/>); }); const text=JSON.stringify(view.toJSON()); expect(text).toContain('저장된 선택을 확인할 수 없어요'); expect(text).not.toContain('유지하셨'); expect(text).not.toContain('바꾸셨'); expect(JSON.stringify(store.state.dailyShiftLog)).toBe(before); expect(store.recordDailyPulseShift).not.toHaveBeenCalled(); }
+  finally { act(() => view?.unmount()); }
+});
+
+it('moves focus to the situation and result after explicit daily choices only',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];store.recordDailyPulseShift.mockClear();
+ try{
+  act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+  expect(focus).not.toHaveBeenCalled();
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(1);
+  act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+  expect(focus).toHaveBeenCalledTimes(2);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockClear();}
+});
+it('does not steal focus when a completed daily response loads',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[{timestamp:new Date().toISOString(),pulseId:DAILY_PULSE_QUESTIONS[0].id,phase1Choice:'A',phase2ChoiceAfterSocialProof:'B'}];
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});expect(focus).not.toHaveBeenCalled();}
+ finally{act(()=>view?.unmount());}
+});
+
+it('keeps result focus when persistence immediately supplies the saved daily entry',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];
+ store.recordDailyPulseShift.mockImplementation((payload:any)=>{store.state.dailyShiftLog=[{...payload,timestamp:new Date().toISOString()}];});
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick());focus.mockClear();
+ act(()=>view.root.findAllByType('button').find((b:any)=>b.children.some((c:any)=>typeof c==='string'&&c.includes('유지하기'))).props.onClick());
+ expect(focus).toHaveBeenCalledTimes(1);expect(view.root.findByProps({'data-daily-step-heading':'result'}).props.tabIndex).toBe(-1);
+ }finally{act(()=>view?.unmount());store.recordDailyPulseShift.mockReset();}
+});
+it('does not focus a previous owner daily step after an account change',()=>{
+ const focus=vi.fn();let view:any;store.state.dailyShiftLog=[];const original=store.currentUserId;
+ try{act(()=>{view=create(<Page/>,{createNodeMock:e=>e.props['data-daily-step-heading']?{focus,scrollIntoView:vi.fn()}:null});});
+ act(()=>{view.root.findAllByType('button').find((b:any)=>b.props.className?.includes('paper-postcard')).props.onClick();store.currentUserId='new-owner';view.update(<Page/>);});
+ expect(focus).not.toHaveBeenCalled();
+ }finally{act(()=>view?.unmount());store.currentUserId=original;}
+});

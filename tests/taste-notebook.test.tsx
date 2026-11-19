@@ -2,7 +2,7 @@ import React from 'react';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { TasteNotebook } from '../src/components/TasteNotebook';
-import { journalKey, parseJournal } from '../src/lib/taste-journal';
+import { journalKey, parseJournal, updateJournal, emptyJournal } from '../src/lib/taste-journal';
 let owner: string|null = null;
 vi.mock('../src/lib/persona-store',()=>({usePersonaStore:()=>({authUser:owner?{userUuid:owner}:null,isHydrated:true})}));
 let storage: Map<string,string>;
@@ -245,7 +245,7 @@ it('keeps a focused draft open when leaving is declined',()=>{
 it('keeps storage errors visible before the focused activity',()=>{
  vi.stubGlobal('localStorage',{getItem:()=>{throw Error('blocked');}});
  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
- expect(view!.root.findByProps({role:'alert'}).children.join('')).toContain('저장소');
+ expect(view!.root.findByProps({role:'alert'}).children.join('')).toContain('안전하게 읽지 못했어요');
  expect(view!.root.findByType('h1').props.id).toBe('lesson-heading');act(()=>view!.unmount());
 });
 
@@ -415,4 +415,208 @@ describe('notebook URL history',()=>{
     const h=historyAt('/notes?lesson=not-real&from=compare#notebook-storage');let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="not-real"/>);});
     expect(view!.root.findAllByType('article')).toHaveLength(8);expect(h.location.href).toBe('https://room-rubato.test/notes?from=compare#notebook-storage');expect(storage.size).toBe(0);act(()=>view!.unmount());
   });
+});
+
+describe('malformed local diagram settings',()=>{
+  it('opens saved notes without rendering untrusted objects and leaves stored bytes untouched',()=>{
+    const raw=JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'preserve this memo',bookmarked:false,before:'a',after:'b',beforeSetting:{value:60},afterSetting:['bad'],updatedAt:'2026-11-16T00:00:00Z',completedAt:'2026-11-16T00:00:00Z'}}});
+    storage.set(journalKey('guest'),raw);
+    let view:ReactTestRenderer;
+    act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('preserve this memo');
+    act(()=>button(view!,'다시 살펴보기').props.onClick());
+    expect(view!.root.findByProps({type:'range'}).props.value).toBe(60);
+    expect(storage.get(journalKey('guest'))).toBe(raw);
+    act(()=>view!.unmount());
+  });
+});
+
+describe('cross-tab browser storage clearing',()=>{
+  it('removes stale visible records and recovery-copy controls after localStorage.clear in another tab',()=>{
+    storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'removed elsewhere',bookmarked:true,before:'a',updatedAt:'2026-11-16T00:00:00Z'}}}));
+    storage.set(`${journalKey('guest')}:before-cloud-restore`,'{}');
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+    act(()=>button(view!,'내 기록').props.onClick());
+    expect(JSON.stringify(view!.toJSON())).toContain('removed elsewhere');
+    const listener=vi.mocked(window.addEventListener).mock.calls.find(call=>call[0]==='storage')![1] as (event:StorageEvent)=>void;
+    storage.clear();act(()=>listener({key:null,newValue:null,storageArea:localStorage} as StorageEvent));
+    expect(JSON.stringify(view!.toJSON())).not.toContain('removed elsewhere');
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeUndefined();
+    expect(storage.size).toBe(0);act(()=>view!.unmount());
+  });
+  it('ignores sessionStorage clearing and updates owner backup existence',()=>{
+    storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,memo:'keep visible',bookmarked:false,before:'a',updatedAt:'2026-11-16T00:00:00Z'}}}));
+    let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});act(()=>button(view!,'내 기록').props.onClick());
+    const listener=vi.mocked(window.addEventListener).mock.calls.find(call=>call[0]==='storage')![1] as (event:StorageEvent)=>void;
+    act(()=>listener({key:null,newValue:null,storageArea:sessionStorage} as StorageEvent));
+    expect(JSON.stringify(view!.toJSON())).toContain('keep visible');
+    act(()=>listener({key:`${journalKey('guest')}:before-cloud-restore`,newValue:'{}',storageArea:localStorage} as StorageEvent));
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeDefined();
+    act(()=>listener({key:`${journalKey('guest')}:before-cloud-restore`,newValue:null,storageArea:localStorage} as StorageEvent));
+    expect(button(view!,'이전 브라우저 사본 내보내기')).toBeUndefined();act(()=>view!.unmount());
+  });
+});
+
+it('does not overwrite other records when deletion cannot read the latest journal',()=>{
+  const entry={lessonId:'light',version:1,before:'a',memo:'내 기록',bookmarked:false,updatedAt:'2026-11-11T00:00:00Z'};
+  storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:entry}}));
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'이어서 살펴보기').props.onClick());
+  const latest=JSON.stringify({version:1,entries:{light:entry,space:{...entry,lessonId:'space',memo:'다른 탭의 새 기록'}}});
+  storage.set(journalKey('guest'),latest);
+  const setItem=vi.fn((k:string,v:string)=>storage.set(k,v));
+  vi.stubGlobal('localStorage',{getItem:()=>{throw new Error('read unavailable');},setItem});
+  (window as unknown as {confirm:()=>boolean}).confirm=()=>true;
+  act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+  expect(setItem).not.toHaveBeenCalled();
+  expect(storage.get(journalKey('guest'))).toBe(latest);
+  expect(JSON.stringify(view!.toJSON())).toContain('기존 기록을 확인할 수 없어 삭제하지 않았어요');
+  // A prior error must not suppress a fresh read when storage becomes available.
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem});
+  act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+  const remaining=parseJournal(storage.get(journalKey('guest'))!);
+  expect(remaining.entries.light).toBeUndefined();
+  expect(remaining.entries.space.memo).toBe('다른 탭의 새 기록');
+  act(()=>view!.unmount());
+});
+
+it('never writes a stale journal when a normal save cannot read storage',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());
+  const latest=JSON.stringify({version:1,entries:{space:{lessonId:'space',version:1,memo:'다른 탭',bookmarked:false,updatedAt:'now'}}});
+  storage.set(journalKey('guest'),latest);
+  const write=vi.fn();vi.stubGlobal('localStorage',{getItem:()=>{throw Error('unavailable');},setItem:write});
+  act(()=>button(view!,'A 쪽').props.onClick());
+  expect(write).not.toHaveBeenCalled();expect(storage.get(journalKey('guest'))).toBe(latest);
+  act(()=>view!.unmount());
+});
+it('retries failed writes without dropping the pending memo or another tab record',()=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'저장 실패 메모'}}));
+  const latest=parseJournal(storage.get(journalKey('guest'))!);latest.entries.space={lessonId:'space',version:1,memo:'다른 탭',bookmarked:false,updatedAt:'now'};storage.set(journalKey('guest'),JSON.stringify(latest));
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:(k:string,v:string)=>storage.set(k,v)});
+  act(()=>button(view!,'B 쪽').props.onClick());
+  const saved=parseJournal(storage.get(journalKey('guest'))!);
+  expect(saved.entries.space.memo).toBe('다른 탭');expect(saved.entries.light.memo).toBe('저장 실패 메모');expect(saved.entries.light.after).toBe('b');
+  act(()=>view!.unmount());
+});
+it.each(['changed','deleted'])('does not resurrect or overwrite a %s entry when retrying failed input',mode=>{
+  let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+  act(()=>view!.root.findByType('textarea').props.onChange({target:{value:'보존할 미저장 메모'}}));
+  const latest=parseJournal(storage.get(journalKey('guest'))!);
+  if(mode==='changed')latest.entries.light.memo='다른 탭의 수정';else delete latest.entries.light;
+  const raw=JSON.stringify(latest);storage.set(journalKey('guest'),raw);
+  const write=vi.fn((k:string,v:string)=>storage.set(k,v));vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:write});
+  act(()=>button(view!,'B 쪽').props.onClick());
+  expect(write).not.toHaveBeenCalled();expect(storage.get(journalKey('guest'))).toBe(raw);
+  expect(view!.root.findByType('textarea').props.value).toBe('보존할 미저장 메모');
+  expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 기록이 바뀌었거나 삭제되어');
+  act(()=>view!.unmount());
+});
+it('blocks notebook writes in a second tab while retaining exploration and export',async()=>{
+  Object.assign(window,{navigator:{locks:{request:async(_n:string,_o:unknown,callback:(lock:null)=>unknown)=>callback(null)}}});
+  let view:ReactTestRenderer;await act(async()=>{view=create(<TasteNotebook/>);});
+  act(()=>button(view!,'첫 탐색 시작').props.onClick());
+  expect(button(view!,'A 쪽').props.disabled).toBe(true);
+  act(()=>button(view!,'A 쪽').props.onClick());
+  expect(storage.has(journalKey('guest'))).toBe(false);
+  expect(JSON.stringify(view!.toJSON())).toContain('다른 탭에서 관찰실을 편집 중');
+  await act(async()=>view!.unmount());
+});
+
+it('remembers explicit artwork views separately without changing the journal schema',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ const art=view!.root.findByType(ArtworkStudy);expect(storage.size).toBe(0);
+ act(()=>art.findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(storage.get(art.props.selectionKey)).toBe(works[1].id);expect(storage.has(journalKey('guest'))).toBe(false);
+ act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByType(ArtworkStudy).findByType('img').props.src).toBe(works[1].image);act(()=>view!.unmount());
+});
+it('keeps artwork selection temporary when a completed record is read-only',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ storage.set(journalKey('guest'),JSON.stringify({version:1,entries:{light:{lessonId:'light',version:1,before:'a',after:'b',memo:'preserve',bookmarked:false,completedAt:'2026-11-16T00:00:00.000Z',updatedAt:'2026-11-16T00:00:00.000Z'}}}));
+ const before=storage.get(journalKey('guest'));let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});const art=view!.root.findByType(ArtworkStudy);
+ expect(art.props.canRemember).toBe(false);act(()=>art.findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(storage.has(art.props.selectionKey)).toBe(false);expect(storage.get(journalKey('guest'))).toBe(before);act(()=>view!.unmount());
+});
+it('reports artwork preference write failures without rewriting journal records',async()=>{
+ const {ArtworkStudy}=await import('../src/components/ArtworkStudy');const {artworkStudies}=await import('../src/lib/artwork-studies');const works=artworkStudies.filter(w=>w.lessonIds.includes('light'));
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ vi.stubGlobal('localStorage',{getItem:(k:string)=>storage.get(k)||null,setItem:()=>{throw Error('quota');}});
+ act(()=>view!.root.findByType(ArtworkStudy).findAllByType('button').find(b=>b.children.join('')===works[1].titleKo)!.props.onClick());
+ expect(JSON.stringify(view!.toJSON())).toContain('작품 선택을 이 브라우저에 기억하지 못했어요');expect(storage.size).toBe(0);act(()=>view!.unmount());
+});
+
+it('never replaces malformed journal bytes and exposes an owner-scoped recovery copy',()=>{
+ const raw='{"version":1,"entries":{"light":{"memo":"important unfinished raw data"}}}';
+ storage.set(journalKey('guest'),raw);
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(raw);
+ act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ expect(button(view!,'A 쪽').props['aria-pressed']).toBe(true);
+ owner='another';act(()=>view!.update(<TasteNotebook/>));
+ expect(view!.root.findAllByProps({'aria-label':'읽지 못한 브라우저 원본 기록'})).toHaveLength(0);
+ act(()=>view!.unmount());
+});
+it('refuses deletion when another writer corrupts an entry after the page loads',()=>{
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook/>);});
+ act(()=>button(view!,'첫 탐색 시작').props.onClick());act(()=>button(view!,'A 쪽').props.onClick());
+ const corrupted='{"version":2,"entries":{"other":{"memo":"future format"}}}';storage.set(journalKey('guest'),corrupted);
+ (window as any).confirm=()=>true;
+ act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(corrupted);
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(corrupted);
+ act(()=>view!.unmount());
+});
+
+it('restores failed ordinary input after a client-route unmount without writing it automatically',()=>{
+ const setItem=vi.fn(()=>{throw Error('quota');});vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>button(view!,'A 쪽').props.onClick());act(()=>button(view!,'선택했어요').props.onClick());act(()=>button(view!,'이제 다시 보고').props.onClick());
+ act(()=>view!.root.findByProps({id:'observation-memo'}).props.onChange({target:{value:'unsaved ordinary memo'}}));
+ act(()=>view!.unmount());const attempts=setItem.mock.calls.length;
+ act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('unsaved ordinary memo');expect(setItem).toHaveBeenCalledTimes(attempts);
+ owner='other';act(()=>view!.update(<TasteNotebook initialLesson="light"/>));expect(JSON.stringify(view!.toJSON())).not.toContain('unsaved ordinary memo');act(()=>view!.unmount());
+});
+
+it('discards failed inputs only after confirmation and keeps committed journal bytes',()=>{
+ const original=JSON.stringify(updateJournal(emptyJournal(),'light',1,{before:'a',memo:'original'}));storage.set(journalKey('guest'),original);
+ vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:()=>{throw Error('quota');}});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});
+ act(()=>view!.root.findByProps({id:'observation-memo'}).props.onChange({target:{value:'pending'}}));
+ const confirm=vi.fn(()=>false);(window as any).confirm=confirm;
+ act(()=>button(view!,'저장 실패 입력 버리기').props.onClick());expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('pending');
+ confirm.mockReturnValue(true);act(()=>button(view!,'저장 실패 입력 버리기').props.onClick());
+ expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');expect(storage.get(journalKey('guest'))).toBe(original);
+ act(()=>view!.unmount());act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});expect(view!.root.findByProps({id:'observation-memo'}).props.value).toBe('original');act(()=>view!.unmount());
+});
+
+it('warns when a successful retry cannot remove the old temporary copy',()=>{
+ let failed=true;vi.stubGlobal('localStorage',{getItem:(key:string)=>storage.get(key)||null,setItem:(key:string,value:string)=>{if(failed)throw Error('quota');storage.set(key,value);}});
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="light"/>);});act(()=>button(view!,'A 쪽').props.onClick());
+ (sessionStorage as any).removeItem=()=>{throw Error('cleanup denied');};failed=false;
+ act(()=>button(view!,'B 쪽').props.onClick());
+ expect(parseJournal(storage.get(journalKey('guest'))!).entries.light.before).toBe('b');
+ expect(JSON.stringify(view!.toJSON())).toContain('임시 실패 입력 사본을 정리하지 못했어요');act(()=>view!.unmount());
+});
+
+it.each([{before:'future-choice'},{beforeSetting:'72'},{bookmarked:'true'}])('preserves other records raw optional fields during unrelated save and deletion: %j',invalid=>{
+ const journal=updateJournal(updateJournal(emptyJournal(),'light',1,{memo:'recoverable original memo'}),'space',1,{before:'a'});
+ const raw=JSON.stringify({...journal,entries:{...journal.entries,light:{...journal.entries.light,...invalid}}});
+ storage.set(journalKey('guest'),raw);(window as any).confirm=()=>true;
+ let view:ReactTestRenderer;act(()=>{view=create(<TasteNotebook initialLesson="space"/>);});
+ act(()=>button(view!,'＋ 다시 볼 단서에 저장').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ expect(view!.root.findByProps({'aria-label':'읽지 못한 브라우저 원본 기록'}).props.value).toBe(raw);
+ act(()=>button(view!,'이 탐색 기록 지우기').props.onClick());
+ expect(storage.get(journalKey('guest'))).toBe(raw);
+ act(()=>view!.unmount());
 });

@@ -1,0 +1,19 @@
+{
+  "enabled": false,
+  "mode": "app-data-candidate",
+  "sourceProject": "nhusocbyuxzjsfwitkhe",
+  "source": {
+    "host": "aws-0-ap-northeast-2.pooler.supabase.com",
+    "port": 5432,
+    "database": "postgres",
+    "user": "rr_backup_writer.nhusocbyuxzjsfwitkhe"
+  },
+  "destination": {
+    "storeId": "store_C1xbVeoXtowulKQG",
+    "prefix": "room-rubato-app-backups"
+  },
+  "confirmedScope": ["persona_profiles", "taste_journals"],
+  "keyFingerprint": "",
+  "receiptKeyFingerprint": "",
+  "maxArchiveBytes": 50331648
+}

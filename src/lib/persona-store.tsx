@@ -54,6 +54,7 @@ interface PersonaContextValue {
   reloadServerProfile: () => Promise<void>;
   syncConflict: boolean;
   recoveryDraft: PersonaState | null;
+  guestRecoveryRaw: string | null;
   clearRecoveryDraft: () => void;
   authUser: AuthSessionUser | null;
   loginWithEmail: (payload: {
@@ -276,11 +277,14 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncConflict, setSyncConflict] = useState(false);
   const [recoveryDraft, setRecoveryDraft] = useState<PersonaState | null>(null);
+  const [guestRecoveryRaw, setGuestRecoveryRaw] = useState<string | null>(null);
   const revision = useRef<string | null>(null);
   const pendingWrite = useRef<{ write: ProfileWrite; serialized: string; reset?: boolean } | null>(null);
   const blocked = useRef(false);
   const [reloadToken, setReloadToken] = useState(0);
   const owner = useRef<string | null>(null);
+  // Session identity is known before its profile has finished loading.
+  const latestSessionOwner = useRef<string | null | undefined>(undefined);
   const generation = useRef(0);
   const lastSaved = useRef('');
   const writes = useRef<Promise<void>>(Promise.resolve());
@@ -289,9 +293,28 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
   const currentUserId = authUser ? authUser.maskedEmail : '게스트';
 
   const loadGuest = () => {
+    let raw: string | null = null;
     try {
-      return sanitizePersonaState(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
-    } catch { return DEFAULT_STATE; }
+      raw = localStorage.getItem(STORAGE_KEY);
+      // Absence is a new guest. Invalid bytes or a failed read are not an empty profile.
+      if (raw === null) { setGuestRecoveryRaw(null); return DEFAULT_STATE; }
+      const parsed: unknown = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid guest profile');
+      const loaded = sanitizePersonaState(parsed as Partial<PersonaState>);
+      setGuestRecoveryRaw(null);
+      return loaded;
+    } catch (error) { setGuestRecoveryRaw(raw); throw error; }
+  };
+  const hydrateGuest = () => {
+    try {
+      const guest = loadGuest();
+      lastSaved.current = JSON.stringify(guest);
+      setState(guest); setIsHydrated(true); setSyncError(null);
+    } catch {
+      // Fail closed even when setItem would succeed after a temporary getItem failure.
+      setState(DEFAULT_STATE); setIsHydrated(false);
+      setSyncError('게스트 설문 기록을 안전하게 읽지 못했어요. 원본은 덮어쓰지 않았고 새 응답 저장을 막았습니다. 원본을 볼 수 있으면 먼저 복사해 보관하고, 브라우저 저장소가 정상화되면 다시 시도해 주세요.');
+    }
   };
 
   useEffect(() => {
@@ -304,17 +327,14 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       owner.current = null;
       consent.current = null;
       revision.current = null; pendingWrite.current = null; blocked.current = false;
-      setSyncConflict(false); setRecoveryDraft(null);
+      setSyncConflict(false); setRecoveryDraft(null); setGuestRecoveryRaw(null);
       setIsHydrated(false);
       setAuthUser(null);
       setState(DEFAULT_STATE);
       setSyncError(null);
       if (!session?.user || !sb) {
         if (alive) {
-          const guest = loadGuest();
-          lastSaved.current = JSON.stringify(guest);
-          setState(guest);
-          setIsHydrated(true);
+          hydrateGuest();
         }
         return;
       }
@@ -368,25 +388,26 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         setIsHydrated(false);
       }
     };
-    if (!sb) { void hydrate(null); return () => { alive = false; }; }
+    if (!sb) { latestSessionOwner.current = null; void hydrate(null); return () => { alive = false; }; }
     // The callback must remain synchronous: Supabase calls here can deadlock.
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
+      latestSessionOwner.current = session?.user.id ?? null;
       if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && session?.user.id === owner.current)) return;
       owner.current = null;
       ++generation.current;
-      setRecoveryDraft(null); setSyncConflict(false); setSyncError(null);
+      setRecoveryDraft(null); setGuestRecoveryRaw(null); setSyncConflict(false); setSyncError(null);
       setIsHydrated(false);
       setAuthUser(null);
       setState(DEFAULT_STATE);
       setTimeout(() => { if (alive) void hydrate(session); }, 0);
     });
-    return () => { alive = false; ++generation.current; subscription.unsubscribe(); };
+    return () => { alive = false; latestSessionOwner.current = undefined; ++generation.current; subscription.unsubscribe(); };
   }, [reloadToken]);
 
   useEffect(() => {
     if (!isHydrated || paused.current) return;
     if (!authUser) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); setSyncError(null); }
       catch { setSyncError('브라우저 저장 공간에 저장하지 못했습니다.'); }
       return;
     }
@@ -430,7 +451,12 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       if (id !== generation.current) return;
       if (error) setSyncError('서버 저장 실패: ' + error.message);
       else { lastSaved.current = serialized; setSyncError(null); }
-    }).catch(() => { setSyncError('서버 연결에 실패해 변경 내용을 저장하지 못했습니다.'); });
+    }).catch(() => {
+      // A rejected request from an earlier session must not mark a new account
+      // (or the guest profile) as unsaved. The current session still sees errors.
+      if (id !== generation.current || owner.current !== uid) return;
+      setSyncError('서버 연결에 실패해 변경 내용을 저장하지 못했습니다.');
+    });
   }, [state, authUser, isHydrated]);
 
   const loginWithEmail: PersonaContextValue['loginWithEmail'] = async ({ email, password, consentAgreed, mode = 'signin' }) => {
@@ -473,12 +499,16 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         const { error } = await supabase.auth.signOut({ scope: 'local' });
         if (error) return { ok: false, error: error.message };
       }
+      // The SDK can emit SIGNED_OUT, or a new session can arrive, before this
+      // promise settles. Never replace that newer state with the old logout.
+      if (id !== generation.current) return latestSessionOwner.current === null
+        ? { ok: true }
+        : { ok: false, error: '인증 상태가 변경되어 현재 계정 상태를 유지했습니다.' };
       ++generation.current;
       owner.current = null;
-      setRecoveryDraft(null); setSyncConflict(false); setSyncError(null);
+      setRecoveryDraft(null); setGuestRecoveryRaw(null); setSyncConflict(false); setSyncError(null);
       setAuthUser(null);
-      setState(loadGuest());
-      setIsHydrated(true);
+      hydrateGuest();
       return { ok: true };
     } catch { return { ok: false, error: '로그아웃하지 못했습니다. 다시 시도해 주세요.' }; }
     finally { paused.current = false; setState((previous) => ({ ...previous })); }
@@ -521,7 +551,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
 
   const retrySync = () => {
     if (!isHydrated) { setReloadToken(v => v + 1); return; }
-    if (!CAS_ENABLED) { setState(previous => ({ ...previous })); return; }
+    if (!authUser || !CAS_ENABLED) { setState(previous => ({ ...previous })); return; }
     if (syncConflict || !supabase || !authUser) return;
     const pending = pendingWrite.current;
     if (!pending) { blocked.current = false; setState(previous => ({ ...previous })); return; }
@@ -736,6 +766,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         reloadServerProfile,
         syncConflict,
         recoveryDraft,
+        guestRecoveryRaw: authUser ? null : guestRecoveryRaw,
         clearRecoveryDraft,
         authUser,
         loginWithEmail,

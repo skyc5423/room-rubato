@@ -1,0 +1,54 @@
+# App-data → private Blob candidate (not deployed)
+
+This implementation closes a code gap, not permission or evidence of a live backup. No route, CLI, scheduler, environment variable, hosted credential or existing synthetic writer is changed. Only disposable synthetic databases and in-memory/intercepted SDK transports are used by tests. `enabled: true` and identity metadata are configuration assertions, not user authorization or proof of the real database identity.
+
+## Candidate contract
+
+- `scripts/backup/blob-export.mjs`: `exportToBlob({config,client,store})` connects an explicitly injected pg-like client to the existing reviewed `export.sql`, seals its result, verifies immutable archive readback, signs a Blob-specific receipt, and verifies receipt readback. B2 receipts and synthetic-pilot formats remain unchanged.
+- `scripts/backup/blob-store.mjs`: `createAppBlobStore({config,token,blob})` binds explicit pinned-SDK `get/put` implementations to private store `store_C1xbVeoXtowulKQG`, prefix `room-rubato-app-backups`, and a recovery-key fingerprint. No list/delete/overwrite/fallback/public route exists.
+- Logical path: `app-data-v1/<key-fingerprint>/<UTC-day>/<snapshot-UUID>.rrb`, with `.receipt.json` appended for the signed receipt. Synthetic paths and historical keys are never reused.
+- Required config: `enabled === true`, `mode === 'app-data-candidate'`, exact `sourceProject`, `confirmedScope: ['persona_profiles','taste_journals']`, exact `{storeId,prefix}` destination, RSA-3072-or-larger `publicKey`/`keyFingerprint`, Ed25519 `receiptPrivateKey`/`receiptPublicKey`/`receiptKeyFingerprint`, and bounded integer `maxArchiveBytes`. No defaults enable operation.
+- Export runs in repeatable-read/read-only with statement/lock timeouts, a transaction advisory lock, pre-materialization size estimate, full snapshot validation and captured-time bounds. The lock is released at COMMIT **before** Blob writes; it does not serialize external uploads. Immutable UUID paths prevent overwriting, not duplicate daily runs.
+- The plaintext snapshot is limited to 32 MiB; encrypted-envelope limit is separately bounded to 48 MiB and receipts to 16 KiB. Encryption is AES-256-GCM with RSA-OAEP-SHA256 wrapping. Only encrypted archives and allowlisted signed metadata reach the sink. The private recovery key never reaches the writer.
+- A put acknowledgement or occupied path alone never proves success. Exact independently captured bytes/digest/length must match origin readback for archive and receipt. Uncertain outcomes are reconciled once, without an application retry. A failure can leave immutable orphan ciphertext; no cleanup or rollback of external objects is falsely claimed.
+- The receipt pins source-label, destination, path/snapshot ID, recovery fingerprint, capture time, ciphertext digest/length and `readbackVerified: true`. It always says `restoreVerified: false`. `verifyBlobReceipt` pins the separate Ed25519 public-key fingerprint; B2 verifiers are not weakened.
+
+## Trusted SDK wiring prerequisite
+
+Before importing SDK 2.9.0, call `assertAppBlobRuntime()` in a dedicated controlled runtime. It requires `VERCEL_BLOB_RETRIES=0` and rejects API URL, protocol-version, proxy-through-alternative-API overrides and Blob DEBUG flags. Repeat checks occur at factory creation and each call. No helper changes those variables itself. The SDK caches its debug flag on import, so an already imported arbitrary SDK is not retroactively certified by a later check. Inject only the reviewed SDK; an arbitrary adapter can lie about its identity or behavior.
+
+The supplied static token must identify the exact store. Explicit tokens take precedence over OIDC/environment credentials in the pinned SDK implementation. This does not establish that the account/store is independently controlled or immutable. SDK metadata pathname is not cryptographic proof; exact receipt-bound bytes are the integrity check.
+
+## Verification and remaining activation work
+
+`npm ci --ignore-scripts --prefix ops/blob-pilot` supplies the existing pinned SDK used in offline transport tests; `npm run test:backup` includes the candidate tests. The tests execute actual two-table SQL on PGlite, decrypt with a separately held generated recovery key, and restore every column to a distinct disposable PGlite database. Network access is disabled for SDK mock-transport tests. No real account, hosted source, Blob upload or production key is used.
+
+Before any real connection: confirm exact data/destination scope, verify live source identity and least-privilege credentials/TLS, enroll and recover an operational escrow key, validate destination privacy/region/quota/terms, wire a separate bounded authenticated runtime and durable run/incident state, and perform the approved isolated recovery drill. Retention, deletion-authority reconciliation, actual scheduled monitoring, and full Auth/Storage disaster recovery are not added by this candidate. Do not flip the synthetic writer's gate or deploy this library as a side effect of passing CI.
+
+## Fixed source and authenticated runtime candidate
+
+`createAppBlobSource` in `blob-source.mjs` requires the exact Seoul session-pooler host/5432, database `postgres`, project-qualified `rr_backup_writer` username, explicit password and trusted `pg.Client` constructor. It never accepts connection strings or caller-supplied TLS options. It pins the bundled CA with certificate/hostname verification enabled and finite connection/query timeouts. Before export it verifies effective read-only session settings, role identity/no escalation, no unrelated schema access or DML/maintenance privileges, exact table column types, RLS enabled and an unfiltered backup SELECT policy with no applicable restrictive policy. These are point-in-time checks, not immunity to later administrator changes, an exhaustive audit of callable functions, or cryptographic proof of a database cluster's identity. Constructor options and real PostgreSQL catalog queries are tested locally; a real hosted TLS handshake is not claimed.
+
+Read-only defaults/timeouts/search path are set through SQL after connection and read back before metadata/export. They are not merely supplied as startup options: [Supavisor's unsupported-startup-options report](https://github.com/supabase/supavisor/issues/1272) and [current parser schema](https://github.com/supabase/supavisor/blob/main/lib/supavisor/protocol/startup_options.ex) show why that would not establish effective settings. Session pooling is fixed; no transaction-pooler fallback is permitted.
+
+`createBlobBackupHandler` in `blob-runtime.mjs` is an unmounted Web Request/Response handler factory for a future Node runtime. Default configuration returns inactive without constructing adapters. It requires the dedicated writer project's production boundary, explicit production enable/private-store confirmation, no diagnostic mode, and separate strong GET-Cron/POST-manual secrets. Only `/api/app-backup` without query/body is accepted. It snapshots configuration, uses constant-time authorization, rejects simultaneous calls within an instance and returns only fixed status plus verified archive metadata. All responses are no-store; no payload or underlying error is logged. A response timeout reports an **unknown outcome**, not cancellation, and keeps the instance locked until its underlying operation settles. It does not provide distributed single-run locking, a durable retry ledger or scheduler integration.
+
+No existing API route imports these candidates. No hosted credentials were read/created, no provider settings changed, and no production enable/deployment happened. The future runtime must still safely load the pinned SDK after `assertAppBlobRuntime`, supply already-authorized secrets and connect the dedicated source/store factories. Configuration flags themselves cannot authorize real user-data transmission.
+
+## Inactive standalone package
+
+`ops/blob-app-candidate` supplies dedicated trusted wiring and a Node API adapter, not a deployed service. `node scripts/backup/package-app-candidate.mjs <new-directory-outside-checkout>` creates a **14-file, default-disabled** standalone source package plus a SHA-256 manifest. It copies an exact source allowlist, never the checkout recursively. Existing output, symlink inputs, changed source/destination/scope, enrolled key pins, enabled configuration, unknown config fields (including nested fields), credentials recognized by supplementary scanning, and unreviewed Vercel routing are rejected. No `.env`, `.vercel`, user exports, fixtures, logs, recovery private key, or installed modules are packaged. The scanner is defense-in-depth, not a proof that arbitrary future code contains no secret; inspect the manifest and reviewed source diff before any release.
+
+The package includes `export.sql` and the public Supabase CA, pins Blob 2.9.0/pg 8.16.3 in its own lockfile, serves only `/api/app-backup`, and returns 404 for other paths. There is **no Cron, automatic install hook, link, deploy command, or environment configuration**. Exact disabled config and empty enrollment pins deliberately mean this build command cannot produce an active release. A future approved activation needs a separately reviewed release procedure, not a single environment toggle.
+
+Offline import check after `npm ci --ignore-scripts --prefix <package-directory>`:
+
+```
+VERCEL_BLOB_RETRIES=0 node scripts/backup/verify-app-package.mjs <package-directory>
+```
+
+This verifies real installed dependencies and a 503 inactive Node route without opening a DB or invoking Blob. CI runs this as well as package tampering/exclusion tests. These checks do not substitute a Vercel provider build, hosted TLS handshake, real scheduler run, or deployment test.
+
+Wiring uses only explicit `CRON_SECRET` and `APP_BACKUP_RUN_SECRET` for separate authentication. Only after authorization can it read `APP_BACKUP_RECOVERY_PUBLIC_KEY`, `APP_BACKUP_RECEIPT_PUBLIC_KEY`, `APP_BACKUP_RECEIPT_SIGNING_KEY`, `APP_BACKUP_BLOB_READ_WRITE_TOKEN`, and `APP_BACKUP_DB_PASSWORD`. There is no recovery private-key variable. Those names are a future configuration contract, not credentials created or installed by this work. Disabled/unenrolled config reads no environment secrets and imports neither SDK. The Blob guard executes before dynamic SDK import. Source/store/scope/fingerprint pins cannot be redirected by request content or environment values.
+
+The existing synthetic writer and main application are untouched. The three-minute response boundary reports an unknown outcome rather than canceling underlying work; the package sets a five-minute function maximum but does not claim all source/network operations will finish in it. Durable run state, distributed scheduling, quota/terms review, approved real-data transfer and independent restoration remain activation gates.

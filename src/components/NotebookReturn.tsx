@@ -2,33 +2,59 @@
 import React,{useEffect,useState} from 'react';
 import Link from 'next/link';
 import {usePersonaStore} from '@/lib/persona-store';
-import {emptyJournal,journalKey,parseJournal} from '@/lib/taste-journal';
+import {emptyJournal,journalKey,parseJournalForWrite} from '@/lib/taste-journal';
+import {readPending} from '@/lib/notebook-pending';
+import {notebookDraftKey,parseNotebookDraft} from '@/lib/notebook-draft';
+import {tasteLessons} from '@/lib/taste-lessons';
 import {notebookReturn} from '@/lib/notebook-return';
 const control='inline-flex min-h-11 items-center text-sm underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4';
 export function NotebookReturn({withArtworkPreview=false}:{withArtworkPreview?:boolean}={}){
  const {authUser,isHydrated}=usePersonaStore();
  const owner=authUser?.userUuid||'guest';
- const [snapshot,setSnapshot]=useState<{owner:string;progress:ReturnType<typeof notebookReturn>}|null>(null);
+ const [snapshot,setSnapshot]=useState<{owner:string;progress:ReturnType<typeof notebookReturn>;pendingId?:string;draftId?:string}|null>(null);
  const [unavailable,setUnavailable]=useState(false);
+ const [pendingUnavailable,setPendingUnavailable]=useState(false);
+ const [draftUnavailable,setDraftUnavailable]=useState(false);
  useEffect(()=>{
   if(!isHydrated)return;
   const refresh=()=>{
-   try{setSnapshot({owner,progress:notebookReturn(parseJournal(localStorage.getItem(journalKey(owner))))});setUnavailable(false);}
-   catch{setSnapshot({owner,progress:notebookReturn(emptyJournal())});setUnavailable(true);}
+   let progress=notebookReturn(emptyJournal());
+   try{progress=notebookReturn(parseJournalForWrite(localStorage.getItem(journalKey(owner))));setUnavailable(false);}
+   catch{setUnavailable(true);}
+   let pendingId:string|undefined;
+   try{
+    const pending=readPending(owner);
+    const timestamp=(value:string|undefined)=>{const parsed=Date.parse(value||'');return Number.isFinite(parsed)?parsed:0;};
+    pendingId=Object.keys(pending).sort((a,b)=>timestamp(pending[b].patch.updatedAt)-timestamp(pending[a].patch.updatedAt))[0];
+    setPendingUnavailable(false);
+   }catch{setPendingUnavailable(true);}
+   let draftId:string|undefined;
+   try{
+    const raw=sessionStorage.getItem(notebookDraftKey(owner));
+    const draft=parseNotebookDraft(raw);
+    if(raw!==null&&!draft)throw Error('Unreadable edit copy');
+    draftId=draft?.entry.lessonId;setDraftUnavailable(false);
+   }catch{setDraftUnavailable(true);}
+   setSnapshot({owner,progress,pendingId,draftId});
   };
   refresh();
-  const storage=(event:StorageEvent)=>{if(event.key===journalKey(owner)||event.key===null)refresh();};
+  const storage=(event:StorageEvent)=>{if(event.key===journalKey(owner)||event.key===notebookDraftKey(owner)||event.key===null)refresh();};
   window.addEventListener('storage',storage);window.addEventListener('focus',refresh);window.addEventListener('pageshow',refresh);
   return()=>{window.removeEventListener('storage',storage);window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh);};
  },[owner,isHydrated]);
  const ready=isHydrated&&snapshot?.owner===owner;
- const progress=ready?snapshot.progress:null;
- const target=progress?.target;
- const label=progress?.kind==='continue'?'멈춘 곳에서 이어보기':progress?.kind==='bookmark'?'저장해 둔 단서 다시 보기':'내 기록과 다시 보기';
+ const readBlocked=ready&&unavailable;
+ const progress=ready&&!readBlocked?snapshot.progress:null;
+ const pendingTarget=ready?tasteLessons.find(lesson=>lesson.id===snapshot.pendingId):undefined;
+ const draftTarget=ready?tasteLessons.find(lesson=>lesson.id===snapshot.draftId):undefined;
+ const target=pendingTarget||draftTarget||progress?.target;
+ const label=pendingTarget?'저장 실패 입력 확인하기':draftTarget?'임시 수정 확인하기':progress?.kind==='continue'?'멈춘 곳에서 이어보기':progress?.kind==='bookmark'?'저장해 둔 단서 다시 보기':'내 기록과 다시 보기';
  return <aside className="rounded-2xl border border-[#0042AF]/20 bg-white/70 p-5" aria-label="관찰실 시작과 이어보기">
-  <p className="text-sm font-semibold">{target?`${progress.completed}/8개 탐색을 마쳤어요`:'8개의 감상 활동 · 한 편에 3–4분'}</p>
-  {target?<><h2 className="mt-3 text-xl font-semibold">{target.title}</h2><p className="mt-2 text-sm leading-6">{progress.kind==='continue'?'처음 고른 답이 저장돼 있어요. 하던 활동을 이어가세요.':progress.kind==='bookmark'?'다시 보고 싶어 저장해 둔 활동이에요.':'전에 남긴 선택과 이유를 다시 펼쳐보세요. 완료한 기록은 편집을 선택하기 전까지 그대로 유지돼요.'}</p><Link className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" href={`/notes?lesson=${target.id}`}>{label} →</Link></>:<><p className="mt-2 text-xs leading-6 text-[#010D6E]/70">설문 완료나 로그인 없이 시작할 수 있어요. 먼저 두 작품을 비교하거나, 직접 도식을 바꿔보세요.</p><Link className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" href={withArtworkPreview?'/notes':'/compare'}>{withArtworkPreview?'직접 바꾸며 관찰하기 →':'두 작품 함께 감상하기 →'}</Link></>}
+  <p className="text-sm font-semibold">{readBlocked?'기록 확인 필요':pendingTarget?'이 탭에 저장하지 못한 입력이 있어요':draftTarget?'이 탭에 저장하지 않은 수정이 있어요':target?`${progress!.completed}/8개 탐색을 마쳤어요`:'8개의 감상 활동 · 한 편에 3–4분'}</p>
+  {target?<><h2 className="mt-3 text-xl font-semibold">{target.title}</h2><p className="mt-2 text-sm leading-6">{pendingTarget?'아직 원본에 저장되지 않은 선택이나 메모가 있어요. 관찰실에서 확인하고 다시 저장하거나 내보내기로 보관해 주세요.':draftTarget?'완료한 기록을 고치다 남겨 둔 임시 수정이 있어요. 관찰실에서 원본 상태와 함께 확인해 주세요. 기존 기록은 자동으로 바꾸지 않습니다.':progress!.kind==='continue'?'남겨 둔 선택이나 메모가 있어요. 하던 활동을 이어가세요.':progress!.kind==='bookmark'?'다시 보고 싶어 저장해 둔 활동이에요.':'전에 남긴 선택과 이유를 다시 펼쳐보세요. 완료한 기록은 편집을 선택하기 전까지 그대로 유지돼요.'}</p><Link className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" href={`/notes?lesson=${target.id}`}>{label} →</Link></>:readBlocked?<><p className="mt-2 text-sm leading-6">브라우저 기록을 안전하게 읽지 못했어요. 원본은 바꾸지 않았습니다. 완료 여부를 판단하지 않고 관찰실의 복구 안내로 연결합니다.</p><Link className={control} href="/notes">관찰실에서 기록 확인하기 →</Link></>:<><p className="mt-2 text-xs leading-6 text-[#010D6E]/70">설문 완료나 로그인 없이 시작할 수 있어요. 먼저 두 작품을 비교하거나, 직접 도식을 바꿔보세요.</p><Link className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0042AF] px-5 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" href={withArtworkPreview?'/notes':'/compare'}>{withArtworkPreview?'직접 바꾸며 관찰하기 →':'두 작품 함께 감상하기 →'}</Link></>}
+  {pendingTarget&&draftTarget&&pendingTarget.id!==draftTarget.id&&<p className="mt-3 text-xs leading-6">다른 활동에도 저장하지 않은 수정이 있어요. <Link href={`/notes?lesson=${draftTarget.id}`} className={control}>{draftTarget.title} · 임시 수정 확인하기 →</Link></p>}
   <div className="mt-2 flex flex-col items-start">{(!withArtworkPreview||target)&&<Link href="/notes" className={control}>관찰실 전체 활동 보기 →</Link>}{target&&!withArtworkPreview&&<Link href="/compare" className={control}>두 작품 비교하며 새롭게 보기 →</Link>}<a href="#room-stage" className={control}>아래 방에서 분야별 취향 고르기 ↓</a></div>
-  <p className="mt-3 text-xs leading-5 text-[#010D6E]/70">{ready&&unavailable?'브라우저 기록을 읽지 못했어요. 활동은 계속 둘러볼 수 있어요.':!ready?'저장된 탐색을 확인하고 있어요.':'이 브라우저의 현재 사용자 기록을 기준으로 이어볼 활동을 보여줘요. 저장 범위와 관리 방법은 관찰실에서 확인할 수 있어요.'}</p>
+  {ready&&draftUnavailable&&<p role="status" className="mt-3 text-xs leading-5">이 탭의 임시 수정을 확인하지 못했어요. 원본과 임시 사본은 바꾸지 않았습니다. <Link href="/notes" className={control}>관찰실에서 확인하기 →</Link></p>}
+  <p className="mt-3 text-xs leading-5 text-[#010D6E]/70">{readBlocked?(pendingUnavailable?'브라우저 원본과 이 탭의 임시 입력을 읽지 못했어요. 어느 쪽도 바꾸지 않았습니다. 관찰실에서 확인해 주세요.':'브라우저 원본을 읽지 못했어요. 저장 실패 입력이 있다면 별도로 확인할 수 있으며, 원본 복구 안내는 관찰실에 있습니다.'):ready&&pendingUnavailable?'이 탭의 임시 입력을 확인하지 못했어요. 원본은 바꾸지 않았습니다. 관찰실에서 확인해 주세요.':ready&&unavailable?'브라우저 기록을 읽지 못했어요. 활동은 계속 둘러볼 수 있어요.':!ready?'저장된 탐색을 확인하고 있어요.':'이 브라우저의 현재 사용자 기록을 기준으로 이어볼 활동을 보여줘요. 저장 범위와 관리 방법은 관찰실에서 확인할 수 있어요.'}</p>
  </aside>;
 }

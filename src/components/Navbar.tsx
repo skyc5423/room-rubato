@@ -239,11 +239,9 @@ export function Navbar() {
             >
               방 둘러보기
             </Link>
-            <Link
-              href="/#threads-spread"
-              className="hidden sm:inline-block px-3 py-1 rounded-full text-[13px] text-[#010D6E] hover:bg-[#FEF1D0] transition-colors"
-            >
-              취향 연결 보기
+            <Link href="/explore" aria-current={pathname === '/explore' ? 'page' : undefined}
+              className={`px-3 py-1 min-h-9 inline-flex items-center rounded-full text-[13px] ${pathname === '/explore' ? 'bg-[#0042AF] text-[#FEF1D0] font-semibold' : 'text-[#010D6E] hover:bg-[#FEF1D0]'}`}>
+              콘텐츠 둘러보기
             </Link>
             <Link
               href="/daily"

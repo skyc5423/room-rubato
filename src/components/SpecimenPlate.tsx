@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, {useState} from 'react';
 import { getRoomObjectByDomainId } from '@/lib/room-objects';
 
 interface SpecimenPlateProps {
@@ -55,6 +55,12 @@ export const QUESTION_OPTION_IMAGES: Record<string, { A: string; B: string }> = 
   },
 };
 
+function ChoiceImage({src,variant}:{src:string;variant:'A'|'B'}) {
+  const [failed,setFailed]=useState(false);
+  if(failed)return <p role="status" className="px-4 pt-8 text-center text-sm leading-6">선택지 {variant} 이미지를 불러오지 못했어요. 그림 대신 아래 설명을 읽고 비교해 주세요.</p>;
+  return <img src={src} alt={`선택지 ${variant} 설명용 일러스트`} onError={()=>setFailed(true)} className="w-full h-full object-contain rounded-lg transition-transform duration-500 group-hover:scale-[1.03]"/>;
+}
+
 export function SpecimenPlate({
   variant,
   domainId,
@@ -79,18 +85,7 @@ export function SpecimenPlate({
     <div className="w-full mb-4">
       {/* Clear, Uncropped Visual Illustration of Option A vs Option B */}
       <div className="relative w-full h-[240px] sm:h-[268px] rounded-xl bg-[#F7EFE1] border border-[#0042AF]/25 overflow-hidden flex items-center justify-center p-2">
-        <img
-          src={imageUrl}
-          alt={`선택지 ${variant} 예시 이미지`}
-          onError={(e) => {
-            const target = e.currentTarget;
-            if (!target.dataset.fallbackApplied) {
-              target.dataset.fallbackApplied = '1';
-              target.src = roomObj?.artworkUrl ?? '/artwork/room-colored.jpg';
-            }
-          }}
-          className="w-full h-full object-contain rounded-lg transition-transform duration-500 group-hover:scale-[1.03]"
-        />
+        <ChoiceImage key={imageUrl} src={imageUrl} variant={variant}/>
 
         <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#010D6E] text-[#FEF1D0] text-[12px] font-semibold shadow-sm">
           선택 {variant}

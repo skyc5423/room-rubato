@@ -1364,3 +1364,9 @@ h1, h2, h3, h4, p, span, div, button, a, li {
 @media (min-width: 640px) {
   #lesson-heading, #notebook-heading { scroll-margin-top: 8rem; }
 }
+
+/* The fixed tablet nav can wrap to three rows. Keep existing per-page spacing,
+   and reserve the extra rows before page content rather than covering headings. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  #main-content { padding-top: 4rem; }
+}

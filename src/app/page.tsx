@@ -3,13 +3,15 @@
 import { HomeObservationPreview } from '@/components/HomeObservationPreview';
 import { NotebookReturn } from '@/components/NotebookReturn';
 import { koreanDay } from '@/lib/daily-date';
+import { latestDailyRecord } from '@/lib/daily-record';
 import { recordedChoice } from '@/lib/recorded-choice';
 import { CurationSources } from '@/components/CurationSources';
 import { UnavailableResult } from '@/components/UnavailableResult';
 import { CurationScope } from '@/components/CurationScope';
+import {ResultObservationBridge} from '@/components/ResultObservationBridge';
 import { ResultEvidence } from '@/components/ResultEvidence';
 import {storedSeconds} from '@/lib/result-display';
-import { recordedAxisScore } from '@/lib/result-evidence';
+import { recordedAxisScore, summarizeRecordedAxes } from '@/lib/result-evidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ALL_MASTER_DOMAINS,
@@ -55,6 +57,12 @@ export default function HomePage() {
     { questionId: string; chosenOption: 'A' | 'B'; responseTimeMs: number }[]
   >([]);
   const [stampedOption, setStampedOption] = useState<'A' | 'B' | null>(null);
+  const surveyStepHeading=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{
+    if(!activeDomainId)return;
+    surveyStepHeading.current?.focus({preventScroll:true});
+    surveyStepHeading.current?.scrollIntoView?.({block:'nearest'});
+  },[activeDomainId,overlayMode,questionIndex]);
   const questionStartRef = useRef<number>(Date.now());
   const choiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const choiceLockedRef = useRef(false);
@@ -77,6 +85,7 @@ export default function HomePage() {
   const [draftPhase1Choice, setPhase1Choice] = useState<'A' | 'B' | null>(null);
   const [draftPhase1Rt, setPhase1Rt] = useState<number>(1500);
   const [draftPhase2Choice, setPhase2Choice] = useState<'A' | 'B' | null>(null);
+  const submittedPulseRef=useRef(false);
   const pulseStartRef = useRef<number>(Date.now());
 
   const completedDomainIds = useMemo(
@@ -125,7 +134,7 @@ export default function HomePage() {
         domain,
         roomObj,
         headline: matched?`내 ${domain.shortTitle} 취향: ${matched.name}`:`${domain.shortTitle}: 저장된 유형 확인 필요`,
-        body: matched?.summary??'현재 목록에서 저장된 유형을 찾지 못했어요. 기록을 열어 저장된 점수와 선택을 확인해 보세요.',
+        body: matched ? summarizeRecordedAxes(domain.axes, completed.axisScores) : '현재 목록에서 저장된 유형을 찾지 못했어요. 기록을 열어 저장된 점수와 선택을 확인해 보세요.',
       };
     } else {
       const pred = predictUnplayedDomainPhenotype(
@@ -141,7 +150,7 @@ export default function HomePage() {
         body:
           completedDomainIds.length > 0
             ? pred.bridgeExplanation
-            : roomObj.emptyWhisper,
+            : domain.subtitle,
       };
     }
   }, [
@@ -288,30 +297,42 @@ export default function HomePage() {
     window.addEventListener('focus', refreshDay);
     return () => { clearInterval(timer); window.removeEventListener('focus', refreshDay); };
   }, []);
+  const savedPulse = latestDailyRecord(state.dailyShiftLog, currentPulse.id, today);
   useEffect(() => {
+    submittedPulseRef.current=false;
     setPulsePhase('initial');
     setPhase1Choice(null);
     setPhase2Choice(null);
     pulseStartRef.current = Date.now();
-  }, [currentUserId, today]);
-  const savedPulse = state.dailyShiftLog.filter(
-    (entry) => entry.pulseId === currentPulse.id && koreanDay(entry.timestamp) === today
-  ).at(-1);
+  }, [currentUserId, today, activePulseIdx, savedPulse?.timestamp]);
   const pulsePhase = savedPulse ? 'letter' : draftPulsePhase;
-  const phase1Choice = savedPulse?.phase1Choice ?? draftPhase1Choice;
-  const phase2Choice = savedPulse?.phase2ChoiceAfterSocialProof ?? draftPhase2Choice;
-  const phase1Rt = savedPulse?.phase1ResponseTimeMs ?? draftPhase1Rt;
+  const phase1Choice = savedPulse ? savedPulse.phase1Choice : draftPhase1Choice;
+  const phase2Choice = savedPulse ? savedPulse.phase2ChoiceAfterSocialProof : draftPhase2Choice;
+  const phase1Rt = draftPhase1Rt;
+
+  const dailyStepHeading = useRef<HTMLHeadingElement>(null);
+  const dailyFocusIntent = useRef<{ owner: string | null; day: string; pulse: string; phase: string } | null>(null);
+  useEffect(() => {
+    const intent = dailyFocusIntent.current;
+    dailyFocusIntent.current = null;
+    if (!intent || !isHydrated || intent.owner !== currentUserId || intent.day !== today || intent.pulse !== currentPulse.id || intent.phase !== pulsePhase) return;
+    dailyStepHeading.current?.focus({ preventScroll: true });
+    dailyStepHeading.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [pulsePhase, currentUserId, today, currentPulse.id, isHydrated]);
 
   const handlePulsePhase1 = (choice: 'A' | 'B') => {
     if (!isHydrated || savedPulse) return;
     const rt = Math.max(300, Date.now() - pulseStartRef.current);
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: currentPulse.id, phase: 'nudge' };
     setPhase1Choice(choice);
     setPhase1Rt(rt);
     setPulsePhase('nudge');
   };
 
   const handlePulsePhase2 = (finalChoice: 'A' | 'B') => {
-    if (!isHydrated || savedPulse || !phase1Choice) return;
+    if (!isHydrated || savedPulse || !phase1Choice || submittedPulseRef.current) return;
+    submittedPulseRef.current=true;
+    dailyFocusIntent.current = { owner: currentUserId, day: today, pulse: currentPulse.id, phase: 'letter' };
     setPhase2Choice(finalChoice);
     recordDailyPulseShift({
       pulseId: currentPulse.id,
@@ -482,11 +503,11 @@ export default function HomePage() {
                       {activeDomain.questions[questionIndex]?.contextHint}
                     </span>
                   )}
-                  <h2 className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.42] mb-1.5">
+                  <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="question" className="font-editorial text-[20px] sm:text-[24px] text-[#010D6E] leading-[1.42] mb-1.5">
                     Q{questionIndex + 1}. {activeDomain.questions[questionIndex]?.prompt}
                   </h2>
                   <p className="text-[13.5px] text-[#0042AF]/85">
-                    전문 용어를 몰라도 괜찮습니다. 두 가지 실제 아이템 중 평소 더 마음이 가는 쪽을 골라 주세요.
+                    전문 용어를 몰라도 괜찮습니다. 두 선택지의 설명을 읽고 더 마음이 가는 쪽을 골라 주세요.
                   </p>
                 </div>
 
@@ -609,10 +630,11 @@ export default function HomePage() {
                           {activeMatchedPhenotype.englishCode}
                         </span>
                       </div>
-                      <h2 className="font-editorial text-[21px] sm:text-[25px] text-[#010D6E] leading-[1.38] mb-2.5">
+                      <h2 ref={surveyStepHeading} tabIndex={-1} data-survey-step-heading="result" className="font-editorial text-[21px] sm:text-[25px] text-[#010D6E] leading-[1.38] mb-2.5">
                         “{activeMatchedPhenotype.name}”
                       </h2>
                       <ResultEvidence domain={activeDomain} scores={activeCompletedResult?.axisScores}/>
+                      <ResultObservationBridge slug={activeDomain.slug}/>
                       <p className="text-[12.5px] text-[#0042AF] bg-[#FEF1D0]/70 rounded-xl px-3.5 py-2 border border-[#0042AF]/20">
                         {describeResponseTempo(
                           activeCompletedResult?.avgResponseTimeMs
@@ -956,7 +978,7 @@ export default function HomePage() {
                         document
                           .getElementById('room-stage')
                           ?.scrollIntoView({ behavior: 'smooth' });
-                        setTimeout(() => handleOpenResultNote(id), 420);
+                        handleOpenResultNote(id);
                       }}
                       className="w-full text-left rounded-2xl p-3.5 bg-[#FFF9EB] hover:bg-[#FEF1D0] border border-[#0042AF]/25 transition-all flex items-center justify-between gap-4 group"
                     >
@@ -1046,10 +1068,7 @@ export default function HomePage() {
                           document
                             .getElementById('room-stage')
                             ?.scrollIntoView({ behavior: 'smooth' });
-                          setTimeout(
-                            () => handleSelectRoomObject(item.domain.id),
-                            420
-                          );
+                          handleSelectRoomObject(item.domain.id);
                         }}
                         className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#0042AF] hover:text-[#010D6E]"
                       >
@@ -1076,14 +1095,14 @@ export default function HomePage() {
                       type="button"
                       aria-label={`${robj.domainLabel} (${robj.shortObject})`}
                       onClick={() => handleSelectRoomObject(robj.domainId)}
-                      className={`px-3 py-1 rounded-full text-[12px] font-medium transition-colors flex items-center gap-1.5 ${
+                      className={`px-3 py-1 rounded-full text-[12px] font-medium flex items-center gap-1.5 ${
                         done
                           ? 'bg-[#0042AF] text-[#FEF1D0]'
                           : 'bg-[#FEF1D0]/80 text-[#010D6E] border border-[#0042AF]/35 hover:bg-[#FEF1D0]'
                       }`}
                     >
                       <span>{robj.domainLabel}</span>
-                      <span className="opacity-70">({robj.shortObject})</span>
+                      <span className={done ? undefined : "opacity-70"}>({robj.shortObject})</span>
                     </button>
                   );
                 })}
@@ -1187,7 +1206,7 @@ export default function HomePage() {
               <p className="text-[13px] font-bold text-terracotta-ink mb-2">
                 가상 상황에서 다시 골라보기
               </p>
-              <h3 className="font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
+              <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="situation" className="scroll-mt-36 font-editorial text-[20px] sm:text-[22px] text-[#010D6E] leading-relaxed mb-4">
                 {currentPulse.socialProofNudge.nudgePrompt}
               </h3>
               <p className="text-[14px] text-[#0042AF]/85 mb-6">
@@ -1222,11 +1241,13 @@ export default function HomePage() {
                 <p className="text-[13px] text-terracotta-ink font-semibold mb-1">
                   나의 선택 결과
                 </p>
-                <p className="font-editorial text-[17px] text-[#010D6E]">
-                  {phase1Choice === phase2Choice
+                <h3 ref={dailyStepHeading} tabIndex={-1} data-daily-step-heading="result" className="scroll-mt-36 font-editorial text-[17px] text-[#010D6E]">
+                  {!phase1Choice || !phase2Choice
+                    ? '저장된 선택을 확인할 수 없어요. 유지·변경 여부를 판단하지 않습니다.'
+                    : phase1Choice === phase2Choice
                     ? `가상 상황을 읽은 뒤에도 처음 고른 선택 ${phase2Choice}를 그대로 유지하셨습니다.`
                     : `처음에는 선택 ${phase1Choice}를 고르셨다가, 가상 상황을 읽고 선택 ${phase2Choice}로 바꾸셨습니다.`}
-                </p>
+                </h3>
               </div>
 
               <div className="rounded-2xl bg-[#FFFDF7] border border-[#0042AF]/20 p-6 sm:p-8 space-y-3.5">
